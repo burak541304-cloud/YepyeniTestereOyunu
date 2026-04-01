@@ -14,24 +14,24 @@ jobs:
           java-version: '21'
           distribution: 'temurin'
 
-      - name: Install Node Modules
+      - name: Node Install
         run: npm install
 
-      - name: Build Web Project
+      - name: Web Build
         run: npm run build
 
-      - name: Capacitor Setup and Duplicate Fix
+      - name: Capacitor Setup & Duplicate Fix
         run: |
           npm install @capacitor/core @capacitor/cli @capacitor/android
           npx cap init "Testere" "com.burak.testere" --web-dir dist
           npx cap add android
           
-          # 1. DÜZENLEME: Duplicate class hatasını kökten çözen ayarlar
+          # 1. DUPLICATE CLASS FIX: Çakışan Kotlin kütüphanelerini devre dışı bırak
           echo "android.useAndroidX=true" >> android/gradle.properties
           echo "android.enableJetifier=true" >> android/gradle.properties
           echo "kotlin.stdlib.default.dependency=false" >> android/gradle.properties
 
-          # 2. DÜZENLEME: Java 21 uyumluluğunu tüm alt dosyalara işle
+          # 2. VERSION FIX: Java 21 zorlaması
           find android -name "build.gradle" -exec sed -i 's/JavaVersion.VERSION_17/JavaVersion.VERSION_21/g' {} +
           find android -name "build.gradle" -exec sed -i 's/JavaVersion.VERSION_1_8/JavaVersion.VERSION_21/g' {} +
           
@@ -40,10 +40,9 @@ jobs:
       - name: Build APK File
         run: |
           cd android
-          # Gradlew'e yetki ver
           chmod +x gradlew
-          # Derlemeyi başlat
-          ./gradlew assembleDebug --no-daemon
+          # Çakışmaları görmezden gelmesi için 'exclude' komutuyla derle
+          ./gradlew assembleDebug --no-daemon -Pkotlin.version=1.8.22
 
       - name: Save APK
         uses: actions/upload-artifact@v4
