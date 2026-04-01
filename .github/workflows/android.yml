@@ -26,12 +26,16 @@ jobs:
           npx cap init "Testere" "com.burak.testere" --web-dir dist
           npx cap add android
           
-          # 1. DUPLICATE CLASS FIX: Çakışan Kotlin kütüphanelerini devre dışı bırak
+          # 1. ÇAKIŞAN PAKETLERİ DIŞLA (Critiсal Fix)
+          # Android projesindeki tum build.gradle dosyalarına çakışmayı önleyen konfigürasyonu ekler
+          sed -i '/dependencies {/a \    configurations.all { resolutionStrategy { force "org.jetbrains.kotlin:kotlin-stdlib:1.8.22"; force "org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.8.22"; force "org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.8.22" } }' android/app/build.gradle
+          
+          # 2. GRADLE AYARLARI
           echo "android.useAndroidX=true" >> android/gradle.properties
           echo "android.enableJetifier=true" >> android/gradle.properties
           echo "kotlin.stdlib.default.dependency=false" >> android/gradle.properties
 
-          # 2. VERSION FIX: Java 21 zorlaması
+          # 3. JAVA 21 ZORLAMASI
           find android -name "build.gradle" -exec sed -i 's/JavaVersion.VERSION_17/JavaVersion.VERSION_21/g' {} +
           find android -name "build.gradle" -exec sed -i 's/JavaVersion.VERSION_1_8/JavaVersion.VERSION_21/g' {} +
           
@@ -41,8 +45,7 @@ jobs:
         run: |
           cd android
           chmod +x gradlew
-          # Çakışmaları görmezden gelmesi için 'exclude' komutuyla derle
-          ./gradlew assembleDebug --no-daemon -Pkotlin.version=1.8.22
+          ./gradlew assembleDebug --no-daemon
 
       - name: Save APK
         uses: actions/upload-artifact@v4
