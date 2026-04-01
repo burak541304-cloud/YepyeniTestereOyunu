@@ -24,6 +24,9 @@ jobs:
           npm install @capacitor/core @capacitor/cli @capacitor/android
           npx cap init "YepyeniTestere" "com.burak.testere" --web-dir dist
           npx cap add android
+          # Java 21 hatasını önlemek için build ayarlarını manuel düzeltiyoruz
+          sed -i 's/JavaVersion.VERSION_21/JavaVersion.VERSION_17/g' android/app/build.gradle
+          sed -i "s/jvmTarget = '21'/jvmTarget = '17'/g" android/app/build.gradle
           npx cap sync android
 
       - name: Build APK
