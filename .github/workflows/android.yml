@@ -19,16 +19,14 @@ jobs:
       - name: Build Web Project
         run: npm run build
 
-      - name: Capacitor Android Setup
+      - name: Capacitor Setup
         run: |
           npm install @capacitor/core @capacitor/cli @capacitor/android
           npx cap init "YepyeniTestere" "com.burak.testere" --web-dir dist
           npx cap add android
-          # Java 21 hatasını kökten çözen sihirli komutlar:
           sed -i 's/JavaVersion.VERSION_21/JavaVersion.VERSION_17/g' android/app/build.gradle
           sed -i "s/jvmTarget = '21'/jvmTarget = '17'/g" android/app/build.gradle
-          # Gradle sürümünü Java 17'ye uyumlu hale getiriyoruz
-          sed -i 's/distributionUrl=https\\:\/\/services.gradle.org\/distributions\/gradle-8.2-bin.zip/distributionUrl=https\\:\/\/services.gradle.org\/distributions\/gradle-8.0-bin.zip/g' android/gradle/wrapper/gradle-wrapper.properties
+          echo "org.gradle.java.home=/usr/lib/jvm/temurin-17-jdk-amd64" >> android/gradle.properties
           npx cap sync android
 
       - name: Build APK
