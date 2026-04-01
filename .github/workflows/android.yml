@@ -20,18 +20,20 @@ jobs:
       - name: Web Build
         run: npm run build
 
-      - name: Capacitor Init
+      - name: Capacitor Init and Fix
         run: |
           npm install @capacitor/core @capacitor/cli @capacitor/android
           npx cap init "YepyeniTestere" "com.burak.testere" --web-dir dist
           npx cap add android
+          # Java 21 zorlamasini tum dosyalarda guncelle
+          find android -name "build.gradle" -exec sed -i 's/JavaVersion.VERSION_17/JavaVersion.VERSION_21/g' {} +
           npx cap sync android
 
       - name: Build APK File
         run: |
           cd android
           chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon
+          yes | ./gradlew assembleDebug --no-daemon
 
       - name: Save APK
         uses: actions/upload-artifact@v4
