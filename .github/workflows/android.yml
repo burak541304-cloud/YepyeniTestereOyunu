@@ -20,35 +20,32 @@ jobs:
       - name: Build Web Project
         run: npm run build
 
-      - name: Capacitor Setup
+      - name: Capacitor Setup and Duplicate Fix
         run: |
           npm install @capacitor/core @capacitor/cli @capacitor/android
           npx cap init "Testere" "com.burak.testere" --web-dir dist
           npx cap add android
           
-          # 1. ÇAKIŞMA ÇÖZÜCÜ: Duplicate class hatasını engeller
+          # 1. DÜZENLEME: Duplicate class hatasını kökten çözen ayarlar
           echo "android.useAndroidX=true" >> android/gradle.properties
           echo "android.enableJetifier=true" >> android/gradle.properties
           echo "kotlin.stdlib.default.dependency=false" >> android/gradle.properties
 
-          # 2. SÜRÜM ÇÖZÜCÜ: Java 21 uyumluluğu sağlar
+          # 2. DÜZENLEME: Java 21 uyumluluğunu tüm alt dosyalara işle
           find android -name "build.gradle" -exec sed -i 's/JavaVersion.VERSION_17/JavaVersion.VERSION_21/g' {} +
+          find android -name "build.gradle" -exec sed -i 's/JavaVersion.VERSION_1_8/JavaVersion.VERSION_21/g' {} +
           
           npx cap sync android
 
       - name: Build APK File
         run: |
           cd android
+          # Gradlew'e yetki ver
           chmod +x gradlew
+          # Derlemeyi başlat
           ./gradlew assembleDebug --no-daemon
 
       - name: Save APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: oyun-apk-dosyasi
-          path: android/app/build/outputs/apk/debug/app-debug.apk
-          
-      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: oyun-apk-dosyasi
