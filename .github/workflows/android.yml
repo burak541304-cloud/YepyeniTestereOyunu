@@ -13,23 +13,19 @@ jobs:
         with:
           java-version: '21'
           distribution: 'temurin'
-          cache: 'gradle'
 
-      - name: Install Dependencies
-        run: |
-          npm install
-          npm install @capacitor/core @capacitor/cli @capacitor/android
+      - name: Install Node Modules
+        run: npm install
 
       - name: Build Web Project
         run: npm run build
 
-      - name: Capacitor Sync and Version Fix
+      - name: Capacitor Setup
         run: |
+          npm install @capacitor/core @capacitor/cli @capacitor/android
           npx cap init "Testere" "com.burak.testere" --web-dir dist
           npx cap add android
-          # Proje icindeki tum Java surumlerini zorla 21 yap:
-          find android -name "build.gradle" -exec sed -i 's/JavaVersion.VERSION_1.8/JavaVersion.VERSION_21/g' {} +
-          find android -name "build.gradle" -exec sed -i 's/JavaVersion.VERSION_11/JavaVersion.VERSION_21/g' {} +
+          # Java 21 uyumlulugu icin dosyalari zorla guncelle
           find android -name "build.gradle" -exec sed -i 's/JavaVersion.VERSION_17/JavaVersion.VERSION_21/g' {} +
           npx cap sync android
 
