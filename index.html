@@ -1,10 +1,3 @@
-Sorun tespit edildi: Mobil cihazlarda `touchstart` olayında `preventDefault()` yapıldığı için `click` event'i tetiklenmiyor, menü butonları çalışmıyor. Aşağıda düzeltilmiş kodu gönderiyorum. Değişiklik özeti:
-
-- `touchstart` event handler'ına `G.state === 'menu'` kontrolü eklendi.
-- Menü butonlarının koordinatları hesaplanıp dokunmatik tıklama algılanıyor.
-- `Yeni Oyun` ve `Devam Et` butonları mobilde de çalışacak şekilde düzenlendi.
-- Ayrıca `click` event'i de korundu (masaüstü için).
-
 ```html
 <!DOCTYPE html>
 <html lang="en">
