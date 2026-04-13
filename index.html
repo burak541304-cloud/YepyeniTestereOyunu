@@ -3088,7 +3088,43 @@ function drawMobileUI(){
   ctx.globalAlpha=1;
 }
 
-// === INPUT HANDLERS ===
+// =================================================================
+// 🔁 DÜZELTİLEN KISIM: INPUT HANDLERS (Mobil menü tıklama sorunu)
+// =================================================================
+
+// Menü tıklama işlemini hem click hem touch için ortak fonksiyon
+function handleMenuInteraction(clientX, clientY) {
+  if (G.state !== 'menu') return false;
+
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = canvas.width / rect.width;
+  const scaleY = canvas.height / rect.height;
+  
+  const canvasX = (clientX - rect.left) * scaleX;
+  const canvasY = (clientY - rect.top) * scaleY;
+
+  const btnW = isMobile ? Math.min(240, W * 0.55) : 240;
+  const btnH = isMobile ? 44 : 50;
+  const btnGap = isMobile ? 56 : 64;
+  const labels = ['Yeni Oyun', 'Devam Et', 'Kontroller'];
+
+  for (let i = 0; i < labels.length; i++) {
+    const by = H / 2 - 20 + i * btnGap;
+    const bx = W / 2 - btnW / 2;
+    if (canvasX >= bx && canvasX <= bx + btnW && canvasY >= by && canvasY <= by + btnH) {
+      if (i === 0) {
+        initGame(true);
+        G.state = 'playing';
+      } else if (i === 1 && hasSave()) {
+        initGame(false);
+        G.state = 'playing';
+      }
+      return true;
+    }
+  }
+  return false;
+}
+
 function setupInput(){
   document.addEventListener('keydown',e=>{
     G.keys[e.code]=true;
@@ -3143,21 +3179,14 @@ function setupInput(){
 
   canvas.addEventListener('click',e=>{
     const mx=e.clientX, my=e.clientY;
+    
+    // Menü durumunda özel işleyici
     if(G.state==='menu'){
-      const btnW = isMobile ? Math.min(240, W*0.55) : 240;
-      const btnH = isMobile ? 44 : 50;
-      const btnGap = isMobile ? 56 : 64;
-      const labels = ['Yeni Oyun','Devam Et','Kontroller'];
-      for(let i=0;i<labels.length;i++){
-        const by = H/2 - 20 + i * btnGap;
-        const bx = W/2 - btnW/2;
-        if(mx>=bx&&mx<=bx+btnW&&my>=by&&my<=by+btnH){
-          if(i===0){ initGame(true); G.state='playing'; }
-          else if(i===1&&hasSave()){ initGame(false); G.state='playing'; }
-        }
-      }
+      handleMenuInteraction(mx, my);
+      e.preventDefault();
       return;
     }
+    
     if(G.state==='dead'){
       if(mx>=W/2-130&&mx<=W/2-10&&my>=H/2+20&&my<=H/2+64){
         G.player.x=500; G.player.y=500;
@@ -3284,7 +3313,16 @@ function setupInput(){
 
   canvas.addEventListener('touchstart',e=>{
     e.preventDefault();
-    for(const t of e.changedTouches){
+    const touches = e.changedTouches;
+    
+    // Menü durumunda ilk dokunuşu işle
+    if (G.state === 'menu' && touches.length > 0) {
+      const t = touches[0];
+      handleMenuInteraction(t.clientX, t.clientY);
+      return;
+    }
+    
+    for(const t of touches){
       if(t.clientX < W * 0.45 && G.joystick.touchId === null){
         G.joystick.onTouchStart(t);
         continue;
