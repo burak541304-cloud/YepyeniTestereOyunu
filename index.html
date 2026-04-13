@@ -2002,208 +2002,183 @@ function drawHUD(){
 
   if(G.screenShake>0){ ctx.restore(); G.screenShake-=1/60; }
 }
-// === PANEL: INVENTORY (Mobil uyumlu ölçeklendirme eklendi) ===
+
+// === PANEL: INVENTORY ===
 function drawInventoryPanel(){
-  // Panel boyutlarını ekrana göre dinamik hesapla (mobilde daha küçük)
-  const maxW = isMobile ? Math.min(W * 0.95, 640) : Math.min(640, W - 20);
-  const maxH = isMobile ? Math.min(H * 0.85, 460) : Math.min(460, H - 20);
-  const pw = maxW;
-  const ph = maxH;
+  // Mobil için panel boyutlarını büyüt
+  const panelScale = isMobile ? 0.95 : 1.0;
+  const pw = Math.min(isMobile ? W - 10 : 640, W - 20);
+  const ph = Math.min(isMobile ? H - 10 : 460, H - 20);
   const px = (W - pw) / 2;
   const py = (H - ph) / 2;
-  
-  // Ölçek faktörü (mobilde küçült)
-  const scale = isMobile ? Math.min(pw / 640, ph / 460) : 1;
-  const fontSizeTitle = Math.floor(18 * scale);
-  const fontSizeNormal = Math.floor(12 * scale);
-  const fontSizeSmall = Math.floor(9 * scale);
   
   ctx.fillStyle = 'rgba(5,2,10,0.97)';
   drawRoundRect(ctx, px, py, pw, ph, 10, 'rgba(5,2,10,0.97)', '#a80');
   ctx.lineWidth = 2;
 
-  ctx.fillStyle = '#fd0'; 
-  ctx.font = `bold ${fontSizeTitle}px Arial`; 
+  // Başlık yazı boyutları mobilde daha büyük
+  const titleFontSize = isMobile ? 22 : 18;
+  const descFontSize = isMobile ? 14 : 12;
+  ctx.fillStyle = '#fd0';
+  ctx.font = `bold ${titleFontSize}px Arial`;
   ctx.textAlign = 'center';
-  ctx.fillText('INVENTORY', px + pw/2, py + 28 * scale);
-  ctx.fillStyle = '#aaa'; 
-  ctx.font = `${fontSizeNormal}px Arial`;
-  ctx.fillText('Click: Use/Equip  Shift+Click: Drop  [I] Close', px + pw/2, py + 44 * scale);
+  ctx.fillText('INVENTORY', px + pw/2, py + (isMobile ? 32 : 28));
+  ctx.fillStyle = '#aaa';
+  ctx.font = `${descFontSize}px Arial`;
+  ctx.fillText('Click: Use/Equip  Shift+Click: Drop  [I] Close', px + pw/2, py + (isMobile ? 50 : 44));
 
   const p = G.player;
-  // Slot boyutları ölçeğe göre ayarla
-  const slotSize = Math.floor(48 * scale);
-  const slotPad = Math.floor(4 * scale);
-  const gridX = px + 15 * scale;
-  const gridY = py + 55 * scale;
-  const cols = 6, rows = 4;
+  // Slot boyutları mobilde daha büyük
+  const slotSize = isMobile ? 56 : 48;
+  const slotPad = isMobile ? 5 : 4;
+  const gridX = px + (isMobile ? 12 : 15);
+  const gridY = py + (isMobile ? 60 : 55);
+  const cols = 6, rows = isMobile ? 4 : 4;
 
   for(let i = 0; i < 42; i++){
-    const col = i % cols, row = Math.floor(i / cols);
+    const col = i % cols;
+    const row = Math.floor(i / cols);
     const sx = gridX + col * (slotSize + slotPad);
     const sy = gridY + row * (slotSize + slotPad);
     const item = p.inventory.slots[i];
-    
     ctx.fillStyle = G.hoveredSlot === i ? 'rgba(80,60,20,0.8)' : 'rgba(30,20,10,0.8)';
-    drawRoundRect(ctx, sx, sy, slotSize, slotSize, 4 * scale, 
-      G.hoveredSlot === i ? 'rgba(80,60,20,0.8)' : 'rgba(30,20,10,0.8)', '#444');
-      
+    drawRoundRect(ctx, sx, sy, slotSize, slotSize, 4, G.hoveredSlot === i ? 'rgba(80,60,20,0.8)' : 'rgba(30,20,10,0.8)', '#444');
     if(item && item.valid){
       if(item.enhance >= 7){
         ctx.save();
         const gc = item.getGlowColor();
-        if(gc){ ctx.shadowColor = gc; ctx.shadowBlur = 12 * scale; }
+        if(gc){ ctx.shadowColor = gc; ctx.shadowBlur = 12; }
         else {
           G.rainbowAngle += 0.001;
           ctx.shadowColor = `hsl(${(Date.now()*0.2)%360},100%,60%)`;
-          ctx.shadowBlur = 15 * scale;
+          ctx.shadowBlur = 15;
         }
       }
       ctx.fillStyle = item.color || '#888';
-      ctx.beginPath(); 
-      ctx.arc(sx + slotSize/2, sy + slotSize/2, 18 * scale, 0, Math.PI*2); 
+      ctx.beginPath();
+      ctx.arc(sx + slotSize/2, sy + slotSize/2, isMobile ? 20 : 18, 0, Math.PI*2);
       ctx.fill();
       if(item.enhance >= 7) ctx.restore();
-      
-      ctx.fillStyle = '#fff'; 
-      ctx.font = `bold ${Math.floor(16 * scale)}px Arial`; 
+      ctx.fillStyle = '#fff';
+      ctx.font = `bold ${isMobile ? 18 : 16}px Arial`;
       ctx.textAlign = 'center';
-      ctx.fillText(item.symbol || '?', sx + slotSize/2, sy + slotSize/2 + 6 * scale);
-      
+      ctx.fillText(item.symbol || '?', sx + slotSize/2, sy + slotSize/2 + 6);
       if(item.enhance > 0){
-        ctx.fillStyle = '#fd0'; 
-        ctx.font = `bold ${Math.floor(10 * scale)}px Arial`;
-        ctx.fillText('+' + item.enhance, sx + slotSize - 8 * scale, sy + 12 * scale);
+        ctx.fillStyle = '#fd0';
+        ctx.font = `bold ${isMobile ? 12 : 10}px Arial`;
+        ctx.fillText('+' + item.enhance, sx + slotSize - 8, sy + 12);
       }
-      
       ctx.fillStyle = 'rgba(0,0,0,0.5)';
-      ctx.fillRect(sx, sy + slotSize - 14 * scale, slotSize, 14 * scale);
-      ctx.fillStyle = '#ccc'; 
-      ctx.font = `${fontSizeSmall}px Arial`;
-      ctx.fillText(item.name.slice(0,8), sx + slotSize/2, sy + slotSize - 3 * scale);
+      ctx.fillRect(sx, sy + slotSize - 14, slotSize, 14);
+      ctx.fillStyle = '#ccc';
+      ctx.font = `${isMobile ? 10 : 9}px Arial`;
+      ctx.fillText(item.name.slice(0, 8), sx + slotSize/2, sy + slotSize - 3);
     }
-    
-    ctx.strokeStyle = '#555'; 
+    ctx.strokeStyle = '#555';
     ctx.lineWidth = 1;
     ctx.strokeRect(sx, sy, slotSize, slotSize);
-    ctx.fillStyle = '#333'; 
-    ctx.font = `${fontSizeSmall}px Arial`; 
+    ctx.fillStyle = '#333';
+    ctx.font = `${isMobile ? 11 : 9}px Arial`;
     ctx.textAlign = 'left';
-    ctx.fillText(i+1, sx + 2 * scale, sy + 10 * scale);
+    ctx.fillText(i + 1, sx + 2, sy + (isMobile ? 12 : 10));
   }
 
-  // Ekipman bölümü
-  const eqX = px + 340 * scale;
-  const eqY = py + 55 * scale;
-  ctx.fillStyle = '#fd0'; 
-  ctx.font = `bold ${Math.floor(14 * scale)}px Arial`; 
+  const eqX = px + (isMobile ? 370 : 340);
+  const eqY = py + (isMobile ? 60 : 55);
+  ctx.fillStyle = '#fd0';
+  ctx.font = `bold ${isMobile ? 16 : 14}px Arial`;
   ctx.textAlign = 'left';
-  ctx.fillText('EQUIPMENT', eqX, eqY + 14 * scale);
+  ctx.fillText('EQUIPMENT', eqX, eqY + 14);
 
+  const equipSlotHeight = isMobile ? 56 : 50;
   const equipSlots = [
-    {key:'weapon', label:'Weapon', y: eqY + 26 * scale},
-    {key:'head',   label:'Head',   y: eqY + 82 * scale},
-    {key:'chest',  label:'Chest',  y: eqY + 138 * scale},
-    {key:'legs',   label:'Legs',   y: eqY + 194 * scale},
-    {key:'boots',  label:'Boots',  y: eqY + 250 * scale},
+    {key:'weapon', label:'Weapon', y: eqY + 26},
+    {key:'head',   label:'Head',   y: eqY + 26 + equipSlotHeight + 6},
+    {key:'chest',  label:'Chest',  y: eqY + 26 + (equipSlotHeight + 6) * 2},
+    {key:'legs',   label:'Legs',   y: eqY + 26 + (equipSlotHeight + 6) * 3},
+    {key:'boots',  label:'Boots',  y: eqY + 26 + (equipSlotHeight + 6) * 4},
   ];
   
-  const eqWidth = 270 * scale;
-  const eqHeight = 50 * scale;
+  const eqWidth = isMobile ? 290 : 270;
   
   for(const es of equipSlots){
     const item = p.inventory.equipment[es.key];
     const hover = G.hoveredEquip === es.key;
     ctx.fillStyle = hover ? 'rgba(80,60,20,0.8)' : 'rgba(30,20,10,0.8)';
-    drawRoundRect(ctx, eqX, es.y, eqWidth, eqHeight, 4 * scale, 
-      hover ? 'rgba(80,60,20,0.8)' : 'rgba(30,20,10,0.8)', '#666');
-      
-    ctx.fillStyle = '#888'; 
-    ctx.font = `${Math.floor(11 * scale)}px Arial`; 
+    drawRoundRect(ctx, eqX, es.y, eqWidth, equipSlotHeight, 4, hover ? 'rgba(80,60,20,0.8)' : 'rgba(30,20,10,0.8)', '#666');
+    ctx.fillStyle = '#888';
+    ctx.font = `${isMobile ? 12 : 11}px Arial`;
     ctx.textAlign = 'left';
-    ctx.fillText('[' + es.label + ']', eqX + 6 * scale, es.y + 16 * scale);
-    
+    ctx.fillText('[' + es.label + ']', eqX + 6, es.y + 16);
     if(item && item.valid){
       if(item.enhance >= 7){
         ctx.save();
         const gc = item.getGlowColor();
         ctx.shadowColor = gc || `hsl(${(Date.now()*0.2)%360},100%,60%)`;
-        ctx.shadowBlur = 10 * scale;
+        ctx.shadowBlur = 10;
       }
       ctx.fillStyle = item.color || '#888';
-      ctx.beginPath(); 
-      ctx.arc(eqX + 20 * scale, es.y + 33 * scale, 14 * scale, 0, Math.PI*2); 
+      ctx.beginPath();
+      ctx.arc(eqX + 20, es.y + equipSlotHeight/2 + 8, isMobile ? 16 : 14, 0, Math.PI*2);
       ctx.fill();
       if(item.enhance >= 7) ctx.restore();
-      
-      ctx.fillStyle = '#fff'; 
-      ctx.font = `bold ${Math.floor(13 * scale)}px Arial`; 
+      ctx.fillStyle = '#fff';
+      ctx.font = `bold ${isMobile ? 14 : 13}px Arial`;
       ctx.textAlign = 'center';
-      ctx.fillText(item.symbol, eqX + 20 * scale, es.y + 38 * scale);
-      
-      ctx.fillStyle = '#eee'; 
-      ctx.font = `${Math.floor(12 * scale)}px Arial`; 
+      ctx.fillText(item.symbol, eqX + 20, es.y + equipSlotHeight/2 + 12);
+      ctx.fillStyle = '#eee';
+      ctx.font = `${isMobile ? 13 : 12}px Arial`;
       ctx.textAlign = 'left';
-      ctx.fillText(item.getDisplayName(), eqX + 40 * scale, es.y + 30 * scale);
-      
+      ctx.fillText(item.getDisplayName(), eqX + 42, es.y + 22);
       const stats = [];
       if(item.getEnhancedAtk() > 0) stats.push('ATK+' + item.getEnhancedAtk());
       if(item.getEnhancedDef() > 0) stats.push('DEF+' + item.getEnhancedDef());
       if(item.getEnhancedHp() > 0) stats.push('HP+' + item.getEnhancedHp());
-      ctx.fillStyle = '#aaa'; 
-      ctx.font = `${Math.floor(10 * scale)}px Arial`;
-      ctx.fillText(stats.join(' '), eqX + 40 * scale, es.y + 44 * scale);
-      
-      ctx.fillStyle = '#a66'; 
-      ctx.font = `${Math.floor(10 * scale)}px Arial`;
-      ctx.fillText('Right-click to unequip', eqX + 160 * scale, es.y + 44 * scale);
+      ctx.fillStyle = '#aaa';
+      ctx.font = `${isMobile ? 11 : 10}px Arial`;
+      ctx.fillText(stats.join(' '), eqX + 42, es.y + equipSlotHeight - 6);
+      ctx.fillStyle = '#a66';
+      ctx.font = `${isMobile ? 11 : 10}px Arial`;
+      ctx.fillText('Right-click to unequip', eqX + (isMobile ? 170 : 160), es.y + equipSlotHeight - 6);
     } else {
-      ctx.fillStyle = '#444'; 
-      ctx.font = `${Math.floor(12 * scale)}px Arial`; 
+      ctx.fillStyle = '#444';
+      ctx.font = `${isMobile ? 13 : 12}px Arial`;
       ctx.textAlign = 'center';
-      ctx.fillText('Empty', eqX + 135 * scale, es.y + 30 * scale);
+      ctx.fillText('Empty', eqX + eqWidth/2 + 20, es.y + equipSlotHeight/2 + 6);
     }
   }
 
-  // İstatistik ve otomatik satış bölümü
   const statX = eqX;
-  const statY = eqY + 310 * scale;
-  const statW = 270 * scale;
-  const statH = 100 * scale;
-  
+  const statY = eqY + (equipSlotHeight + 6) * 5 + 20;
+  const statH = isMobile ? 120 : 100;
   ctx.fillStyle = 'rgba(20,15,5,0.8)';
-  drawRoundRect(ctx, statX, statY, statW, statH, 4 * scale, 'rgba(20,15,5,0.8)', '#555');
-  ctx.fillStyle = '#fd0'; 
-  ctx.font = `bold ${Math.floor(12 * scale)}px Arial`; 
+  drawRoundRect(ctx, statX, statY, eqWidth, statH, 4, 'rgba(20,15,5,0.8)', '#555');
+  ctx.fillStyle = '#fd0';
+  ctx.font = `bold ${isMobile ? 14 : 12}px Arial`;
   ctx.textAlign = 'left';
-  ctx.fillText('CHARACTER STATS', statX + 8 * scale, statY + 16 * scale);
-  
-  ctx.fillStyle = '#ccc'; 
-  ctx.font = `${Math.floor(11 * scale)}px Arial`;
-  ctx.fillText(`ATK: ${Math.floor(p.getAtk())}  DEF: ${Math.floor(p.getDef())}`, statX + 8 * scale, statY + 34 * scale);
-  ctx.fillText(`HP: ${Math.floor(p.hp)}/${p.maxHp}  MP: ${Math.floor(p.mp)}/${p.maxMp}`, statX + 8 * scale, statY + 50 * scale);
-  ctx.fillText(`Crit: ${(p.critChance*100).toFixed(1)}%  Speed: ${p.speed}`, statX + 8 * scale, statY + 66 * scale);
-  ctx.fillStyle = '#fd0'; 
-  ctx.font = `bold ${Math.floor(12 * scale)}px Arial`;
-  ctx.fillText(`Noah: ${p.inventory.noah}`, statX + 8 * scale, statY + 84 * scale);
+  ctx.fillText('CHARACTER STATS', statX + 8, statY + 18);
+  ctx.fillStyle = '#ccc';
+  ctx.font = `${isMobile ? 12 : 11}px Arial`;
+  ctx.fillText(`ATK: ${Math.floor(p.getAtk())}  DEF: ${Math.floor(p.getDef())}`, statX + 8, statY + 38);
+  ctx.fillText(`HP: ${Math.floor(p.hp)}/${p.maxHp}  MP: ${Math.floor(p.mp)}/${p.maxMp}`, statX + 8, statY + 56);
+  ctx.fillText(`Crit: ${(p.critChance*100).toFixed(1)}%  Speed: ${p.speed}`, statX + 8, statY + 74);
+  ctx.fillStyle = '#fd0';
+  ctx.font = `bold ${isMobile ? 14 : 12}px Arial`;
+  ctx.fillText(`Noah: ${p.inventory.noah}`, statX + 8, statY + 96);
 
   const autoSellX = eqX;
-  const autoSellY = statY + statH + 8 * scale;
-  const autoSellW = 270 * scale;
-  const autoSellH = 38 * scale;
-  
+  const autoSellY = statY + statH + 10;
+  const autoSellW = eqWidth;
+  const autoSellH = isMobile ? 44 : 38;
   ctx.fillStyle = p.inventory.autoSellMaterials ? 'rgba(0,80,0,0.8)' : 'rgba(80,40,0,0.8)';
-  drawRoundRect(ctx, autoSellX, autoSellY, autoSellW, autoSellH, 6 * scale, 
-    p.inventory.autoSellMaterials ? 'rgba(0,80,0,0.8)' : 'rgba(80,40,0,0.8)', '#fd0');
+  drawRoundRect(ctx, autoSellX, autoSellY, autoSellW, autoSellH, 6, p.inventory.autoSellMaterials ? 'rgba(0,80,0,0.8)' : 'rgba(80,40,0,0.8)', '#fd0');
   ctx.fillStyle = '#fff';
-  ctx.font = `bold ${Math.floor(12 * scale)}px Arial`;
+  ctx.font = `bold ${isMobile ? 14 : 12}px Arial`;
   ctx.textAlign = 'center';
-  ctx.fillText(`Auto-sell Materials: ${p.inventory.autoSellMaterials ? 'ON' : 'OFF'}`, 
-    autoSellX + autoSellW/2, autoSellY + autoSellH/2 + 4 * scale);
+  ctx.fillText(`Auto-sell Materials: ${p.inventory.autoSellMaterials ? 'ON' : 'OFF'}`, autoSellX + autoSellW/2, autoSellY + autoSellH/2 + 4);
   ctx.fillStyle = '#aaa';
-  ctx.font = `${Math.floor(10 * scale)}px Arial`;
-  ctx.fillText('(Materials will be sold automatically when picked up)', 
-    autoSellX + autoSellW/2, autoSellY + autoSellH - 8 * scale);
+  ctx.font = `${isMobile ? 11 : 10}px Arial`;
+  ctx.fillText('(Materials will be sold automatically when picked up)', autoSellX + autoSellW/2, autoSellY + autoSellH - 8);
 
   if(G.hoveredSlot >= 0 && G.hoveredSlot < 42){
     const item = p.inventory.slots[G.hoveredSlot];
@@ -2215,9 +2190,8 @@ function drawInventoryPanel(){
   }
 }
 
-// === ITEM TOOLTIP (ölçeklendirilmiş) ===
 function drawItemTooltip(item, mx, my){
-  const scale = isMobile ? 0.8 : 1;
+  const tooltipScale = isMobile ? 1.3 : 1.0;
   const lines = [item.getDisplayName()];
   if(item.type) lines.push('Type: ' + item.type);
   if(item.atk || item.getEnhancedAtk() > 0) lines.push('ATK: +' + item.getEnhancedAtk());
@@ -2229,148 +2203,156 @@ function drawItemTooltip(item, mx, my){
   if(item.value) lines.push('Value: ' + item.value + ' Noah');
   if(item.enhance > 0) lines.push('Enhance: +' + item.enhance);
   
-  const fontSize = Math.floor(12 * scale);
-  const lineH = fontSize + 4;
-  const tw = 200 * scale;
-  const th = 16 * scale + lines.length * lineH + 8 * scale;
-  let tx = mx + 15 * scale;
+  const baseFont = isMobile ? 13 : 11;
+  const titleFont = isMobile ? 14 : 12;
+  const lineHeight = (isMobile ? 18 : 16) * tooltipScale;
+  const tw = (isMobile ? 220 : 200) * tooltipScale;
+  const th = 16 + lines.length * lineHeight + 8;
+  
+  let tx = mx + 15;
   let ty = my - th/2;
-  if(tx + tw > W) tx = mx - tw - 5 * scale;
+  if(tx + tw > W) tx = mx - tw - 5;
   if(ty < 0) ty = 0;
   if(ty + th > H) ty = H - th;
   
   ctx.fillStyle = 'rgba(5,2,15,0.95)';
-  drawRoundRect(ctx, tx, ty, tw, th, 6 * scale, 'rgba(5,2,15,0.95)', '#fd0');
-  ctx.fillStyle = '#fd0'; 
-  ctx.font = `bold ${fontSize}px Arial`; 
+  drawRoundRect(ctx, tx, ty, tw, th, 6, 'rgba(5,2,15,0.95)', '#fd0');
+  ctx.fillStyle = '#fd0';
+  ctx.font = `bold ${titleFont}px Arial`;
   ctx.textAlign = 'left';
-  ctx.fillText(lines[0], tx + 8 * scale, ty + 16 * scale);
-  ctx.fillStyle = '#ccc'; 
-  ctx.font = `${Math.floor(11 * scale)}px Arial`;
-  for(let i = 1; i < lines.length; i++) {
-    ctx.fillText(lines[i], tx + 8 * scale, ty + 16 * scale + i * lineH);
+  ctx.fillText(lines[0], tx + 8, ty + 16);
+  ctx.fillStyle = '#ccc';
+  ctx.font = `${baseFont}px Arial`;
+  for(let i = 1; i < lines.length; i++){
+    ctx.fillText(lines[i], tx + 8, ty + 16 + i * lineHeight);
   }
 }
 
-// === PANEL: SKILLS (Mobil uyumlu) ===
+// === PANEL: SKILLS ===
 function drawSkillPanel(){
-  const maxW = isMobile ? Math.min(W * 0.95, 560) : 560;
-  const maxH = isMobile ? Math.min(H * 0.85, 500) : 500;
-  const pw = maxW;
-  const ph = maxH;
+  const panelScale = isMobile ? 0.95 : 1.0;
+  const pw = isMobile ? W - 10 : 560;
+  const ph = isMobile ? H - 20 : 500;
   const px = (W - pw) / 2;
   const py = (H - ph) / 2;
-  const scale = isMobile ? Math.min(pw / 560, ph / 500) : 1;
   
   ctx.fillStyle = 'rgba(5,2,10,0.97)';
-  drawRoundRect(ctx, px, py, pw, ph, 10 * scale, 'rgba(5,2,10,0.97)', '#a0f');
+  drawRoundRect(ctx, px, py, pw, ph, 10, 'rgba(5,2,10,0.97)', '#a0f');
   ctx.lineWidth = 2;
-  ctx.fillStyle = '#a0f'; 
-  ctx.font = `bold ${Math.floor(18 * scale)}px Arial`; 
+  
+  const titleFontSize = isMobile ? 22 : 18;
+  const subtitleFontSize = isMobile ? 16 : 14;
+  ctx.fillStyle = '#a0f';
+  ctx.font = `bold ${titleFontSize}px Arial`;
   ctx.textAlign = 'center';
-  ctx.fillText('SKILL TREE', px + pw/2, py + 28 * scale);
+  ctx.fillText('SKILL TREE', px + pw/2, py + (isMobile ? 32 : 28));
   
   const p = G.player;
-  ctx.fillStyle = '#fd0'; 
-  ctx.font = `bold ${Math.floor(14 * scale)}px Arial`;
-  ctx.fillText(`Skill Points: ${p.skillPoints}`, px + pw/2, py + 46 * scale);
+  ctx.fillStyle = '#fd0';
+  ctx.font = `bold ${subtitleFontSize}px Arial`;
+  ctx.fillText(`Skill Points: ${p.skillPoints}`, px + pw/2, py + (isMobile ? 52 : 46));
 
+  const skillItemHeight = isMobile ? 70 : 58;
+  const startY = py + (isMobile ? 75 : 65);
+  
   for(let i = 0; i < SKILL_ORDER.length; i++){
     const id = SKILL_ORDER[i];
     const def = SKILL_DEFS[id];
     const lv = G.skills.skills[id];
     const unlocked = p.level >= def.unlockLv;
-    const sy = py + (65 + i * 58) * scale;
+    const sy = startY + i * skillItemHeight;
+    if(sy + skillItemHeight > py + ph - 20) break;
     
     ctx.fillStyle = unlocked ? 'rgba(30,20,50,0.8)' : 'rgba(15,10,25,0.8)';
-    drawRoundRect(ctx, px + 10 * scale, sy, (pw - 20) * scale, 52 * scale, 6 * scale, 
-      unlocked ? 'rgba(30,20,50,0.8)' : 'rgba(15,10,25,0.8)', '#333');
-      
+    drawRoundRect(ctx, px + 10, sy, pw - 20, skillItemHeight - 6, 6, unlocked ? 'rgba(30,20,50,0.8)' : 'rgba(15,10,25,0.8)', '#333');
+    
+    const iconSize = isMobile ? 24 : 20;
     ctx.fillStyle = unlocked ? def.color : '#444';
-    ctx.beginPath(); 
-    ctx.arc(px + 36 * scale, sy + 26 * scale, 20 * scale, 0, Math.PI*2); 
+    ctx.beginPath();
+    ctx.arc(px + 36, sy + (skillItemHeight - 6)/2, iconSize, 0, Math.PI*2);
     ctx.fill();
-    ctx.strokeStyle = unlocked ? def.color : '#333'; 
-    ctx.lineWidth = 1.5; 
+    ctx.strokeStyle = unlocked ? def.color : '#333';
+    ctx.lineWidth = 1.5;
     ctx.stroke();
     
-    ctx.fillStyle = '#fff'; 
-    ctx.font = `bold ${Math.floor(10 * scale)}px Arial`; 
+    ctx.fillStyle = '#fff';
+    ctx.font = `bold ${isMobile ? 12 : 10}px Arial`;
     ctx.textAlign = 'center';
-    ctx.fillText(def.name.slice(0,3), px + 36 * scale, sy + 30 * scale);
+    ctx.fillText(def.name.slice(0, 3), px + 36, sy + (skillItemHeight - 6)/2 + 4);
     
-    ctx.fillStyle = unlocked ? '#eee' : '#555'; 
-    ctx.font = `bold ${Math.floor(13 * scale)}px Arial`; 
+    ctx.fillStyle = unlocked ? '#eee' : '#555';
+    ctx.font = `bold ${isMobile ? 15 : 13}px Arial`;
     ctx.textAlign = 'left';
-    ctx.fillText(`${i+1}. ${def.name}`, px + 64 * scale, sy + 16 * scale);
+    ctx.fillText(`${i+1}. ${def.name}`, px + 64, sy + 18);
     
-    ctx.fillStyle = unlocked ? '#aaa' : '#444'; 
-    ctx.font = `${Math.floor(11 * scale)}px Arial`;
-    ctx.fillText(`${def.desc}  |  MP:${def.mp}  CD:${def.cd}s`, px + 64 * scale, sy + 30 * scale);
+    ctx.fillStyle = unlocked ? '#aaa' : '#444';
+    ctx.font = `${isMobile ? 12 : 11}px Arial`;
+    ctx.fillText(`${def.desc}  |  MP:${def.mp}  CD:${def.cd}s`, px + 64, sy + 34);
     
     if(!unlocked){
-      ctx.fillStyle = '#f44'; 
-      ctx.font = `bold ${Math.floor(11 * scale)}px Arial`;
-      ctx.fillText(`Requires Lv ${def.unlockLv}`, px + 64 * scale, sy + 44 * scale);
+      ctx.fillStyle = '#f44';
+      ctx.font = `bold ${isMobile ? 12 : 11}px Arial`;
+      ctx.fillText(`Requires Lv ${def.unlockLv}`, px + 64, sy + 50);
     } else {
-      ctx.fillStyle = '#fd0'; 
-      ctx.font = `${Math.floor(11 * scale)}px Arial`;
-      ctx.fillText(`Lv: ${lv}/${def.maxLv}`, px + 64 * scale, sy + 44 * scale);
+      ctx.fillStyle = '#fd0';
+      ctx.font = `${isMobile ? 12 : 11}px Arial`;
+      ctx.fillText(`Lv: ${lv}/${def.maxLv}`, px + 64, sy + 50);
     }
     
+    const dotSpacing = isMobile ? 20 : 18;
     for(let s = 0; s < def.maxLv; s++){
       ctx.fillStyle = s < lv ? '#fd0' : '#333';
-      ctx.beginPath(); 
-      ctx.arc(px + (350 + s * 18) * scale, sy + 26 * scale, 7 * scale, 0, Math.PI*2); 
+      ctx.beginPath();
+      ctx.arc(px + (isMobile ? 380 : 350) + s * dotSpacing, sy + (skillItemHeight - 6)/2, isMobile ? 8 : 7, 0, Math.PI*2);
       ctx.fill();
     }
     
+    const btnWidth = isMobile ? 60 : 50;
+    const btnHeight = isMobile ? 32 : 28;
     if(unlocked && lv < def.maxLv && p.skillPoints > 0){
       ctx.fillStyle = '#4f4';
-      drawRoundRect(ctx, px + (pw - 65) * scale, sy + 12 * scale, 50 * scale, 28 * scale, 6 * scale, '#4f4', '#2a2');
-      ctx.fillStyle = '#000'; 
-      ctx.font = `bold ${Math.floor(14 * scale)}px Arial`; 
+      drawRoundRect(ctx, px + pw - btnWidth - 15, sy + 12, btnWidth, btnHeight, 6, '#4f4', '#2a2');
+      ctx.fillStyle = '#000';
+      ctx.font = `bold ${isMobile ? 16 : 14}px Arial`;
       ctx.textAlign = 'center';
-      ctx.fillText('+ UP', px + (pw - 40) * scale, sy + 30 * scale);
+      ctx.fillText('+ UP', px + pw - btnWidth/2 - 15, sy + btnHeight/2 + 18);
     } else if(lv >= def.maxLv && unlocked){
-      ctx.fillStyle = '#fd0'; 
-      ctx.font = `bold ${Math.floor(11 * scale)}px Arial`; 
+      ctx.fillStyle = '#fd0';
+      ctx.font = `bold ${isMobile ? 13 : 11}px Arial`;
       ctx.textAlign = 'center';
-      ctx.fillText('MAX', px + (pw - 40) * scale, sy + 28 * scale);
+      ctx.fillText('MAX', px + pw - 40, sy + (skillItemHeight - 6)/2 + 4);
     }
   }
 }
 
-// === PANEL: QUEST LOG (Mobil uyumlu) ===
+// === PANEL: QUEST LOG ===
 function drawQuestPanel(){
-  const maxW = isMobile ? Math.min(W * 0.95, 560) : 560;
-  const maxH = isMobile ? Math.min(H * 0.85, 480) : 480;
-  const pw = maxW;
-  const ph = maxH;
+  const pw = isMobile ? W - 10 : 560;
+  const ph = isMobile ? H - 20 : 480;
   const px = (W - pw) / 2;
   const py = (H - ph) / 2;
-  const scale = isMobile ? Math.min(pw / 560, ph / 480) : 1;
   
   ctx.fillStyle = 'rgba(5,2,10,0.97)';
-  drawRoundRect(ctx, px, py, pw, ph, 10 * scale, 'rgba(5,2,10,0.97)', '#a80');
+  drawRoundRect(ctx, px, py, pw, ph, 10, 'rgba(5,2,10,0.97)', '#a80');
   ctx.lineWidth = 2;
-  ctx.fillStyle = '#fd0'; 
-  ctx.font = `bold ${Math.floor(18 * scale)}px Arial`; 
+  
+  ctx.fillStyle = '#fd0';
+  ctx.font = `bold ${isMobile ? 22 : 18}px Arial`;
   ctx.textAlign = 'center';
-  ctx.fillText('QUEST LOG', px + pw/2, py + 28 * scale);
+  ctx.fillText('QUEST LOG', px + pw/2, py + (isMobile ? 32 : 28));
 
-  const tabs = ['active','available','completed'];
+  const tabWidth = isMobile ? (pw - 40) / 3 : 170;
+  const tabs = ['active', 'available', 'completed'];
   for(let i = 0; i < tabs.length; i++){
-    const tx = px + (10 + i * 180) * scale;
-    const ty = py + 38 * scale;
+    const tx = px + 10 + i * (tabWidth + 5);
+    const ty = py + (isMobile ? 42 : 38);
     const active = G.questTab === tabs[i];
     ctx.fillStyle = active ? 'rgba(100,70,0,0.9)' : 'rgba(30,20,10,0.8)';
-    drawRoundRect(ctx, tx, ty, 170 * scale, 24 * scale, 4 * scale, 
-      active ? 'rgba(100,70,0,0.9)' : 'rgba(30,20,10,0.8)', active ? '#fd0' : '#555');
-    ctx.fillStyle = active ? '#fff' : '#888'; 
-    ctx.font = `bold ${Math.floor(12 * scale)}px Arial`; 
+    drawRoundRect(ctx, tx, ty, tabWidth, isMobile ? 28 : 24, 4, active ? 'rgba(100,70,0,0.9)' : 'rgba(30,20,10,0.8)', active ? '#fd0' : '#555');
+    ctx.fillStyle = active ? '#fff' : '#888';
+    ctx.font = `bold ${isMobile ? 14 : 12}px Arial`;
     ctx.textAlign = 'center';
-    ctx.fillText(tabs[i].charAt(0).toUpperCase() + tabs[i].slice(1), tx + 85 * scale, ty + 16 * scale);
+    ctx.fillText(tabs[i].charAt(0).toUpperCase() + tabs[i].slice(1), tx + tabWidth/2, ty + (isMobile ? 19 : 16));
   }
 
   let quests;
@@ -2378,186 +2360,190 @@ function drawQuestPanel(){
   else if(G.questTab === 'available') quests = G.quests.getAvailable();
   else quests = G.quests.getCompleted();
 
-  const listY = py + 72 * scale;
+  const listY = py + (isMobile ? 82 : 72);
   if(quests.length === 0){
-    ctx.fillStyle = '#555'; 
-    ctx.font = `${Math.floor(14 * scale)}px Arial`; 
+    ctx.fillStyle = '#555';
+    ctx.font = `${isMobile ? 16 : 14}px Arial`;
     ctx.textAlign = 'center';
-    ctx.fillText('No quests here.', px + pw/2, listY + 60 * scale);
+    ctx.fillText('No quests here.', px + pw/2, listY + 60);
   }
 
+  const questItemHeight = isMobile ? 110 : 90;
   for(let i = 0; i < quests.length; i++){
     const q = quests[i];
     const qs = G.quests.quests[q.id];
-    const qy = listY + i * 90 * scale;
-    if(qy > py + ph - 40 * scale) break;
+    const qy = listY + i * questItemHeight;
+    if(qy > py + ph - 40) break;
     
     ctx.fillStyle = 'rgba(20,15,5,0.9)';
-    drawRoundRect(ctx, px + 10 * scale, qy, (pw - 20) * scale, 82 * scale, 6 * scale, 'rgba(20,15,5,0.9)', '#664');
+    drawRoundRect(ctx, px + 10, qy, pw - 20, questItemHeight - 8, 6, 'rgba(20,15,5,0.9)', '#664');
 
-    ctx.fillStyle = '#fd0'; 
-    ctx.font = `bold ${Math.floor(14 * scale)}px Arial`; 
+    ctx.fillStyle = '#fd0';
+    ctx.font = `bold ${isMobile ? 16 : 14}px Arial`;
     ctx.textAlign = 'left';
-    ctx.fillText(q.name, px + 18 * scale, qy + 18 * scale);
-    ctx.fillStyle = '#ccc'; 
-    ctx.font = `${Math.floor(12 * scale)}px Arial`;
-    ctx.fillText(q.desc, px + 18 * scale, qy + 34 * scale);
+    ctx.fillText(q.name, px + 18, qy + (isMobile ? 22 : 18));
+    
+    ctx.fillStyle = '#ccc';
+    ctx.font = `${isMobile ? 13 : 12}px Arial`;
+    ctx.fillText(q.desc, px + 18, qy + (isMobile ? 40 : 34));
 
     if(G.questTab === 'active'){
       const total = q.killCount || q.collectNoah;
       const prog = Math.min(qs.progress, total);
       const pct = prog / total;
-      ctx.fillStyle = '#333'; 
-      ctx.fillRect(px + 18 * scale, qy + 42 * scale, (pw - 60) * scale, 8 * scale);
-      ctx.fillStyle = '#4f4'; 
-      ctx.fillRect(px + 18 * scale, qy + 42 * scale, (pw - 60) * scale * pct, 8 * scale);
-      ctx.fillStyle = '#aaa'; 
-      ctx.font = `${Math.floor(11 * scale)}px Arial`;
-      ctx.fillText(`${prog}/${total}`, px + 18 * scale, qy + 64 * scale);
+      ctx.fillStyle = '#333';
+      ctx.fillRect(px + 18, qy + (isMobile ? 50 : 42), pw - 60, 8);
+      ctx.fillStyle = '#4f4';
+      ctx.fillRect(px + 18, qy + (isMobile ? 50 : 42), (pw - 60) * pct, 8);
+      ctx.fillStyle = '#aaa';
+      ctx.font = `${isMobile ? 12 : 11}px Arial`;
+      ctx.fillText(`${prog}/${total}`, px + 18, qy + (isMobile ? 72 : 64));
     }
 
     const rewards = [];
     rewards.push(q.rewards.exp + ' EXP');
     rewards.push(q.rewards.noah + ' Noah');
-    if(q.rewards.items && q.rewards.items.length > 0) {
+    if(q.rewards.items && q.rewards.items.length > 0){
       rewards.push(q.rewards.items.map(id => ITEM_DEFS[id] ? ITEM_DEFS[id].name : '?').join(', '));
     }
-    ctx.fillStyle = '#a80'; 
-    ctx.font = `${Math.floor(11 * scale)}px Arial`; 
+    ctx.fillStyle = '#a80';
+    ctx.font = `${isMobile ? 12 : 11}px Arial`;
     ctx.textAlign = 'left';
-    ctx.fillText('Reward: ' + rewards.join(' | '), px + 18 * scale, 
-      (G.questTab === 'active' ? qy + 78 : qy + 54) * scale);
+    ctx.fillText('Reward: ' + rewards.join(' | '), px + 18, G.questTab === 'active' ? qy + (isMobile ? 90 : 78) : qy + (isMobile ? 65 : 54));
 
+    const btnWidth = isMobile ? 85 : 75;
+    const btnHeight = isMobile ? 32 : 28;
     if(G.questTab === 'available'){
       ctx.fillStyle = '#4a4';
-      drawRoundRect(ctx, px + (pw - 90) * scale, qy + 25 * scale, 75 * scale, 28 * scale, 6 * scale, '#4a4', '#2a2');
-      ctx.fillStyle = '#fff'; 
-      ctx.font = `bold ${Math.floor(12 * scale)}px Arial`; 
+      drawRoundRect(ctx, px + pw - btnWidth - 20, qy + (questItemHeight - btnHeight)/2, btnWidth, btnHeight, 6, '#4a4', '#2a2');
+      ctx.fillStyle = '#fff';
+      ctx.font = `bold ${isMobile ? 14 : 12}px Arial`;
       ctx.textAlign = 'center';
-      ctx.fillText('Accept', px + (pw - 52) * scale, qy + 43 * scale);
+      ctx.fillText('Accept', px + pw - btnWidth/2 - 20, qy + (questItemHeight - btnHeight)/2 + btnHeight/2 + 4);
     } else if(G.questTab === 'active'){
       ctx.fillStyle = '#833';
-      drawRoundRect(ctx, px + (pw - 100) * scale, qy + 25 * scale, 85 * scale, 28 * scale, 6 * scale, '#833', '#622');
-      ctx.fillStyle = '#fff'; 
-      ctx.font = `bold ${Math.floor(12 * scale)}px Arial`; 
+      drawRoundRect(ctx, px + pw - btnWidth - 20, qy + (questItemHeight - btnHeight)/2, btnWidth, btnHeight, 6, '#833', '#622');
+      ctx.fillStyle = '#fff';
+      ctx.font = `bold ${isMobile ? 14 : 12}px Arial`;
       ctx.textAlign = 'center';
-      ctx.fillText('Abandon', px + (pw - 57) * scale, qy + 43 * scale);
+      ctx.fillText('Abandon', px + pw - btnWidth/2 - 20, qy + (questItemHeight - btnHeight)/2 + btnHeight/2 + 4);
     } else {
       ctx.fillStyle = '#353';
-      drawRoundRect(ctx, px + (pw - 90) * scale, qy + 25 * scale, 75 * scale, 28 * scale, 6 * scale, '#353', '#242');
-      ctx.fillStyle = '#4f4'; 
-      ctx.font = `bold ${Math.floor(12 * scale)}px Arial`; 
+      drawRoundRect(ctx, px + pw - btnWidth - 20, qy + (questItemHeight - btnHeight)/2, btnWidth, btnHeight, 6, '#353', '#242');
+      ctx.fillStyle = '#4f4';
+      ctx.font = `bold ${isMobile ? 14 : 12}px Arial`;
       ctx.textAlign = 'center';
-      ctx.fillText('DONE', px + (pw - 52) * scale, qy + 43 * scale);
+      ctx.fillText('DONE', px + pw - btnWidth/2 - 20, qy + (questItemHeight - btnHeight)/2 + btnHeight/2 + 4);
     }
   }
 }
 
-// === PANEL: STAT ASSIGNMENT (Mobil uyumlu) ===
+// === PANEL: STAT ASSIGNMENT ===
 function drawStatPanel(){
-  const maxW = isMobile ? Math.min(W * 0.95, 400) : 400;
-  const maxH = isMobile ? Math.min(H * 0.85, 380) : 380;
-  const pw = maxW;
-  const ph = maxH;
+  const pw = isMobile ? W - 20 : 400;
+  const ph = isMobile ? H - 40 : 380;
   const px = (W - pw) / 2;
   const py = (H - ph) / 2;
-  const scale = isMobile ? Math.min(pw / 400, ph / 380) : 1;
   
   ctx.fillStyle = 'rgba(5,2,10,0.97)';
-  drawRoundRect(ctx, px, py, pw, ph, 10 * scale, 'rgba(5,2,10,0.97)', '#fd0');
+  drawRoundRect(ctx, px, py, pw, ph, 10, 'rgba(5,2,10,0.97)', '#fd0');
   ctx.lineWidth = 2;
+  
   const p = G.player;
-  ctx.fillStyle = '#fd0'; 
-  ctx.font = `bold ${Math.floor(18 * scale)}px Arial`; 
+  ctx.fillStyle = '#fd0';
+  ctx.font = `bold ${isMobile ? 22 : 18}px Arial`;
   ctx.textAlign = 'center';
-  ctx.fillText('STAT ASSIGNMENT', px + pw/2, py + 28 * scale);
-  ctx.fillStyle = '#fff'; 
-  ctx.font = `bold ${Math.floor(14 * scale)}px Arial`;
-  ctx.fillText(`Available Points: ${p.statPoints}`, px + pw/2, py + 48 * scale);
+  ctx.fillText('STAT ASSIGNMENT', px + pw/2, py + (isMobile ? 32 : 28));
+  
+  ctx.fillStyle = '#fff';
+  ctx.font = `bold ${isMobile ? 16 : 14}px Arial`;
+  ctx.fillText(`Available Points: ${p.statPoints}`, px + pw/2, py + (isMobile ? 54 : 48));
 
   if(!G.statPanelStats){
-    G.statPanelStats = {str:p.str, dex:p.dex, int:p.int, extraHp:0, extraMp:0, points:p.statPoints};
+    G.statPanelStats = {str: p.str, dex: p.dex, int: p.int, extraHp: 0, extraMp: 0, points: p.statPoints};
   }
   const sp = G.statPanelStats;
 
   const statRows = [
-    {key:'str', label:'STR', desc:'ATK, DEF, MaxHP', val:sp.str},
-    {key:'dex', label:'DEX', desc:'Crit Chance, Speed', val:sp.dex},
-    {key:'int', label:'INT', desc:'MaxMP, Skill Power', val:sp.int},
-    {key:'extraHp', label:'HP+', desc:'+30 MaxHP per point', val:sp.extraHp},
-    {key:'extraMp', label:'MP+', desc:'+20 MaxMP per point', val:sp.extraMp},
+    {key:'str', label:'STR', desc:'ATK, DEF, MaxHP', val: sp.str},
+    {key:'dex', label:'DEX', desc:'Crit Chance, Speed', val: sp.dex},
+    {key:'int', label:'INT', desc:'MaxMP, Skill Power', val: sp.int},
+    {key:'extraHp', label:'HP+', desc:'+30 MaxHP per point', val: sp.extraHp},
+    {key:'extraMp', label:'MP+', desc:'+20 MaxMP per point', val: sp.extraMp},
   ];
 
+  const rowHeight = isMobile ? 60 : 52;
   for(let i = 0; i < statRows.length; i++){
     const row = statRows[i];
-    const ry = py + (70 + i * 52) * scale;
-    ctx.fillStyle = 'rgba(20,15,5,0.8)';
-    drawRoundRect(ctx, px + 15 * scale, ry, (pw - 30) * scale, 44 * scale, 6 * scale, 'rgba(20,15,5,0.8)', '#444');
-    ctx.fillStyle = '#fd0'; 
-    ctx.font = `bold ${Math.floor(14 * scale)}px Arial`; 
-    ctx.textAlign = 'left';
-    ctx.fillText(row.label, px + 28 * scale, ry + 18 * scale);
-    ctx.fillStyle = '#ccc'; 
-    ctx.font = `${Math.floor(11 * scale)}px Arial`;
-    ctx.fillText(row.desc, px + 70 * scale, ry + 18 * scale);
-    ctx.fillStyle = '#fff'; 
-    ctx.font = `bold ${Math.floor(16 * scale)}px Arial`; 
-    ctx.textAlign = 'center';
-    ctx.fillText(row.val, px + 270 * scale, ry + 28 * scale);
+    const ry = py + (isMobile ? 80 : 70) + i * rowHeight;
     
-    ctx.fillStyle = row.val > 0 ? '#833' : '#333';
-    drawRoundRect(ctx, px + 230 * scale, ry + 10 * scale, 24 * scale, 24 * scale, 4 * scale, 
-      row.val > 0 ? '#833' : '#333', '#555');
-    ctx.fillStyle = '#fff'; 
-    ctx.font = `bold ${Math.floor(14 * scale)}px Arial`; 
+    ctx.fillStyle = 'rgba(20,15,5,0.8)';
+    drawRoundRect(ctx, px + 15, ry, pw - 30, rowHeight - 8, 6, 'rgba(20,15,5,0.8)', '#444');
+    
+    ctx.fillStyle = '#fd0';
+    ctx.font = `bold ${isMobile ? 16 : 14}px Arial`;
+    ctx.textAlign = 'left';
+    ctx.fillText(row.label, px + 28, ry + (isMobile ? 22 : 18));
+    
+    ctx.fillStyle = '#ccc';
+    ctx.font = `${isMobile ? 13 : 11}px Arial`;
+    ctx.fillText(row.desc, px + (isMobile ? 80 : 70), ry + (isMobile ? 22 : 18));
+    
+    ctx.fillStyle = '#fff';
+    ctx.font = `bold ${isMobile ? 18 : 16}px Arial`;
     ctx.textAlign = 'center';
-    ctx.fillText('-', px + 242 * scale, ry + 26 * scale);
+    ctx.fillText(row.val, px + (isMobile ? 300 : 270), ry + (rowHeight - 8)/2 + 6);
+    
+    const btnSize = isMobile ? 28 : 24;
+    ctx.fillStyle = row.val > 0 ? '#833' : '#333';
+    drawRoundRect(ctx, px + (isMobile ? 250 : 230), ry + (rowHeight - 8 - btnSize)/2, btnSize, btnSize, 4, row.val > 0 ? '#833' : '#333', '#555');
+    ctx.fillStyle = '#fff';
+    ctx.font = `bold ${isMobile ? 16 : 14}px Arial`;
+    ctx.textAlign = 'center';
+    ctx.fillText('-', px + (isMobile ? 264 : 242), ry + (rowHeight - 8 - btnSize)/2 + btnSize/2 + 6);
     
     ctx.fillStyle = sp.points > 0 ? '#484' : '#333';
-    drawRoundRect(ctx, px + 300 * scale, ry + 10 * scale, 24 * scale, 24 * scale, 4 * scale, 
-      sp.points > 0 ? '#484' : '#333', '#555');
+    drawRoundRect(ctx, px + (isMobile ? 320 : 300), ry + (rowHeight - 8 - btnSize)/2, btnSize, btnSize, 4, sp.points > 0 ? '#484' : '#333', '#555');
     ctx.fillStyle = '#fff';
-    ctx.fillText('+', px + 312 * scale, ry + 26 * scale);
+    ctx.fillText('+', px + (isMobile ? 334 : 312), ry + (rowHeight - 8 - btnSize)/2 + btnSize/2 + 6);
   }
 
+  const btnWidth = isMobile ? 160 : 140;
+  const btnHeight = isMobile ? 44 : 36;
   ctx.fillStyle = '#484';
-  drawRoundRect(ctx, px + pw/2 - 70 * scale, py + ph - 55 * scale, 140 * scale, 36 * scale, 8 * scale, '#484', '#6f6');
-  ctx.fillStyle = '#fff'; 
-  ctx.font = `bold ${Math.floor(16 * scale)}px Arial`; 
+  drawRoundRect(ctx, px + pw/2 - btnWidth/2, py + ph - btnHeight - 15, btnWidth, btnHeight, 8, '#484', '#6f6');
+  ctx.fillStyle = '#fff';
+  ctx.font = `bold ${isMobile ? 18 : 16}px Arial`;
   ctx.textAlign = 'center';
-  ctx.fillText('Confirm', px + pw/2, py + ph - 30 * scale);
+  ctx.fillText('Confirm', px + pw/2, py + ph - btnHeight/2 - 8);
 
   const previewHp = 200 + (sp.str * 10) + (sp.extraHp * 30) + p.inventory.getEquipBonus().hp;
   const previewMp = 100 + (sp.int * 8) + (sp.extraMp * 20);
-  ctx.fillStyle = '#aaa'; 
-  ctx.font = `${Math.floor(11 * scale)}px Arial`; 
+  ctx.fillStyle = '#aaa';
+  ctx.font = `${isMobile ? 12 : 11}px Arial`;
   ctx.textAlign = 'center';
-  ctx.fillText(`Preview: HP ${previewHp}  MP ${previewMp}  ATK ${10 + sp.str*2}`, px + pw/2, py + ph - 12 * scale);
+  ctx.fillText(`Preview: HP ${previewHp}  MP ${previewMp}  ATK ${10 + sp.str*2}`, px + pw/2, py + ph - 12);
 }
 
-// handleStatPanelClick ve applyStatPanel fonksiyonlarında tıklama koordinatları da ölçeklenmeli.
-// Bu nedenle onları da güncelliyorum:
-
 function handleStatPanelClick(mx, my){
-  const maxW = isMobile ? Math.min(W * 0.95, 400) : 400;
-  const maxH = isMobile ? Math.min(H * 0.85, 380) : 380;
-  const pw = maxW;
-  const ph = maxH;
+  const pw = isMobile ? W - 20 : 400;
+  const ph = isMobile ? H - 40 : 380;
   const px = (W - pw) / 2;
   const py = (H - ph) / 2;
-  const scale = isMobile ? Math.min(pw / 400, ph / 380) : 1;
-  
   const p = G.player;
-  if(!G.statPanelStats) G.statPanelStats = {str:p.str, dex:p.dex, int:p.int, extraHp:0, extraMp:0, points:p.statPoints};
+  if(!G.statPanelStats) G.statPanelStats = {str: p.str, dex: p.dex, int: p.int, extraHp: 0, extraMp: 0, points: p.statPoints};
   const sp = G.statPanelStats;
-  const statKeys = ['str','dex','int','extraHp','extraMp'];
+  const statKeys = ['str', 'dex', 'int', 'extraHp', 'extraMp'];
 
+  const rowHeight = isMobile ? 60 : 52;
+  const btnSize = isMobile ? 28 : 24;
   for(let i = 0; i < statKeys.length; i++){
     const key = statKeys[i];
-    const ry = py + (70 + i * 52) * scale;
-    // Eksi butonu
-    if(mx >= px + 230 * scale && mx <= px + 254 * scale && my >= ry + 10 * scale && my <= ry + 34 * scale){
-      const base = {str:p.str, dex:p.dex, int:p.int, extraHp:0, extraMp:0};
+    const ry = py + (isMobile ? 80 : 70) + i * rowHeight;
+    const minusX = px + (isMobile ? 250 : 230);
+    const plusX = px + (isMobile ? 320 : 300);
+    if(mx >= minusX && mx <= minusX + btnSize && my >= ry + (rowHeight - 8 - btnSize)/2 && my <= ry + (rowHeight - 8 - btnSize)/2 + btnSize){
+      const base = {str: p.str, dex: p.dex, int: p.int, extraHp: 0, extraMp: 0};
       if(sp[key] > base[key] || sp[key] > 0){
         if(key === 'str' && sp.str > p.str){ sp.str--; sp.points++; }
         else if(key === 'dex' && sp.dex > p.dex){ sp.dex--; sp.points++; }
@@ -2567,8 +2553,7 @@ function handleStatPanelClick(mx, my){
       }
       return;
     }
-    // Artı butonu
-    if(mx >= px + 300 * scale && mx <= px + 324 * scale && my >= ry + 10 * scale && my <= ry + 34 * scale){
+    if(mx >= plusX && mx <= plusX + btnSize && my >= ry + (rowHeight - 8 - btnSize)/2 && my <= ry + (rowHeight - 8 - btnSize)/2 + btnSize){
       if(sp.points > 0){
         sp[key]++;
         sp.points--;
@@ -2576,16 +2561,15 @@ function handleStatPanelClick(mx, my){
       return;
     }
   }
-  // Confirm butonu
-  if(mx >= px + pw/2 - 70 * scale && mx <= px + pw/2 + 70 * scale && 
-     my >= py + ph - 55 * scale && my <= py + ph - 19 * scale){
+  const btnWidth = isMobile ? 160 : 140;
+  const btnHeight = isMobile ? 44 : 36;
+  if(mx >= px + pw/2 - btnWidth/2 && mx <= px + pw/2 + btnWidth/2 && my >= py + ph - btnHeight - 15 && my <= py + ph - 15){
     applyStatPanel();
     G.state = 'playing';
     G.pendingStatScreen = false;
   }
 }
 
-// applyStatPanel aynı kalabilir (değişiklik yok)
 function applyStatPanel(){
   if(!G.statPanelStats) return;
   const sp = G.statPanelStats;
@@ -2598,121 +2582,121 @@ function applyStatPanel(){
   G.statPanelStats = null;
 }
 
-// === PANEL: ANVIL (Mobil uyumlu) ===
+// === PANEL: ANVIL ===
 function drawAnvilPanel(){
-  const maxW = isMobile ? Math.min(W * 0.95, 580) : 580;
-  const maxH = isMobile ? Math.min(H * 0.85, 480) : 480;
-  const pw = maxW;
-  const ph = maxH;
+  const pw = isMobile ? W - 10 : 580;
+  const ph = isMobile ? H - 20 : 480;
   const px = (W - pw) / 2;
   const py = (H - ph) / 2;
-  const scale = isMobile ? Math.min(pw / 580, ph / 480) : 1;
   
   ctx.fillStyle = 'rgba(5,2,10,0.97)';
-  drawRoundRect(ctx, px, py, pw, ph, 10 * scale, 'rgba(5,2,10,0.97)', '#f80');
+  drawRoundRect(ctx, px, py, pw, ph, 10, 'rgba(5,2,10,0.97)', '#f80');
   ctx.lineWidth = 2;
-  ctx.fillStyle = '#f80'; 
-  ctx.font = `bold ${Math.floor(18 * scale)}px Arial`; 
+  
+  ctx.fillStyle = '#f80';
+  ctx.font = `bold ${isMobile ? 20 : 18}px Arial`;
   ctx.textAlign = 'center';
-  ctx.fillText('ANVIL - ITEM ENHANCEMENT', px + pw/2, py + 28 * scale);
+  ctx.fillText('ANVIL - ITEM ENHANCEMENT', px + pw/2, py + (isMobile ? 32 : 28));
 
   const p = G.player;
   const inv = p.inventory;
 
-  ctx.fillStyle = '#aaa'; 
-  ctx.font = `${Math.floor(12 * scale)}px Arial`; 
+  ctx.fillStyle = '#aaa';
+  ctx.font = `${isMobile ? 14 : 12}px Arial`;
   ctx.textAlign = 'left';
-  ctx.fillText('Select item to enhance:', px + 15 * scale, py + 50 * scale);
+  ctx.fillText('Select item to enhance:', px + 15, py + (isMobile ? 55 : 50));
   
-  const equipTypes = ['weapon','head','chest','legs','boots'];
+  const equipTypes = ['weapon', 'head', 'chest', 'legs', 'boots'];
   const enhanceable = [];
   for(let i = 0; i < 42; i++){
     const it = inv.slots[i];
-    if(it && equipTypes.includes(it.type)) enhanceable.push({item:it, src:'inv', idx:i});
+    if(it && equipTypes.includes(it.type)) enhanceable.push({item: it, src: 'inv', idx: i});
   }
   for(const slot of equipTypes){
     const it = inv.equipment[slot];
-    if(it) enhanceable.push({item:it, src:'equip', slot});
+    if(it) enhanceable.push({item: it, src: 'equip', slot});
   }
 
-  const listX = px + 10 * scale;
-  const listY = py + 58 * scale;
-  const itemH = 40 * scale;
+  const listX = px + 10;
+  const listY = py + (isMobile ? 65 : 58);
+  const itemH = isMobile ? 46 : 40;
+  const listWidth = isMobile ? 260 : 240;
   
-  for(let i = 0; i < Math.min(enhanceable.length, 9); i++){
+  for(let i = 0; i < Math.min(enhanceable.length, isMobile ? 8 : 9); i++){
     const e = enhanceable[i];
     const it = e.item;
     const iy = listY + i * itemH;
     const selected = G.anvilSelected && G.anvilSelected.item === it;
     
     ctx.fillStyle = selected ? 'rgba(100,60,0,0.9)' : 'rgba(30,20,10,0.8)';
-    drawRoundRect(ctx, listX, iy, 240 * scale, 36 * scale, 4 * scale, 
-      selected ? 'rgba(100,60,0,0.9)' : 'rgba(30,20,10,0.8)', '#555');
-      
+    drawRoundRect(ctx, listX, iy, listWidth, itemH - 4, 4, selected ? 'rgba(100,60,0,0.9)' : 'rgba(30,20,10,0.8)', '#555');
+    
     if(it.enhance >= 7){
       ctx.save();
       ctx.shadowColor = it.getGlowColor() || `hsl(${(Date.now()*0.2)%360},100%,60%)`;
-      ctx.shadowBlur = 8 * scale;
+      ctx.shadowBlur = 8;
     }
     ctx.fillStyle = it.color || '#888';
-    ctx.beginPath(); 
-    ctx.arc(listX + 18 * scale, iy + 18 * scale, 13 * scale, 0, Math.PI*2); 
+    ctx.beginPath();
+    ctx.arc(listX + (isMobile ? 20 : 18), iy + itemH/2, isMobile ? 15 : 13, 0, Math.PI*2);
     ctx.fill();
     if(it.enhance >= 7) ctx.restore();
     
-    ctx.fillStyle = '#fff'; 
-    ctx.font = `bold ${Math.floor(11 * scale)}px Arial`; 
+    ctx.fillStyle = '#fff';
+    ctx.font = `bold ${isMobile ? 13 : 11}px Arial`;
     ctx.textAlign = 'center';
-    ctx.fillText(it.symbol, listX + 18 * scale, iy + 22 * scale);
-    ctx.fillStyle = it.enhance > 0 ? '#fd0' : '#eee'; 
-    ctx.font = `${Math.floor(12 * scale)}px Arial`; 
+    ctx.fillText(it.symbol, listX + (isMobile ? 20 : 18), iy + itemH/2 + 4);
+    
+    ctx.fillStyle = it.enhance > 0 ? '#fd0' : '#eee';
+    ctx.font = `${isMobile ? 14 : 12}px Arial`;
     ctx.textAlign = 'left';
-    ctx.fillText(it.getDisplayName(), listX + 38 * scale, iy + 14 * scale);
-    ctx.fillStyle = '#aaa'; 
-    ctx.font = `${Math.floor(10 * scale)}px Arial`;
-    if(it.getEnhancedAtk() > 0) ctx.fillText('ATK+' + it.getEnhancedAtk(), listX + 38 * scale, iy + 28 * scale);
-    else if(it.getEnhancedDef() > 0) ctx.fillText('DEF+' + it.getEnhancedDef() + ' HP+' + it.getEnhancedHp(), listX + 38 * scale, iy + 28 * scale);
+    ctx.fillText(it.getDisplayName(), listX + (isMobile ? 42 : 38), iy + itemH/2 - 4);
+    
+    ctx.fillStyle = '#aaa';
+    ctx.font = `${isMobile ? 11 : 10}px Arial`;
+    if(it.getEnhancedAtk() > 0) ctx.fillText('ATK+' + it.getEnhancedAtk(), listX + (isMobile ? 42 : 38), iy + itemH/2 + 10);
+    else if(it.getEnhancedDef() > 0) ctx.fillText('DEF+' + it.getEnhancedDef() + ' HP+' + it.getEnhancedHp(), listX + (isMobile ? 42 : 38), iy + itemH/2 + 10);
   }
 
-  const selX = px + 270 * scale;
-  const selY = py + 55 * scale;
-  const selW = (pw - 280) * scale;
-  const selH = 380 * scale;
+  const selX = px + (isMobile ? 280 : 270);
+  const selY = py + (isMobile ? 60 : 55);
+  const selWidth = pw - (isMobile ? 290 : 280);
+  const selHeight = isMobile ? 400 : 380;
   
   ctx.fillStyle = 'rgba(20,15,5,0.8)';
-  drawRoundRect(ctx, selX, selY, selW, selH, 6 * scale, 'rgba(20,15,5,0.8)', '#555');
+  drawRoundRect(ctx, selX, selY, selWidth, selHeight, 6, 'rgba(20,15,5,0.8)', '#555');
 
   if(G.anvilSelected){
     const it = G.anvilSelected.item;
     const en = it.enhance;
-    ctx.fillStyle = '#fd0'; 
-    ctx.font = `bold ${Math.floor(14 * scale)}px Arial`; 
+    ctx.fillStyle = '#fd0';
+    ctx.font = `bold ${isMobile ? 16 : 14}px Arial`;
     ctx.textAlign = 'center';
-    ctx.fillText(it.getDisplayName(), selX + selW/2, selY + 22 * scale);
+    ctx.fillText(it.getDisplayName(), selX + selWidth/2, selY + (isMobile ? 26 : 22));
 
     if(en >= 7){
       ctx.save();
       ctx.shadowColor = it.getGlowColor() || `hsl(${(Date.now()*0.2)%360},100%,60%)`;
-      ctx.shadowBlur = 20 * scale;
+      ctx.shadowBlur = 20;
     }
     ctx.fillStyle = it.color || '#888';
-    ctx.beginPath(); 
-    ctx.arc(selX + selW/2, selY + 68 * scale, 32 * scale, 0, Math.PI*2); 
+    ctx.beginPath();
+    ctx.arc(selX + selWidth/2, selY + (isMobile ? 78 : 68), isMobile ? 36 : 32, 0, Math.PI*2);
     ctx.fill();
     if(en >= 7) ctx.restore();
     
-    ctx.fillStyle = '#fff'; 
-    ctx.font = `bold ${Math.floor(24 * scale)}px Arial`; 
+    ctx.fillStyle = '#fff';
+    ctx.font = `bold ${isMobile ? 28 : 24}px Arial`;
     ctx.textAlign = 'center';
-    ctx.fillText(it.symbol, selX + selW/2, selY + 78 * scale);
+    ctx.fillText(it.symbol, selX + selWidth/2, selY + (isMobile ? 90 : 78));
 
-    ctx.fillStyle = '#aaa'; 
-    ctx.font = `${Math.floor(12 * scale)}px Arial`;
-    if(it.getEnhancedAtk() > 0) ctx.fillText('ATK: +' + it.getEnhancedAtk() + ' → +' + (it.getEnhancedAtk()+3), selX + selW/2, selY + 112 * scale);
-    if(it.getEnhancedDef() > 0) ctx.fillText('DEF: +' + it.getEnhancedDef() + ' → +' + (it.getEnhancedDef()+2), selX + selW/2, selY + 128 * scale);
-    if(it.getEnhancedHp() > 0) ctx.fillText('HP: +' + it.getEnhancedHp() + ' → +' + (it.getEnhancedHp()+5), selX + selW/2, selY + 144 * scale);
+    ctx.fillStyle = '#aaa';
+    ctx.font = `${isMobile ? 14 : 12}px Arial`;
+    if(it.getEnhancedAtk() > 0) ctx.fillText('ATK: +' + it.getEnhancedAtk() + ' → +' + (it.getEnhancedAtk() + 3), selX + selWidth/2, selY + (isMobile ? 128 : 112));
+    if(it.getEnhancedDef() > 0) ctx.fillText('DEF: +' + it.getEnhancedDef() + ' → +' + (it.getEnhancedDef() + 2), selX + selWidth/2, selY + (isMobile ? 146 : 128));
+    if(it.getEnhancedHp() > 0) ctx.fillText('HP: +' + it.getEnhancedHp() + ' → +' + (it.getEnhancedHp() + 5), selX + selWidth/2, selY + (isMobile ? 164 : 144));
 
-    const cost = en >= 6 ? (en+1)*300 : (en+1)*100;
+    const cost = en >= 6 ? (en + 1) * 300 : (en + 1) * 100;
     let successChance, burnChance = 0;
     if(en < 6){ successChance = 0.60; }
     else if(en === 6){ successChance = 0.60; }
@@ -2721,120 +2705,121 @@ function drawAnvilPanel(){
     else if(en === 9){ successChance = 0.30; burnChance = 0.70; }
     else { successChance = 0.10; burnChance = 0.90; }
 
-    ctx.fillStyle = '#fd0'; 
-    ctx.font = `bold ${Math.floor(13 * scale)}px Arial`; 
+    ctx.fillStyle = '#fd0';
+    ctx.font = `bold ${isMobile ? 15 : 13}px Arial`;
     ctx.textAlign = 'center';
-    ctx.fillText(`Enhance: ${en} → ${en+1}`, selX + selW/2, selY + 170 * scale);
-    ctx.fillStyle = '#fff'; 
-    ctx.font = `${Math.floor(12 * scale)}px Arial`;
-    ctx.fillText(`Cost: ${cost} Noah`, selX + selW/2, selY + 188 * scale);
+    ctx.fillText(`Enhance: ${en} → ${en + 1}`, selX + selWidth/2, selY + (isMobile ? 192 : 170));
+    
+    ctx.fillStyle = '#fff';
+    ctx.font = `${isMobile ? 14 : 12}px Arial`;
+    ctx.fillText(`Cost: ${cost} Noah`, selX + selWidth/2, selY + (isMobile ? 212 : 188));
+    
     ctx.fillStyle = '#4f4';
-    ctx.fillText(`Success: ${Math.round(successChance*100)}%`, selX + selW/2, selY + 204 * scale);
+    ctx.fillText(`Success: ${Math.round(successChance * 100)}%`, selX + selWidth/2, selY + (isMobile ? 230 : 204));
     
     if(en >= 6){
       ctx.fillStyle = '#f44';
-      ctx.fillText(`BURN/DESTROY: ${Math.round(burnChance*100)}%`, selX + selW/2, selY + 220 * scale);
-      ctx.fillStyle = '#f80'; 
-      ctx.font = `bold ${Math.floor(11 * scale)}px Arial`;
-      ctx.fillText('WARNING: Item can be DESTROYED!', selX + selW/2, selY + 238 * scale);
+      ctx.fillText(`BURN/DESTROY: ${Math.round(burnChance * 100)}%`, selX + selWidth/2, selY + (isMobile ? 248 : 220));
+      ctx.fillStyle = '#f80';
+      ctx.font = `bold ${isMobile ? 12 : 11}px Arial`;
+      ctx.fillText('WARNING: Item can be DESTROYED!', selX + selWidth/2, selY + (isMobile ? 268 : 238));
     }
 
-    ctx.fillStyle = inv.noah >= cost ? '#4f4' : '#f44'; 
-    ctx.font = `${Math.floor(12 * scale)}px Arial`;
-    ctx.fillText(`Your Noah: ${inv.noah}`, selX + selW/2, selY + 258 * scale);
+    ctx.fillStyle = inv.noah >= cost ? '#4f4' : '#f44';
+    ctx.font = `${isMobile ? 14 : 12}px Arial`;
+    ctx.fillText(`Your Noah: ${inv.noah}`, selX + selWidth/2, selY + (isMobile ? 290 : 258));
 
     const canAfford = inv.noah >= cost && en < 10;
+    const btnW = selWidth - (isMobile ? 40 : 60);
+    const btnH = isMobile ? 50 : 44;
     ctx.fillStyle = canAfford ? '#f80' : '#444';
-    drawRoundRect(ctx, selX + 30 * scale, selY + 272 * scale, (selW - 60) * scale, 44 * scale, 8 * scale, 
-      canAfford ? '#f80' : '#444', canAfford ? '#fa0' : '#333');
-    ctx.fillStyle = canAfford ? '#000' : '#666'; 
-    ctx.font = `bold ${Math.floor(18 * scale)}px Arial`; 
+    drawRoundRect(ctx, selX + (selWidth - btnW)/2, selY + (isMobile ? 310 : 272), btnW, btnH, 8, canAfford ? '#f80' : '#444', canAfford ? '#fa0' : '#333');
+    ctx.fillStyle = canAfford ? '#000' : '#666';
+    ctx.font = `bold ${isMobile ? 20 : 18}px Arial`;
     ctx.textAlign = 'center';
-    ctx.fillText(en >= 10 ? 'MAX ENHANCE' : 'ENHANCE!', selX + selW/2, selY + 299 * scale);
+    ctx.fillText(en >= 10 ? 'MAX ENHANCE' : 'ENHANCE!', selX + selWidth/2, selY + (isMobile ? 345 : 299));
 
     if(G.anvilMsgTimer > 0){
       G.anvilMsgTimer -= 1/60;
       ctx.fillStyle = G.anvilMsg.startsWith('SUCCESS') ? '#4f4' : '#f44';
-      ctx.font = `bold ${Math.floor(16 * scale)}px Arial`; 
+      ctx.font = `bold ${isMobile ? 18 : 16}px Arial`;
       ctx.textAlign = 'center';
-      ctx.fillText(G.anvilMsg, selX + selW/2, selY + 330 * scale);
+      ctx.fillText(G.anvilMsg, selX + selWidth/2, selY + (isMobile ? 380 : 330));
     }
+
   } else {
-    ctx.fillStyle = '#555'; 
-    ctx.font = `${Math.floor(14 * scale)}px Arial`; 
+    ctx.fillStyle = '#555';
+    ctx.font = `${isMobile ? 16 : 14}px Arial`;
     ctx.textAlign = 'center';
-    ctx.fillText('Select an item from the list', selX + selW/2, selY + 80 * scale);
-    ctx.fillText('to enhance it.', selX + selW/2, selY + 100 * scale);
-    ctx.fillStyle = '#888'; 
-    ctx.font = `${Math.floor(11 * scale)}px Arial`;
-    ctx.fillText('+1 to +6: 60% success', selX + selW/2, selY + 140 * scale);
-    ctx.fillText('+7 to +10: Burn risk!', selX + selW/2, selY + 158 * scale);
-    ctx.fillText('Failed +7 destroys item!', selX + selW/2, selY + 176 * scale);
+    ctx.fillText('Select an item from the list', selX + selWidth/2, selY + 80);
+    ctx.fillText('to enhance it.', selX + selWidth/2, selY + (isMobile ? 108 : 100));
+    ctx.fillStyle = '#888';
+    ctx.font = `${isMobile ? 13 : 11}px Arial`;
+    ctx.fillText('+1 to +6: 60% success', selX + selWidth/2, selY + (isMobile ? 150 : 140));
+    ctx.fillText('+7 to +10: Burn risk!', selX + selWidth/2, selY + (isMobile ? 172 : 158));
+    ctx.fillText('Failed +7 destroys item!', selX + selWidth/2, selY + (isMobile ? 194 : 176));
   }
 
   if(G.anvilFlash > 0){
-    ctx.fillStyle = `rgba(255,0,0,${G.anvilFlash*0.4})`;
+    ctx.fillStyle = `rgba(255,0,0,${G.anvilFlash * 0.4})`;
     ctx.fillRect(0, 0, W, H);
     G.anvilFlash -= 1/60;
   }
 }
 
-// handleAnvilClick de ölçeklenmiş koordinatları kullanmalı
 function handleAnvilClick(mx, my){
-  const maxW = isMobile ? Math.min(W * 0.95, 580) : 580;
-  const maxH = isMobile ? Math.min(H * 0.85, 480) : 480;
-  const pw = maxW;
-  const ph = maxH;
+  const pw = isMobile ? W - 10 : 580;
+  const ph = isMobile ? H - 20 : 480;
   const px = (W - pw) / 2;
   const py = (H - ph) / 2;
-  const scale = isMobile ? Math.min(pw / 580, ph / 480) : 1;
-  
   const p = G.player;
   const inv = p.inventory;
-  const equipTypes = ['weapon','head','chest','legs','boots'];
+  const equipTypes = ['weapon', 'head', 'chest', 'legs', 'boots'];
   const enhanceable = [];
   for(let i = 0; i < 42; i++){
     const it = inv.slots[i];
-    if(it && equipTypes.includes(it.type)) enhanceable.push({item:it, src:'inv', idx:i});
+    if(it && equipTypes.includes(it.type)) enhanceable.push({item: it, src: 'inv', idx: i});
   }
   for(const slot of equipTypes){
     const it = inv.equipment[slot];
-    if(it) enhanceable.push({item:it, src:'equip', slot});
+    if(it) enhanceable.push({item: it, src: 'equip', slot});
   }
 
-  const listX = px + 10 * scale;
-  const listY = py + 58 * scale;
-  for(let i = 0; i < Math.min(enhanceable.length, 9); i++){
-    const iy = listY + i * 40 * scale;
-    if(mx >= listX && mx <= listX + 240 * scale && my >= iy && my <= iy + 36 * scale){
+  const listX = px + 10;
+  const listY = py + (isMobile ? 65 : 58);
+  const itemH = isMobile ? 46 : 40;
+  const listWidth = isMobile ? 260 : 240;
+  
+  for(let i = 0; i < Math.min(enhanceable.length, isMobile ? 8 : 9); i++){
+    const iy = listY + i * itemH;
+    if(mx >= listX && mx <= listX + listWidth && my >= iy && my <= iy + itemH - 4){
       G.anvilSelected = enhanceable[i];
       return;
     }
   }
 
   if(G.anvilSelected){
-    const selX = px + 270 * scale;
-    const selY = py + 55 * scale;
-    const selW = (pw - 280) * scale;
-    const bx = selX + 30 * scale;
-    const by = selY + 272 * scale;
-    const bw = (selW - 60) * scale;
-    const bh = 44 * scale;
-    if(mx >= bx && mx <= bx + bw && my >= by && my <= by + bh){
+    const selX = px + (isMobile ? 280 : 270);
+    const selY = py + (isMobile ? 60 : 55);
+    const selWidth = pw - (isMobile ? 290 : 280);
+    const btnW = selWidth - (isMobile ? 40 : 60);
+    const btnH = isMobile ? 50 : 44;
+    const bx = selX + (selWidth - btnW)/2;
+    const by = selY + (isMobile ? 310 : 272);
+    if(mx >= bx && mx <= bx + btnW && my >= by && my <= by + btnH){
       doAnvilEnhance();
       return;
     }
   }
 }
 
-// doAnvilEnhance aynı kalabilir (değişiklik yok)
 function doAnvilEnhance(){
   if(!G.anvilSelected) return;
   const it = G.anvilSelected.item;
   const inv = G.player.inventory;
   const en = it.enhance;
   if(en >= 10){ G.anvilMsg = 'Already MAX enhance!'; G.anvilMsgTimer = 2; return; }
-  const cost = en >= 6 ? (en+1)*300 : (en+1)*100;
+  const cost = en >= 6 ? (en + 1) * 300 : (en + 1) * 100;
   if(inv.noah < cost){ G.anvilMsg = 'Not enough Noah!'; G.anvilMsgTimer = 2; return; }
   inv.noah -= cost;
 
@@ -2852,7 +2837,7 @@ function doAnvilEnhance(){
     G.anvilMsg = 'SUCCESS! +' + it.enhance;
     G.anvilMsgTimer = 2;
     G.particles.spawn('spark', G.player.x, G.player.y, '');
-    G.particles.spawn('spark', G.player.x+20, G.player.y-20, '');
+    G.particles.spawn('spark', G.player.x + 20, G.player.y - 20, '');
   } else if(en >= 6 && roll < successChance + burnChance){
     G.anvilMsg = 'DESTROYED! Item burned to ash!';
     G.anvilMsgTimer = 3;
@@ -2871,81 +2856,92 @@ function doAnvilEnhance(){
   }
 }
 
-// === MARKET PANEL (Mobil uyumlu) ===
+// === MARKET PANEL ===
 function drawMarketPanel(){
-  const maxW = isMobile ? Math.min(W * 0.95, 700) : 700;
-  const maxH = isMobile ? Math.min(H * 0.85, 520) : 520;
-  const pw = maxW;
-  const ph = maxH;
+  const pw = isMobile ? W - 10 : 700;
+  const ph = isMobile ? H - 20 : 520;
   const px = (W - pw) / 2;
   const py = (H - ph) / 2;
-  const scale = isMobile ? Math.min(pw / 700, ph / 520) : 1;
   
   ctx.fillStyle = 'rgba(5,2,10,0.97)';
-  drawRoundRect(ctx, px, py, pw, ph, 10 * scale, 'rgba(5,2,10,0.97)', '#2a8');
+  drawRoundRect(ctx, px, py, pw, ph, 10, 'rgba(5,2,10,0.97)', '#2a8');
   ctx.lineWidth = 2;
-  ctx.fillStyle = '#2a8'; 
-  ctx.font = `bold ${Math.floor(20 * scale)}px Arial`; 
+  
+  ctx.fillStyle = '#2a8';
+  ctx.font = `bold ${isMobile ? 24 : 20}px Arial`;
   ctx.textAlign = 'center';
-  ctx.fillText('🛒 MARKET', px + pw/2, py + 30 * scale);
-  ctx.fillStyle = '#aaa'; 
-  ctx.font = `${Math.floor(12 * scale)}px Arial`;
-  ctx.fillText('Sell your materials or buy new items', px + pw/2, py + 48 * scale);
+  ctx.fillText('🛒 MARKET', px + pw/2, py + (isMobile ? 36 : 30));
+  
+  ctx.fillStyle = '#aaa';
+  ctx.font = `${isMobile ? 14 : 12}px Arial`;
+  ctx.fillText('Sell your materials or buy new items', px + pw/2, py + (isMobile ? 58 : 48));
 
   const p = G.player;
   const inv = p.inventory;
   const materialItems = [];
   for(let i = 0; i < inv.slots.length; i++){
     const it = inv.slots[i];
-    if(it && it.type === 'material') materialItems.push({idx:i, item:it});
+    if(it && it.type === 'material') materialItems.push({idx: i, item: it});
   }
 
-  const sellX = px + 20 * scale;
-  const sellY = py + 65 * scale;
-  ctx.fillStyle = '#fd0'; 
-  ctx.font = `bold ${Math.floor(14 * scale)}px Arial`; 
+  const leftWidth = isMobile ? (pw - 40) / 2 : 300;
+  const sellX = px + (isMobile ? 10 : 20);
+  const sellY = py + (isMobile ? 75 : 65);
+  
+  ctx.fillStyle = '#fd0';
+  ctx.font = `bold ${isMobile ? 16 : 14}px Arial`;
   ctx.textAlign = 'left';
   ctx.fillText('SELL MATERIALS', sellX, sellY);
-  ctx.fillStyle = '#ccc'; 
-  ctx.font = `${Math.floor(11 * scale)}px Arial`;
-  ctx.fillText('Click on an item to sell it for Noah', sellX, sellY + 18 * scale);
   
-  let sellListY = sellY + 32 * scale;
+  ctx.fillStyle = '#ccc';
+  ctx.font = `${isMobile ? 12 : 11}px Arial`;
+  ctx.fillText('Click on an item to sell it for Noah', sellX, sellY + (isMobile ? 22 : 18));
+  
+  let sellListY = sellY + (isMobile ? 38 : 32);
+  const itemHeight = isMobile ? 44 : 38;
+  
   for(let i = 0; i < materialItems.length; i++){
     const mi = materialItems[i];
     const it = mi.item;
     const price = it.marketPrice || it.value || 10;
-    const y = sellListY + i * 38 * scale;
-    if(y + 30 * scale > py + ph - 20 * scale) break;
+    const y = sellListY + i * itemHeight;
+    if(y + 30 > py + ph - 20) break;
     
-    drawRoundRect(ctx, sellX, y, 300 * scale, 34 * scale, 6 * scale, 'rgba(30,20,10,0.8)', '#555');
+    drawRoundRect(ctx, sellX, y, leftWidth, itemHeight - 4, 6, 'rgba(30,20,10,0.8)', '#555');
     ctx.fillStyle = it.color;
-    ctx.beginPath(); 
-    ctx.arc(sellX + 18 * scale, y + 17 * scale, 12 * scale, 0, Math.PI*2); 
+    ctx.beginPath();
+    ctx.arc(sellX + (isMobile ? 20 : 18), y + itemHeight/2, isMobile ? 14 : 12, 0, Math.PI*2);
     ctx.fill();
-    ctx.fillStyle = '#fff'; 
-    ctx.font = `bold ${Math.floor(12 * scale)}px Arial`; 
+    
+    ctx.fillStyle = '#fff';
+    ctx.font = `bold ${isMobile ? 14 : 12}px Arial`;
     ctx.textAlign = 'center';
-    ctx.fillText(it.symbol, sellX + 18 * scale, y + 21 * scale);
-    ctx.fillStyle = '#eee'; 
-    ctx.font = `${Math.floor(12 * scale)}px Arial`; 
+    ctx.fillText(it.symbol, sellX + (isMobile ? 20 : 18), y + itemHeight/2 + 4);
+    
+    ctx.fillStyle = '#eee';
+    ctx.font = `${isMobile ? 14 : 12}px Arial`;
     ctx.textAlign = 'left';
-    ctx.fillText(it.name, sellX + 38 * scale, y + 14 * scale);
-    ctx.fillStyle = '#fd0'; 
-    ctx.font = `bold ${Math.floor(12 * scale)}px Arial`;
-    ctx.fillText(`${price} Noah`, sellX + 38 * scale, y + 28 * scale);
+    ctx.fillText(it.name, sellX + (isMobile ? 42 : 38), y + itemHeight/2 - 4);
+    
+    ctx.fillStyle = '#fd0';
+    ctx.font = `bold ${isMobile ? 14 : 12}px Arial`;
+    ctx.fillText(`${price} Noah`, sellX + (isMobile ? 42 : 38), y + itemHeight/2 + 12);
+    
+    const btnWidth = isMobile ? 70 : 60;
+    const btnHeight = isMobile ? 28 : 24;
     ctx.fillStyle = '#4f4';
-    drawRoundRect(ctx, sellX + 230 * scale, y + 5 * scale, 60 * scale, 24 * scale, 4 * scale, '#4a4', '#6f6');
-    ctx.fillStyle = '#000'; 
-    ctx.font = `bold ${Math.floor(12 * scale)}px Arial`; 
+    drawRoundRect(ctx, sellX + leftWidth - btnWidth - 5, y + (itemHeight - btnHeight)/2, btnWidth, btnHeight, 4, '#4a4', '#6f6');
+    ctx.fillStyle = '#000';
+    ctx.font = `bold ${isMobile ? 14 : 12}px Arial`;
     ctx.textAlign = 'center';
-    ctx.fillText('SELL', sellX + 260 * scale, y + 22 * scale);
+    ctx.fillText('SELL', sellX + leftWidth - btnWidth/2 - 5, y + itemHeight/2 + 4);
   }
+  
   if(materialItems.length === 0){
-    ctx.fillStyle = '#555'; 
-    ctx.font = `${Math.floor(12 * scale)}px Arial`; 
+    ctx.fillStyle = '#555';
+    ctx.font = `${isMobile ? 14 : 12}px Arial`;
     ctx.textAlign = 'center';
-    ctx.fillText('No materials in inventory', sellX + 150 * scale, sellY + 60 * scale);
+    ctx.fillText('No materials in inventory', sellX + leftWidth/2, sellY + 60);
   }
 
   const shopItems = [
@@ -2962,98 +2958,108 @@ function drawMarketPanel(){
     { id: 'iron_plate', name: 'Iron Plate', price: 280 },
     { id: 'wing_boots', name: 'Wing Boots', price: 1000 },
   ];
-  const buyX = px + pw - 330 * scale;
-  const buyY = py + 65 * scale;
-  ctx.fillStyle = '#fd0'; 
-  ctx.font = `bold ${Math.floor(14 * scale)}px Arial`; 
+  
+  const buyX = px + (isMobile ? leftWidth + 20 : pw - 330);
+  const buyY = py + (isMobile ? 75 : 65);
+  
+  ctx.fillStyle = '#fd0';
+  ctx.font = `bold ${isMobile ? 16 : 14}px Arial`;
   ctx.textAlign = 'left';
   ctx.fillText('BUY ITEMS', buyX, buyY);
-  ctx.fillStyle = '#ccc'; 
-  ctx.font = `${Math.floor(11 * scale)}px Arial`;
-  ctx.fillText('Click to purchase (adds to inventory)', buyX, buyY + 18 * scale);
   
-  let buyListY = buyY + 32 * scale;
+  ctx.fillStyle = '#ccc';
+  ctx.font = `${isMobile ? 12 : 11}px Arial`;
+  ctx.fillText('Click to purchase (adds to inventory)', buyX, buyY + (isMobile ? 22 : 18));
+  
+  let buyListY = buyY + (isMobile ? 38 : 32);
+  const rightWidth = isMobile ? leftWidth : 300;
+  
   for(let i = 0; i < shopItems.length; i++){
     const si = shopItems[i];
     const def = ITEM_DEFS[si.id];
     if(!def) continue;
-    const y = buyListY + i * 38 * scale;
-    if(y + 30 * scale > py + ph - 20 * scale) break;
+    const y = buyListY + i * itemHeight;
+    if(y + 30 > py + ph - 20) break;
     
-    drawRoundRect(ctx, buyX, y, 300 * scale, 34 * scale, 6 * scale, 'rgba(30,20,10,0.8)', '#555');
+    drawRoundRect(ctx, buyX, y, rightWidth, itemHeight - 4, 6, 'rgba(30,20,10,0.8)', '#555');
     ctx.fillStyle = def.color;
-    ctx.beginPath(); 
-    ctx.arc(buyX + 18 * scale, y + 17 * scale, 12 * scale, 0, Math.PI*2); 
+    ctx.beginPath();
+    ctx.arc(buyX + (isMobile ? 20 : 18), y + itemHeight/2, isMobile ? 14 : 12, 0, Math.PI*2);
     ctx.fill();
-    ctx.fillStyle = '#fff'; 
-    ctx.font = `bold ${Math.floor(12 * scale)}px Arial`; 
+    
+    ctx.fillStyle = '#fff';
+    ctx.font = `bold ${isMobile ? 14 : 12}px Arial`;
     ctx.textAlign = 'center';
-    ctx.fillText(def.symbol, buyX + 18 * scale, y + 21 * scale);
-    ctx.fillStyle = '#eee'; 
-    ctx.font = `${Math.floor(12 * scale)}px Arial`; 
+    ctx.fillText(def.symbol, buyX + (isMobile ? 20 : 18), y + itemHeight/2 + 4);
+    
+    ctx.fillStyle = '#eee';
+    ctx.font = `${isMobile ? 14 : 12}px Arial`;
     ctx.textAlign = 'left';
-    ctx.fillText(si.name, buyX + 38 * scale, y + 14 * scale);
-    ctx.fillStyle = '#fd0'; 
-    ctx.font = `bold ${Math.floor(12 * scale)}px Arial`;
-    ctx.fillText(`${si.price} Noah`, buyX + 38 * scale, y + 28 * scale);
+    ctx.fillText(si.name, buyX + (isMobile ? 42 : 38), y + itemHeight/2 - 4);
+    
+    ctx.fillStyle = '#fd0';
+    ctx.font = `bold ${isMobile ? 14 : 12}px Arial`;
+    ctx.fillText(`${si.price} Noah`, buyX + (isMobile ? 42 : 38), y + itemHeight/2 + 12);
+    
+    const btnWidth = isMobile ? 70 : 60;
+    const btnHeight = isMobile ? 28 : 24;
     ctx.fillStyle = '#4f4';
-    drawRoundRect(ctx, buyX + 230 * scale, y + 5 * scale, 60 * scale, 24 * scale, 4 * scale, '#48f', '#8af');
-    ctx.fillStyle = '#fff'; 
-    ctx.font = `bold ${Math.floor(12 * scale)}px Arial`; 
+    drawRoundRect(ctx, buyX + rightWidth - btnWidth - 5, y + (itemHeight - btnHeight)/2, btnWidth, btnHeight, 4, '#48f', '#8af');
+    ctx.fillStyle = '#fff';
+    ctx.font = `bold ${isMobile ? 14 : 12}px Arial`;
     ctx.textAlign = 'center';
-    ctx.fillText('BUY', buyX + 260 * scale, y + 22 * scale);
+    ctx.fillText('BUY', buyX + rightWidth - btnWidth/2 - 5, y + itemHeight/2 + 4);
   }
 
   ctx.fillStyle = 'rgba(0,0,0,0.5)';
-  drawRoundRect(ctx, px + pw/2 - 120 * scale, py + ph - 45 * scale, 240 * scale, 34 * scale, 8 * scale, 'rgba(0,0,0,0.6)', '#fd0');
-  ctx.fillStyle = '#fd0'; 
-  ctx.font = `bold ${Math.floor(16 * scale)}px Arial`; 
+  drawRoundRect(ctx, px + pw/2 - (isMobile ? 140 : 120), py + ph - (isMobile ? 55 : 45), isMobile ? 280 : 240, isMobile ? 42 : 34, 8, 'rgba(0,0,0,0.6)', '#fd0');
+  ctx.fillStyle = '#fd0';
+  ctx.font = `bold ${isMobile ? 18 : 16}px Arial`;
   ctx.textAlign = 'center';
-  ctx.fillText(`💰 ${inv.noah} Noah`, px + pw/2, py + ph - 22 * scale);
+  ctx.fillText(`💰 ${inv.noah} Noah`, px + pw/2, py + ph - (isMobile ? 30 : 22));
 
   if(G.marketMsgTimer > 0){
     G.marketMsgTimer -= 1/60;
-    ctx.fillStyle = '#4f4'; 
-    ctx.font = `bold ${Math.floor(14 * scale)}px Arial`; 
+    ctx.fillStyle = '#4f4';
+    ctx.font = `bold ${isMobile ? 16 : 14}px Arial`;
     ctx.textAlign = 'center';
-    ctx.fillText(G.marketMessage, px + pw/2, py + ph - 10 * scale);
+    ctx.fillText(G.marketMessage, px + pw/2, py + ph - 10);
   }
 }
 
-// handleMarketClick de ölçeklenmiş koordinatları kullanmalı
 function handleMarketClick(mx, my){
-  const maxW = isMobile ? Math.min(W * 0.95, 700) : 700;
-  const maxH = isMobile ? Math.min(H * 0.85, 520) : 520;
-  const pw = maxW;
-  const ph = maxH;
+  const pw = isMobile ? W - 10 : 700;
+  const ph = isMobile ? H - 20 : 520;
   const px = (W - pw) / 2;
   const py = (H - ph) / 2;
-  const scale = isMobile ? Math.min(pw / 700, ph / 520) : 1;
-  
   const p = G.player;
   const inv = p.inventory;
 
-  const sellX = px + 20 * scale;
-  const sellStartY = py + 97 * scale;
+  const leftWidth = isMobile ? (pw - 40) / 2 : 300;
+  const sellX = px + (isMobile ? 10 : 20);
+  const sellStartY = py + (isMobile ? 113 : 97);
+  const itemHeight = isMobile ? 44 : 38;
+  
   const materialItems = [];
   for(let i = 0; i < inv.slots.length; i++){
     const it = inv.slots[i];
-    if(it && it.type === 'material') materialItems.push({idx:i, item:it});
+    if(it && it.type === 'material') materialItems.push({idx: i, item: it});
   }
+  
   for(let i = 0; i < materialItems.length; i++){
     const mi = materialItems[i];
-    const y = sellStartY + i * 38 * scale;
-    const btnX = sellX + 230 * scale;
-    const btnY = y + 5 * scale;
-    const btnW = 60 * scale;
-    const btnH = 24 * scale;
-    if(mx >= btnX && mx <= btnX + btnW && my >= btnY && my <= btnY + btnH){
+    const y = sellStartY + i * itemHeight;
+    const btnWidth = isMobile ? 70 : 60;
+    const btnHeight = isMobile ? 28 : 24;
+    const btnX = sellX + leftWidth - btnWidth - 5;
+    const btnY = y + (itemHeight - btnHeight)/2;
+    if(mx >= btnX && mx <= btnX + btnWidth && my >= btnY && my <= btnY + btnHeight){
       const price = mi.item.marketPrice || mi.item.value || 10;
       inv.noah += price;
       inv.slots[mi.idx] = null;
       G.marketMessage = `Sold ${mi.item.name} for ${price} Noah!`;
       G.marketMsgTimer = 2;
-      G.particles.spawn('noah', p.x, p.y-20, `+${price}`);
+      G.particles.spawn('noah', p.x, p.y - 20, `+${price}`);
       return;
     }
   }
@@ -3072,23 +3078,26 @@ function handleMarketClick(mx, my){
     { id: 'iron_plate', price: 280 },
     { id: 'wing_boots', price: 1000 },
   ];
-  const buyX = px + pw - 330 * scale;
-  const buyStartY = py + 97 * scale;
+  
+  const buyX = px + (isMobile ? leftWidth + 20 : pw - 330);
+  const buyStartY = py + (isMobile ? 113 : 97);
+  const rightWidth = isMobile ? leftWidth : 300;
+  
   for(let i = 0; i < shopItems.length; i++){
     const si = shopItems[i];
-    const y = buyStartY + i * 38 * scale;
-    const btnX = buyX + 230 * scale;
-    const btnY = y + 5 * scale;
-    const btnW = 60 * scale;
-    const btnH = 24 * scale;
-    if(mx >= btnX && mx <= btnX + btnW && my >= btnY && my <= btnY + btnH){
+    const y = buyStartY + i * itemHeight;
+    const btnWidth = isMobile ? 70 : 60;
+    const btnHeight = isMobile ? 28 : 24;
+    const btnX = buyX + rightWidth - btnWidth - 5;
+    const btnY = y + (itemHeight - btnHeight)/2;
+    if(mx >= btnX && mx <= btnX + btnWidth && my >= btnY && my <= btnY + btnHeight){
       if(inv.noah >= si.price){
         const newItem = new Item(si.id);
         if(inv.addItem(newItem)){
           inv.noah -= si.price;
           G.marketMessage = `Bought ${newItem.name}!`;
           G.marketMsgTimer = 2;
-          G.particles.spawn('heal', p.x, p.y-20, `-${si.price} Noah`);
+          G.particles.spawn('heal', p.x, p.y - 20, `-${si.price} Noah`);
         } else {
           G.marketMessage = 'Inventory full!';
           G.marketMsgTimer = 2;
@@ -3104,161 +3113,187 @@ function handleMarketClick(mx, my){
 
 // === PANEL: DEATH SCREEN ===
 function drawDeathScreen(){
-  ctx.fillStyle='rgba(80,0,0,0.85)';
-  ctx.fillRect(0,0,W,H);
-  const grad=ctx.createRadialGradient(W/2,H/2,100,W/2,H/2,W/2);
-  grad.addColorStop(0,'rgba(0,0,0,0)');
-  grad.addColorStop(1,'rgba(120,0,0,0.7)');
-  ctx.fillStyle=grad;
-  ctx.fillRect(0,0,W,H);
+  ctx.fillStyle = 'rgba(80,0,0,0.85)';
+  ctx.fillRect(0, 0, W, H);
+  const grad = ctx.createRadialGradient(W/2, H/2, 100, W/2, H/2, W/2);
+  grad.addColorStop(0, 'rgba(0,0,0,0)');
+  grad.addColorStop(1, 'rgba(120,0,0,0.7)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, H);
 
-  ctx.fillStyle='#f00';
-  ctx.font='bold 72px Arial';
-  ctx.textAlign='center';
-  ctx.shadowColor='#f00'; ctx.shadowBlur=30;
-  ctx.fillText('YOU DIED',W/2,H/2-60);
-  ctx.shadowBlur=0;
+  ctx.fillStyle = '#f00';
+  ctx.font = `bold ${isMobile ? 64 : 72}px Arial`;
+  ctx.textAlign = 'center';
+  ctx.shadowColor = '#f00';
+  ctx.shadowBlur = 30;
+  ctx.fillText('YOU DIED', W/2, H/2 - (isMobile ? 50 : 60));
+  ctx.shadowBlur = 0;
 
-  ctx.fillStyle='#ddd'; ctx.font='18px Arial';
-  ctx.fillText('Your journey ends here... for now.',W/2,H/2-10);
+  ctx.fillStyle = '#ddd';
+  ctx.font = `${isMobile ? 20 : 18}px Arial`;
+  ctx.fillText('Your journey ends here... for now.', W/2, H/2 - (isMobile ? 8 : 10));
 
-  ctx.fillStyle='#484';
-  drawRoundRect(ctx,W/2-130,H/2+20,120,44,8,'#484','#6a6');
-  ctx.fillStyle='#fff'; ctx.font='bold 16px Arial';
-  ctx.fillText('Respawn',W/2-70,H/2+47);
+  const btnW = isMobile ? 140 : 120;
+  const btnH = isMobile ? 52 : 44;
+  ctx.fillStyle = '#484';
+  drawRoundRect(ctx, W/2 - btnW - (isMobile ? 10 : 15), H/2 + (isMobile ? 30 : 20), btnW, btnH, 8, '#484', '#6a6');
+  ctx.fillStyle = '#fff';
+  ctx.font = `bold ${isMobile ? 18 : 16}px Arial`;
+  ctx.fillText('Respawn', W/2 - btnW/2 - (isMobile ? 10 : 15), H/2 + (isMobile ? 62 : 47));
 
-  ctx.fillStyle='#448';
-  drawRoundRect(ctx,W/2+10,H/2+20,120,44,8,'#448','#66a');
-  ctx.fillStyle='#fff'; ctx.font='bold 16px Arial';
-  ctx.fillText('Load Save',W/2+70,H/2+47);
+  ctx.fillStyle = '#448';
+  drawRoundRect(ctx, W/2 + (isMobile ? 10 : 15), H/2 + (isMobile ? 30 : 20), btnW, btnH, 8, '#448', '#66a');
+  ctx.fillStyle = '#fff';
+  ctx.font = `bold ${isMobile ? 18 : 16}px Arial`;
+  ctx.fillText('Load Save', W/2 + btnW/2 + (isMobile ? 10 : 15), H/2 + (isMobile ? 62 : 47));
 
-  ctx.fillStyle='#888'; ctx.font='12px Arial';
-  ctx.fillText('Respawn at start with 50% HP',W/2,H/2+80);
+  ctx.fillStyle = '#888';
+  ctx.font = `${isMobile ? 14 : 12}px Arial`;
+  ctx.fillText('Respawn at start with 50% HP', W/2, H/2 + (isMobile ? 95 : 80));
 }
 
 // === MENU SCREEN ===
 function updateMenuParticles(dt){
-  G.menuTimer+=dt;
-  if(G.menuParticles.length<60){
+  G.menuTimer += dt;
+  if(G.menuParticles.length < 60){
     G.menuParticles.push({
-      x:rnd(0,W), y:H+10,
-      vx:rnd(-20,20), vy:rnd(-50,-150),
-      color:`hsl(${rnd(30,60)},100%,${rnd(50,80)}%)`,
-      life:rnd(3,7), maxLife:rnd(3,7), r:rnd(2,5)
+      x: rnd(0, W), y: H + 10,
+      vx: rnd(-20, 20), vy: rnd(-50, -150),
+      color: `hsl(${rnd(30, 60)},100%,${rnd(50, 80)}%)`,
+      life: rnd(3, 7), maxLife: rnd(3, 7), r: rnd(2, 5)
     });
   }
-  for(let i=G.menuParticles.length-1;i>=0;i--){
-    const p=G.menuParticles[i];
-    p.x+=p.vx*dt; p.y+=p.vy*dt;
-    p.life-=dt;
-    if(p.life<=0||p.y<-20) G.menuParticles.splice(i,1);
+  for(let i = G.menuParticles.length - 1; i >= 0; i--){
+    const p = G.menuParticles[i];
+    p.x += p.vx * dt;
+    p.y += p.vy * dt;
+    p.life -= dt;
+    if(p.life <= 0 || p.y < -20) G.menuParticles.splice(i, 1);
   }
 }
 
 function drawMenuScreen(){
-  const bg=ctx.createLinearGradient(0,0,W,H);
-  bg.addColorStop(0,'#040112');
-  bg.addColorStop(0.4,'#0a0520');
-  bg.addColorStop(1,'#180a35');
-  ctx.fillStyle=bg;
-  ctx.fillRect(0,0,W,H);
+  const bg = ctx.createLinearGradient(0, 0, W, H);
+  bg.addColorStop(0, '#040112');
+  bg.addColorStop(0.4, '#0a0520');
+  bg.addColorStop(1, '#180a35');
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, W, H);
 
-  for(let i=0;i<120;i++){
-    const sx=(i*137.5+50)%W;
-    const sy=(i*97.3+30)%H;
-    const pulse=Math.sin(G.menuTimer*1.5+i*0.7)*0.5+0.5;
-    ctx.globalAlpha=pulse*0.7;
-    const sz = i%5===0?2:1;
-    ctx.fillStyle='#fff';
-    ctx.fillRect(sx,sy,sz,sz);
+  for(let i = 0; i < 120; i++){
+    const sx = (i * 137.5 + 50) % W;
+    const sy = (i * 97.3 + 30) % H;
+    const pulse = Math.sin(G.menuTimer * 1.5 + i * 0.7) * 0.5 + 0.5;
+    ctx.globalAlpha = pulse * 0.7;
+    const sz = i % 5 === 0 ? 2 : 1;
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(sx, sy, sz, sz);
   }
-  ctx.globalAlpha=1;
+  ctx.globalAlpha = 1;
 
   for(const p of G.menuParticles){
-    ctx.globalAlpha=Math.min(1,p.life/p.maxLife*2);
-    ctx.fillStyle=p.color;
-    ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2); ctx.fill();
+    ctx.globalAlpha = Math.min(1, p.life / p.maxLife * 2);
+    ctx.fillStyle = p.color;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+    ctx.fill();
   }
-  ctx.globalAlpha=1;
+  ctx.globalAlpha = 1;
 
   const t = G.menuTimer;
   const titleScale = isMobile ? 0.75 : 1;
 
   ctx.save();
-  ctx.strokeStyle='rgba(200,150,0,0.4)'; ctx.lineWidth=1;
-  ctx.beginPath(); ctx.moveTo(W/2-280*titleScale,H/2-130*titleScale); ctx.lineTo(W/2+280*titleScale,H/2-130*titleScale); ctx.stroke();
+  ctx.strokeStyle = 'rgba(200,150,0,0.4)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(W/2 - 280 * titleScale, H/2 - 130 * titleScale);
+  ctx.lineTo(W/2 + 280 * titleScale, H/2 - 130 * titleScale);
+  ctx.stroke();
 
-  ctx.shadowColor='#f80';
-  ctx.shadowBlur=28+Math.sin(t*2)*8;
-  ctx.fillStyle='#fd0';
-  ctx.font=`bold ${Math.floor((44+Math.sin(t)*2)*titleScale)}px Arial`;
-  ctx.textAlign='center';
-  ctx.fillText('⚔ KNIGHT ONLINE RPG ⚔',W/2,H/2 - 90*titleScale);
-  ctx.shadowBlur=0;
+  ctx.shadowColor = '#f80';
+  ctx.shadowBlur = 28 + Math.sin(t * 2) * 8;
+  ctx.fillStyle = '#fd0';
+  ctx.font = `bold ${Math.floor((44 + Math.sin(t) * 2) * titleScale)}px Arial`;
+  ctx.textAlign = 'center';
+  ctx.fillText('⚔ KNIGHT ONLINE RPG ⚔', W/2, H/2 - 90 * titleScale);
+  ctx.shadowBlur = 0;
 
-  ctx.fillStyle='rgba(255,200,80,0.55)';
-  ctx.font=`${Math.floor(16*titleScale)}px Arial`;
-  ctx.fillText('Sonsuz Bir Macera Sizi Bekliyor',W/2,H/2 - 60*titleScale);
+  ctx.fillStyle = 'rgba(255,200,80,0.55)';
+  ctx.font = `${Math.floor(16 * titleScale)}px Arial`;
+  ctx.fillText('Sonsuz Bir Macera Sizi Bekliyor', W/2, H/2 - 60 * titleScale);
 
-  ctx.strokeStyle='rgba(200,150,0,0.4)'; ctx.lineWidth=1;
-  ctx.beginPath(); ctx.moveTo(W/2-280*titleScale,H/2-48*titleScale); ctx.lineTo(W/2+280*titleScale,H/2-48*titleScale); ctx.stroke();
+  ctx.strokeStyle = 'rgba(200,150,0,0.4)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(W/2 - 280 * titleScale, H/2 - 48 * titleScale);
+  ctx.lineTo(W/2 + 280 * titleScale, H/2 - 48 * titleScale);
+  ctx.stroke();
   ctx.restore();
 
-  const btnW = isMobile ? Math.min(240, W*0.55) : 240;
-  const btnH = isMobile ? 44 : 50;
-  const btnGap = isMobile ? 56 : 64;
-  const btns=[
-    { label:'Yeni Oyun',  desc:'',                      color:'#2a4a2a', hover:'#3a6a3a', border:'#4f4' },
-    { label:'Devam Et',   desc:hasSave()?'':'Kayıt yok', color:hasSave()?'#2a2a5a':'#222', hover:'#3a3a7a', border:hasSave()?'#44f':'#444' },
-    { label:'Kontroller', desc:'',                      color:'#3a2a1a', hover:'#5a4a2a', border:'#f80' },
+  const btnW = isMobile ? Math.min(260, W * 0.6) : 240;
+  const btnH = isMobile ? 52 : 50;
+  const btnGap = isMobile ? 68 : 64;
+  const btns = [
+    { label: 'Yeni Oyun',  desc: '',                      color: '#2a4a2a', hover: '#3a6a3a', border: '#4f4' },
+    { label: 'Devam Et',   desc: hasSave() ? '' : 'Kayıt yok', color: hasSave() ? '#2a2a5a' : '#222', hover: '#3a3a7a', border: hasSave() ? '#44f' : '#444' },
+    { label: 'Kontroller', desc: '',                      color: '#3a2a1a', hover: '#5a4a2a', border: '#f80' },
   ];
 
-  btns.forEach((btn,i)=>{
+  btns.forEach((btn, i) => {
     const by = H/2 - 20 + i * btnGap;
     const bx = W/2 - btnW/2;
-    const hover = G.mouseX>=bx && G.mouseX<=bx+btnW && G.mouseY>=by && G.mouseY<=by+btnH;
+    const hover = G.mouseX >= bx && G.mouseX <= bx + btnW && G.mouseY >= by && G.mouseY <= by + btnH;
     ctx.save();
-    if(hover){ ctx.shadowColor=btn.border; ctx.shadowBlur=12; }
-    drawRoundRect(ctx,bx,by,btnW,btnH,10,hover?btn.hover:btn.color,btn.border);
+    if(hover){ ctx.shadowColor = btn.border; ctx.shadowBlur = 12; }
+    drawRoundRect(ctx, bx, by, btnW, btnH, 10, hover ? btn.hover : btn.color, btn.border);
     ctx.restore();
-    ctx.fillStyle='#fff'; ctx.font=`bold ${isMobile?16:18}px Arial`; ctx.textAlign='center';
-    ctx.fillText(btn.label,W/2,by+btnH/2+6);
+    ctx.fillStyle = '#fff';
+    ctx.font = `bold ${isMobile ? 18 : 18}px Arial`;
+    ctx.textAlign = 'center';
+    ctx.fillText(btn.label, W/2, by + btnH/2 + 6);
     if(btn.desc){
-      ctx.fillStyle='rgba(255,255,255,0.35)'; ctx.font=`${isMobile?9:10}px Arial`;
-      ctx.fillText(btn.desc,W/2,by+btnH-4);
+      ctx.fillStyle = 'rgba(255,255,255,0.35)';
+      ctx.font = `${isMobile ? 11 : 10}px Arial`;
+      ctx.fillText(btn.desc, W/2, by + btnH - 4);
     }
   });
 
-  ctx.fillStyle='rgba(150,150,180,0.5)'; ctx.textAlign='center';
+  ctx.fillStyle = 'rgba(150,150,180,0.5)';
+  ctx.textAlign = 'center';
   if(isMobile){
-    ctx.font='11px Arial';
-    ctx.fillText('Sol → Joystick  |  Sağ → ATK + Skill butonları',W/2,H-18);
+    ctx.font = '13px Arial';
+    ctx.fillText('Sol → Joystick  |  Sağ → ATK + Skill butonları', W/2, H - 18);
   } else {
-    ctx.font='12px Arial';
-    ctx.fillText('WASD/Tıkla → Hareket  |  1-7 → Yetenekler  |  I K J U M → Paneller',W/2,H-28);
-    ctx.fillText('F5 Hızlı Kaydet  |  F9 Hızlı Yükle  |  Esc → Menü',W/2,H-12);
+    ctx.font = '12px Arial';
+    ctx.fillText('WASD/Tıkla → Hareket  |  1-7 → Yetenekler  |  I K J U M → Paneller', W/2, H - 28);
+    ctx.fillText('F5 Hızlı Kaydet  |  F9 Hızlı Yükle  |  Esc → Menü', W/2, H - 12);
   }
 }
 
 // === GROUND ITEMS DRAWING ===
 function drawGroundItems(cam){
-  for(let i=G.groundItems.length-1;i>=0;i--){
-    const gi=G.groundItems[i];
-    gi.glowTimer+=1/60;
-    const s=worldToScreen(gi.x,gi.y,cam);
-    if(s.x<-30||s.x>W+30||s.y<-30||s.y>H+30) continue;
-    const glow=Math.sin(gi.glowTimer*4)*0.3+0.7;
+  for(let i = G.groundItems.length - 1; i >= 0; i--){
+    const gi = G.groundItems[i];
+    gi.glowTimer += 1/60;
+    const s = worldToScreen(gi.x, gi.y, cam);
+    if(s.x < -30 || s.x > W + 30 || s.y < -30 || s.y > H + 30) continue;
+    const glow = Math.sin(gi.glowTimer * 4) * 0.3 + 0.7;
     ctx.save();
-    ctx.shadowColor=gi.item.color||'#fff';
-    ctx.shadowBlur=12*glow;
-    ctx.fillStyle=gi.item.color||'#aaa';
-    ctx.beginPath(); ctx.arc(s.x,s.y,10,0,Math.PI*2); ctx.fill();
+    ctx.shadowColor = gi.item.color || '#fff';
+    ctx.shadowBlur = 12 * glow;
+    ctx.fillStyle = gi.item.color || '#aaa';
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, isMobile ? 12 : 10, 0, Math.PI * 2);
+    ctx.fill();
     ctx.restore();
-    ctx.fillStyle='#fff'; ctx.font='bold 10px Arial'; ctx.textAlign='center';
-    ctx.fillText(gi.item.symbol||'?',s.x,s.y+4);
-    if(dist(G.player,gi)<30){
-      const picked=G.player.inventory.addItem(gi.item);
-      if(picked) G.groundItems.splice(i,1);
+    ctx.fillStyle = '#fff';
+    ctx.font = `bold ${isMobile ? 12 : 10}px Arial`;
+    ctx.textAlign = 'center';
+    ctx.fillText(gi.item.symbol || '?', s.x, s.y + 4);
+    if(dist(G.player, gi) < 30){
+      const picked = G.player.inventory.addItem(gi.item);
+      if(picked) G.groundItems.splice(i, 1);
     }
   }
 }
@@ -3313,7 +3348,7 @@ function getMobileBtns(){
     r: panR,
   }));
 
-  return { atk:{ x:atkX, y:atkY, r:atkR }, skills, panels, potion };
+  return { atk:{ x: atkX, y: atkY, r: atkR }, skills, panels, potion };
 }
 
 // === MOBILE UI BUTTONS ===
@@ -3329,26 +3364,39 @@ function drawMobileUI(){
     const active = G.state === pb.panel;
     ctx.globalAlpha = 0.85;
     ctx.fillStyle = active ? pb.color : 'rgba(20,15,5,0.85)';
-    ctx.beginPath(); ctx.arc(pb.x, pb.y, pb.r, 0, Math.PI*2); ctx.fill();
-    ctx.strokeStyle = pb.color; ctx.lineWidth = active?2.5:1.5; ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(pb.x, pb.y, pb.r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = pb.color;
+    ctx.lineWidth = active ? 2.5 : 1.5;
+    ctx.stroke();
     ctx.fillStyle = active ? '#000' : pb.color;
-    ctx.font = `bold 10px Arial`; ctx.textAlign='center';
-    ctx.fillText(pb.label, pb.x, pb.y+4);
+    ctx.font = `bold ${isMobile ? 11 : 10}px Arial`;
+    ctx.textAlign = 'center';
+    ctx.fillText(pb.label, pb.x, pb.y + 4);
   }
 
   const atk = btns.atk;
-  const atkPulse = Math.sin(Date.now()*0.006)*0.12 + 0.88;
+  const atkPulse = Math.sin(Date.now() * 0.006) * 0.12 + 0.88;
   ctx.globalAlpha = 0.9 * atkPulse;
-  ctx.shadowColor='#f22'; ctx.shadowBlur=18;
-  ctx.fillStyle='rgba(160,20,20,0.85)';
-  ctx.beginPath(); ctx.arc(atk.x, atk.y, atk.r, 0, Math.PI*2); ctx.fill();
-  ctx.shadowBlur=0;
-  ctx.strokeStyle='#ff4444'; ctx.lineWidth=2.5; ctx.stroke();
-  ctx.fillStyle='#fff'; ctx.font='bold 16px Arial'; ctx.textAlign='center';
-  ctx.fillText('⚔', atk.x, atk.y-4);
-  ctx.font='bold 11px Arial';
-  ctx.fillText('ATK', atk.x, atk.y+12);
-  ctx.globalAlpha=1; ctx.shadowBlur=0;
+  ctx.shadowColor = '#f22';
+  ctx.shadowBlur = 18;
+  ctx.fillStyle = 'rgba(160,20,20,0.85)';
+  ctx.beginPath();
+  ctx.arc(atk.x, atk.y, atk.r, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.strokeStyle = '#ff4444';
+  ctx.lineWidth = 2.5;
+  ctx.stroke();
+  ctx.fillStyle = '#fff';
+  ctx.font = `bold ${isMobile ? 18 : 16}px Arial`;
+  ctx.textAlign = 'center';
+  ctx.fillText('⚔', atk.x, atk.y - 4);
+  ctx.font = `bold ${isMobile ? 12 : 11}px Arial`;
+  ctx.fillText('ATK', atk.x, atk.y + 12);
+  ctx.globalAlpha = 1;
+  ctx.shadowBlur = 0;
 
   for(const sb of btns.skills){
     const def = SKILL_DEFS[sb.id];
@@ -3364,61 +3412,75 @@ function drawMobileUI(){
     } else {
       ctx.fillStyle = 'rgba(15,15,15,0.75)';
     }
-    ctx.beginPath(); ctx.arc(sb.x, sb.y, sb.r, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath();
+    ctx.arc(sb.x, sb.y, sb.r, 0, Math.PI * 2);
+    ctx.fill();
 
-    ctx.strokeStyle = unlocked ? (cd>0?'#555':def.color) : '#333';
+    ctx.strokeStyle = unlocked ? (cd > 0 ? '#555' : def.color) : '#333';
     ctx.lineWidth = unlocked ? 2 : 1;
     ctx.stroke();
 
     if(unlocked){
       ctx.fillStyle = def.color;
-      ctx.globalAlpha = cd>0 ? 0.25 : 0.55;
-      ctx.beginPath(); ctx.arc(sb.x, sb.y, sb.r, Math.PI, 0); ctx.closePath(); ctx.fill();
+      ctx.globalAlpha = cd > 0 ? 0.25 : 0.55;
+      ctx.beginPath();
+      ctx.arc(sb.x, sb.y, sb.r, Math.PI, 0);
+      ctx.closePath();
+      ctx.fill();
       ctx.globalAlpha = 0.92;
-      ctx.fillStyle = cd>0?'#888':'#fff';
-      ctx.font = `bold 11px Arial`; ctx.textAlign='center';
-      ctx.fillText(def.name.slice(0,3), sb.x, sb.y-2);
-      ctx.fillStyle='#fd0'; ctx.font=`9px Arial`;
-      ctx.fillText('Lv'+lv, sb.x, sb.y+11);
+      ctx.fillStyle = cd > 0 ? '#888' : '#fff';
+      ctx.font = `bold ${isMobile ? 12 : 11}px Arial`;
+      ctx.textAlign = 'center';
+      ctx.fillText(def.name.slice(0, 3), sb.x, sb.y - 2);
+      ctx.fillStyle = '#fd0';
+      ctx.font = `${isMobile ? 10 : 9}px Arial`;
+      ctx.fillText('Lv' + lv, sb.x, sb.y + 11);
       if(cd > 0){
         const cdRatio = Math.min(cd / def.cd, 1);
-        ctx.fillStyle='rgba(0,0,0,0.65)';
+        ctx.fillStyle = 'rgba(0,0,0,0.65)';
         ctx.beginPath();
         ctx.moveTo(sb.x, sb.y);
-        ctx.arc(sb.x, sb.y, sb.r, -Math.PI/2, -Math.PI/2 + Math.PI*2*cdRatio);
-        ctx.closePath(); ctx.fill();
-        ctx.fillStyle='#fff'; ctx.font=`bold 12px Arial`;
-        ctx.fillText(Math.ceil(cd), sb.x, sb.y+5);
+        ctx.arc(sb.x, sb.y, sb.r, -Math.PI/2, -Math.PI/2 + Math.PI * 2 * cdRatio);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = '#fff';
+        ctx.font = `bold ${isMobile ? 13 : 12}px Arial`;
+        ctx.fillText(Math.ceil(cd), sb.x, sb.y + 5);
       }
     } else {
-      ctx.fillStyle='#555'; ctx.font=`9px Arial`; ctx.textAlign='center';
-      ctx.fillText('Lv'+def.unlockLv, sb.x, sb.y-2);
-      ctx.fillStyle='#333'; ctx.font=`8px Arial`;
-      ctx.fillText(def.name.slice(0,4), sb.x, sb.y+10);
+      ctx.fillStyle = '#555';
+      ctx.font = `${isMobile ? 10 : 9}px Arial`;
+      ctx.textAlign = 'center';
+      ctx.fillText('Lv' + def.unlockLv, sb.x, sb.y - 2);
+      ctx.fillStyle = '#333';
+      ctx.font = `${isMobile ? 9 : 8}px Arial`;
+      ctx.fillText(def.name.slice(0, 4), sb.x, sb.y + 10);
     }
-    ctx.globalAlpha=1;
+    ctx.globalAlpha = 1;
   }
 
   const potBtn = btns.potion;
-  const potSlot = p.inventory.slots.findIndex(s=>s&&s.type==='potion'&&s.heal);
-  ctx.globalAlpha=0.85;
-  ctx.fillStyle = potSlot>=0 ? 'rgba(100,0,0,0.85)' : 'rgba(30,30,30,0.7)';
-  ctx.beginPath(); ctx.arc(potBtn.x, potBtn.y, potBtn.r, 0, Math.PI*2); ctx.fill();
-  ctx.strokeStyle = potSlot>=0?'#f44':'#444'; ctx.lineWidth=1.5; ctx.stroke();
-  ctx.fillStyle = potSlot>=0?'#fff':'#555'; ctx.font=`bold 10px Arial`; ctx.textAlign='center';
-  ctx.fillText('🧪', potBtn.x, potBtn.y+2);
-  ctx.font=`8px Arial`;
-  ctx.fillText('POT', potBtn.x, potBtn.y+12);
-  ctx.globalAlpha=1;
+  const potSlot = p.inventory.slots.findIndex(s => s && s.type === 'potion' && s.heal);
+  ctx.globalAlpha = 0.85;
+  ctx.fillStyle = potSlot >= 0 ? 'rgba(100,0,0,0.85)' : 'rgba(30,30,30,0.7)';
+  ctx.beginPath();
+  ctx.arc(potBtn.x, potBtn.y, potBtn.r, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = potSlot >= 0 ? '#f44' : '#444';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+  ctx.fillStyle = potSlot >= 0 ? '#fff' : '#555';
+  ctx.font = `bold ${isMobile ? 11 : 10}px Arial`;
+  ctx.textAlign = 'center';
+  ctx.fillText('🧪', potBtn.x, potBtn.y + 2);
+  ctx.font = `${isMobile ? 9 : 8}px Arial`;
+  ctx.fillText('POT', potBtn.x, potBtn.y + 12);
+  ctx.globalAlpha = 1;
 }
 
-// =================================================================
-// 🔁 DÜZELTİLEN KISIM: INPUT HANDLERS (Mobil menü tıklama sorunu)
-// =================================================================
-
-// Menü tıklama işlemini hem click hem touch için ortak fonksiyon
-function handleMenuInteraction(clientX, clientY) {
-  if (G.state !== 'menu') return false;
+// === INPUT HANDLERS (Menü tıklama düzeltmesi ile) ===
+function handleMenuInteraction(clientX, clientY){
+  if(G.state !== 'menu') return false;
 
   const rect = canvas.getBoundingClientRect();
   const scaleX = canvas.width / rect.width;
@@ -3427,19 +3489,19 @@ function handleMenuInteraction(clientX, clientY) {
   const canvasX = (clientX - rect.left) * scaleX;
   const canvasY = (clientY - rect.top) * scaleY;
 
-  const btnW = isMobile ? Math.min(240, W * 0.55) : 240;
-  const btnH = isMobile ? 44 : 50;
-  const btnGap = isMobile ? 56 : 64;
+  const btnW = isMobile ? Math.min(260, W * 0.6) : 240;
+  const btnH = isMobile ? 52 : 50;
+  const btnGap = isMobile ? 68 : 64;
   const labels = ['Yeni Oyun', 'Devam Et', 'Kontroller'];
 
-  for (let i = 0; i < labels.length; i++) {
-    const by = H / 2 - 20 + i * btnGap;
-    const bx = W / 2 - btnW / 2;
-    if (canvasX >= bx && canvasX <= bx + btnW && canvasY >= by && canvasY <= by + btnH) {
-      if (i === 0) {
+  for(let i = 0; i < labels.length; i++){
+    const by = H/2 - 20 + i * btnGap;
+    const bx = W/2 - btnW/2;
+    if(canvasX >= bx && canvasX <= bx + btnW && canvasY >= by && canvasY <= by + btnH){
+      if(i === 0){
         initGame(true);
         G.state = 'playing';
-      } else if (i === 1 && hasSave()) {
+      } else if(i === 1 && hasSave()){
         initGame(false);
         G.state = 'playing';
       }
@@ -3450,197 +3512,258 @@ function handleMenuInteraction(clientX, clientY) {
 }
 
 function setupInput(){
-  document.addEventListener('keydown',e=>{
-    G.keys[e.code]=true;
-    if(G.state==='playing'||G.state==='inventory'||G.state==='skills'||G.state==='quests'||G.state==='anvil'||G.state==='stat'||G.state==='market'){
-      if(G.state==='playing'){
-        const skillKeys=['Digit1','Digit2','Digit3','Digit4','Digit5','Digit6','Digit7'];
-        const si=skillKeys.indexOf(e.code);
-        if(si>=0 && si<SKILL_ORDER.length) G.skills.use(SKILL_ORDER[si],G.player,G.mobs);
+  document.addEventListener('keydown', e => {
+    G.keys[e.code] = true;
+    if(G.state === 'playing' || G.state === 'inventory' || G.state === 'skills' || G.state === 'quests' || G.state === 'anvil' || G.state === 'stat' || G.state === 'market'){
+      if(G.state === 'playing'){
+        const skillKeys = ['Digit1', 'Digit2', 'Digit3', 'Digit4', 'Digit5', 'Digit6', 'Digit7'];
+        const si = skillKeys.indexOf(e.code);
+        if(si >= 0 && si < SKILL_ORDER.length) G.skills.use(SKILL_ORDER[si], G.player, G.mobs);
       }
-      if(e.code==='KeyI'){ G.state=G.state==='inventory'?'playing':'inventory'; e.preventDefault(); }
-      if(e.code==='KeyK'){ G.state=G.state==='skills'?'playing':'skills'; e.preventDefault(); }
-      if(e.code==='KeyJ'){ G.state=G.state==='quests'?'playing':'quests'; e.preventDefault(); }
-      if(e.code==='KeyU'){ G.state=G.state==='anvil'?'playing':'anvil'; e.preventDefault(); }
-      if(e.code==='KeyM'){ G.state=G.state==='market'?'playing':'market'; e.preventDefault(); }
-      if(e.code==='KeyP'){
-        if(G.state==='stat'){ applyStatPanel(); G.state='playing'; }
-        else { G.statPanelStats=null; G.state='stat'; }
+      if(e.code === 'KeyI'){ G.state = G.state === 'inventory' ? 'playing' : 'inventory'; e.preventDefault(); }
+      if(e.code === 'KeyK'){ G.state = G.state === 'skills' ? 'playing' : 'skills'; e.preventDefault(); }
+      if(e.code === 'KeyJ'){ G.state = G.state === 'quests' ? 'playing' : 'quests'; e.preventDefault(); }
+      if(e.code === 'KeyU'){ G.state = G.state === 'anvil' ? 'playing' : 'anvil'; e.preventDefault(); }
+      if(e.code === 'KeyM'){ G.state = G.state === 'market' ? 'playing' : 'market'; e.preventDefault(); }
+      if(e.code === 'KeyP'){
+        if(G.state === 'stat'){ applyStatPanel(); G.state = 'playing'; }
+        else { G.statPanelStats = null; G.state = 'stat'; }
         e.preventDefault();
       }
-      if(e.code==='Escape'){
-        if(G.state!=='playing') G.state='playing';
-        else G.state='menu';
+      if(e.code === 'Escape'){
+        if(G.state !== 'playing') G.state = 'playing';
+        else G.state = 'menu';
         e.preventDefault();
       }
-      if(e.code==='F5'){ e.preventDefault(); saveGame(); G.particles.spawn('heal',G.player.x,G.player.y,'Saved!'); }
-      if(e.code==='F9'){ e.preventDefault(); loadGame(); G.particles.spawn('heal',G.player.x,G.player.y,'Loaded!'); }
+      if(e.code === 'F5'){ e.preventDefault(); saveGame(); G.particles.spawn('heal', G.player.x, G.player.y, 'Saved!'); }
+      if(e.code === 'F9'){ e.preventDefault(); loadGame(); G.particles.spawn('heal', G.player.x, G.player.y, 'Loaded!'); }
     }
   });
-  document.addEventListener('keyup',e=>{ G.keys[e.code]=false; });
+  document.addEventListener('keyup', e => { G.keys[e.code] = false; });
 
-  canvas.addEventListener('mousemove',e=>{
-    G.mouseX=e.clientX; G.mouseY=e.clientY;
-    if(G.state==='inventory'){
-      const p=G.player;
-      const pw=Math.min(640,W-20), ph=Math.min(460,H-20), px2=(W-pw)/2, py2=(H-ph)/2;
-      const slotSize=48, slotPad=4, gridX=px2+15, gridY=py2+55;
-      G.hoveredSlot=-1; G.hoveredEquip=null;
-      for(let i=0;i<42;i++){
-        const col=i%6, row=Math.floor(i/6);
-        const sx=gridX+col*(slotSize+slotPad);
-        const sy=gridY+row*(slotSize+slotPad);
-        if(G.mouseX>=sx&&G.mouseX<=sx+slotSize&&G.mouseY>=sy&&G.mouseY<=sy+slotSize) G.hoveredSlot=i;
+  canvas.addEventListener('mousemove', e => {
+    G.mouseX = e.clientX;
+    G.mouseY = e.clientY;
+    if(G.state === 'inventory'){
+      const p = G.player;
+      const pw = Math.min(isMobile ? W - 10 : 640, W - 20);
+      const ph = Math.min(isMobile ? H - 10 : 460, H - 20);
+      const px2 = (W - pw) / 2;
+      const py2 = (H - ph) / 2;
+      const slotSize = isMobile ? 56 : 48;
+      const slotPad = isMobile ? 5 : 4;
+      const gridX = px2 + (isMobile ? 12 : 15);
+      const gridY = py2 + (isMobile ? 60 : 55);
+      G.hoveredSlot = -1;
+      G.hoveredEquip = null;
+      for(let i = 0; i < 42; i++){
+        const col = i % 6;
+        const row = Math.floor(i / 6);
+        const sx = gridX + col * (slotSize + slotPad);
+        const sy = gridY + row * (slotSize + slotPad);
+        if(G.mouseX >= sx && G.mouseX <= sx + slotSize && G.mouseY >= sy && G.mouseY <= sy + slotSize) G.hoveredSlot = i;
       }
-      const eqX=px2+340, equipSlotDefs=[
-        {key:'weapon',y:py2+81},{key:'head',y:py2+137},{key:'chest',y:py2+193},{key:'legs',y:py2+249},{key:'boots',y:py2+305}
+      const eqX = px2 + (isMobile ? 370 : 340);
+      const equipSlotHeight = isMobile ? 56 : 50;
+      const equipSlotDefs = [
+        {key:'weapon', y: py2 + 81},
+        {key:'head',   y: py2 + 81 + equipSlotHeight + 6},
+        {key:'chest',  y: py2 + 81 + (equipSlotHeight + 6) * 2},
+        {key:'legs',   y: py2 + 81 + (equipSlotHeight + 6) * 3},
+        {key:'boots',  y: py2 + 81 + (equipSlotHeight + 6) * 4}
       ];
       for(const es of equipSlotDefs){
-        if(G.mouseX>=eqX&&G.mouseX<=eqX+270&&G.mouseY>=es.y&&G.mouseY<=es.y+50) G.hoveredEquip=es.key;
+        if(G.mouseX >= eqX && G.mouseX <= eqX + (isMobile ? 290 : 270) && G.mouseY >= es.y && G.mouseY <= es.y + equipSlotHeight){
+          G.hoveredEquip = es.key;
+        }
       }
     }
   });
 
-  canvas.addEventListener('click',e=>{
-    const mx=e.clientX, my=e.clientY;
+  canvas.addEventListener('click', e => {
+    const mx = e.clientX;
+    const my = e.clientY;
     
-    // Menü durumunda özel işleyici
-    if(G.state==='menu'){
+    if(G.state === 'menu'){
       handleMenuInteraction(mx, my);
       e.preventDefault();
       return;
     }
     
-    if(G.state==='dead'){
-      if(mx>=W/2-130&&mx<=W/2-10&&my>=H/2+20&&my<=H/2+64){
-        G.player.x=500; G.player.y=500;
-        G.player.hp=Math.floor(G.player.maxHp*0.5);
-        G.player.mp=G.player.maxMp;
-        G.camera.x=500; G.camera.y=500;
-        G.state='playing';
+    if(G.state === 'dead'){
+      const btnW = isMobile ? 140 : 120;
+      const btnH = isMobile ? 52 : 44;
+      if(mx >= W/2 - btnW - (isMobile ? 10 : 15) && mx <= W/2 - (isMobile ? 10 : 15) && my >= H/2 + (isMobile ? 30 : 20) && my <= H/2 + (isMobile ? 30 : 20) + btnH){
+        G.player.x = 500; G.player.y = 500;
+        G.player.hp = Math.floor(G.player.maxHp * 0.5);
+        G.player.mp = G.player.maxMp;
+        G.camera.x = 500; G.camera.y = 500;
+        G.state = 'playing';
       }
-      if(mx>=W/2+10&&mx<=W/2+130&&my>=H/2+20&&my<=H/2+64){
+      if(mx >= W/2 + (isMobile ? 10 : 15) && mx <= W/2 + btnW + (isMobile ? 10 : 15) && my >= H/2 + (isMobile ? 30 : 20) && my <= H/2 + (isMobile ? 30 : 20) + btnH){
         loadGame();
-        G.player.hp=Math.floor(G.player.maxHp*0.5);
-        G.camera.x=G.player.x; G.camera.y=G.player.y;
-        G.state='playing';
+        G.player.hp = Math.floor(G.player.maxHp * 0.5);
+        G.camera.x = G.player.x;
+        G.camera.y = G.player.y;
+        G.state = 'playing';
       }
       return;
     }
-    if(G.state==='inventory'){
-      const p=G.player;
-      const pw=Math.min(640,W-20), ph=Math.min(460,H-20), px2=(W-pw)/2, py2=(H-ph)/2;
-      const slotSize=48, slotPad=4, gridX=px2+15, gridY=py2+55;
-      for(let i=0;i<42;i++){
-        const col=i%6, row=Math.floor(i/6);
-        const sx=gridX+col*(slotSize+slotPad);
-        const sy=gridY+row*(slotSize+slotPad);
-        if(mx>=sx&&mx<=sx+slotSize&&my>=sy&&my<=sy+slotSize){
-          const item=p.inventory.slots[i];
+    
+    if(G.state === 'inventory'){
+      const p = G.player;
+      const pw = Math.min(isMobile ? W - 10 : 640, W - 20);
+      const ph = Math.min(isMobile ? H - 10 : 460, H - 20);
+      const px2 = (W - pw) / 2;
+      const py2 = (H - ph) / 2;
+      const slotSize = isMobile ? 56 : 48;
+      const slotPad = isMobile ? 5 : 4;
+      const gridX = px2 + (isMobile ? 12 : 15);
+      const gridY = py2 + (isMobile ? 60 : 55);
+      for(let i = 0; i < 42; i++){
+        const col = i % 6;
+        const row = Math.floor(i / 6);
+        const sx = gridX + col * (slotSize + slotPad);
+        const sy = gridY + row * (slotSize + slotPad);
+        if(mx >= sx && mx <= sx + slotSize && my >= sy && my <= sy + slotSize){
+          const item = p.inventory.slots[i];
           if(item){
             if(e.shiftKey){
-              G.groundItems.push({x:p.x+rnd(-30,30),y:p.y+rnd(-30,30),item,glowTimer:0});
-              p.inventory.slots[i]=null;
+              G.groundItems.push({x: p.x + rnd(-30, 30), y: p.y + rnd(-30, 30), item, glowTimer: 0});
+              p.inventory.slots[i] = null;
             } else {
-              const equipTypes=['weapon','head','chest','legs','boots'];
-              if(equipTypes.includes(item.type)) p.inventory.equip(i,p);
-              else p.inventory.usePotion(i,p);
+              const equipTypes = ['weapon', 'head', 'chest', 'legs', 'boots'];
+              if(equipTypes.includes(item.type)) p.inventory.equip(i, p);
+              else p.inventory.usePotion(i, p);
             }
           }
           return;
         }
       }
-      const eqX=px2+340;
-      const equipSlotDefs=[
-        {key:'weapon',y:py2+81},{key:'head',y:py2+137},{key:'chest',y:py2+193},{key:'legs',y:py2+249},{key:'boots',y:py2+305}
+      const eqX = px2 + (isMobile ? 370 : 340);
+      const equipSlotHeight = isMobile ? 56 : 50;
+      const equipSlotDefs = [
+        {key:'weapon', y: py2 + 81},
+        {key:'head',   y: py2 + 81 + equipSlotHeight + 6},
+        {key:'chest',  y: py2 + 81 + (equipSlotHeight + 6) * 2},
+        {key:'legs',   y: py2 + 81 + (equipSlotHeight + 6) * 3},
+        {key:'boots',  y: py2 + 81 + (equipSlotHeight + 6) * 4}
       ];
       for(const es of equipSlotDefs){
-        if(mx>=eqX&&mx<=eqX+270&&my>=es.y&&my<=es.y+50){
-          p.inventory.unequip(es.key,p);
+        if(mx >= eqX && mx <= eqX + (isMobile ? 290 : 270) && my >= es.y && my <= es.y + equipSlotHeight){
+          p.inventory.unequip(es.key, p);
           return;
         }
       }
       const autoSellX = eqX;
       const autoSellY = py2 + 418;
-      const autoSellW = 270;
-      const autoSellH = 38;
+      const autoSellW = isMobile ? 290 : 270;
+      const autoSellH = isMobile ? 44 : 38;
       if(mx >= autoSellX && mx <= autoSellX + autoSellW && my >= autoSellY && my <= autoSellY + autoSellH){
         p.inventory.autoSellMaterials = !p.inventory.autoSellMaterials;
         return;
       }
       return;
     }
-    if(G.state==='skills'){
-      const pw=560, ph=500, px2=(W-pw)/2, py2=(H-ph)/2;
-      for(let i=0;i<SKILL_ORDER.length;i++){
-        const id=SKILL_ORDER[i];
-        const def=SKILL_DEFS[id];
-        const lv=G.skills.skills[id];
-        const sy=py2+65+i*58;
-        if(mx>=px2+pw-65&&mx<=px2+pw-15&&my>=sy+12&&my<=sy+40){
-          if(G.player.level>=def.unlockLv && lv<def.maxLv && G.player.skillPoints>0){
-            G.skills.upgrade(id,G.player);
+    
+    if(G.state === 'skills'){
+      const pw = isMobile ? W - 10 : 560;
+      const ph = isMobile ? H - 20 : 500;
+      const px2 = (W - pw) / 2;
+      const py2 = (H - ph) / 2;
+      const skillItemHeight = isMobile ? 70 : 58;
+      const startY = py2 + (isMobile ? 75 : 65);
+      for(let i = 0; i < SKILL_ORDER.length; i++){
+        const id = SKILL_ORDER[i];
+        const def = SKILL_DEFS[id];
+        const lv = G.skills.skills[id];
+        const sy = startY + i * skillItemHeight;
+        const btnWidth = isMobile ? 60 : 50;
+        const btnHeight = isMobile ? 32 : 28;
+        if(mx >= px2 + pw - btnWidth - 15 && mx <= px2 + pw - 15 && my >= sy + 12 && my <= sy + 12 + btnHeight){
+          if(G.player.level >= def.unlockLv && lv < def.maxLv && G.player.skillPoints > 0){
+            G.skills.upgrade(id, G.player);
           }
           return;
         }
       }
       return;
     }
-    if(G.state==='quests'){
-      const pw=560, ph=480, px2=(W-pw)/2, py2=(H-ph)/2;
-      const tabs=['active','available','completed'];
-      for(let i=0;i<tabs.length;i++){
-        const tx=px2+10+i*180, ty=py2+38;
-        if(mx>=tx&&mx<=tx+170&&my>=ty&&my<=ty+24){ G.questTab=tabs[i]; return; }
+    
+    if(G.state === 'quests'){
+      const pw = isMobile ? W - 10 : 560;
+      const ph = isMobile ? H - 20 : 480;
+      const px2 = (W - pw) / 2;
+      const py2 = (H - ph) / 2;
+      const tabWidth = isMobile ? (pw - 40) / 3 : 170;
+      const tabs = ['active', 'available', 'completed'];
+      for(let i = 0; i < tabs.length; i++){
+        const tx = px2 + 10 + i * (tabWidth + 5);
+        const ty = py2 + (isMobile ? 42 : 38);
+        if(mx >= tx && mx <= tx + tabWidth && my >= ty && my <= ty + (isMobile ? 28 : 24)){
+          G.questTab = tabs[i];
+          return;
+        }
       }
       let quests;
-      if(G.questTab==='active') quests=G.quests.getActive();
-      else if(G.questTab==='available') quests=G.quests.getAvailable();
-      else quests=G.quests.getCompleted();
-      const listY=py2+72;
-      for(let i=0;i<quests.length;i++){
-        const q=quests[i];
-        const qy=listY+i*90;
-        if(qy>py2+ph-40) break;
-        if(G.questTab==='available'){
-          if(mx>=px2+pw-90&&mx<=px2+pw-15&&my>=qy+25&&my<=qy+53){ G.quests.accept(q.id); return; }
-        } else if(G.questTab==='active'){
-          if(mx>=px2+pw-100&&mx<=px2+pw-15&&my>=qy+25&&my<=qy+53){ G.quests.abandon(q.id); return; }
+      if(G.questTab === 'active') quests = G.quests.getActive();
+      else if(G.questTab === 'available') quests = G.quests.getAvailable();
+      else quests = G.quests.getCompleted();
+      const listY = py2 + (isMobile ? 82 : 72);
+      const questItemHeight = isMobile ? 110 : 90;
+      for(let i = 0; i < quests.length; i++){
+        const q = quests[i];
+        const qy = listY + i * questItemHeight;
+        if(qy > py2 + ph - 40) break;
+        const btnWidth = isMobile ? 85 : 75;
+        const btnHeight = isMobile ? 32 : 28;
+        if(G.questTab === 'available'){
+          if(mx >= px2 + pw - btnWidth - 20 && mx <= px2 + pw - 20 && my >= qy + (questItemHeight - btnHeight)/2 && my <= qy + (questItemHeight - btnHeight)/2 + btnHeight){
+            G.quests.accept(q.id);
+            return;
+          }
+        } else if(G.questTab === 'active'){
+          if(mx >= px2 + pw - btnWidth - 20 && mx <= px2 + pw - 20 && my >= qy + (questItemHeight - btnHeight)/2 && my <= qy + (questItemHeight - btnHeight)/2 + btnHeight){
+            G.quests.abandon(q.id);
+            return;
+          }
         }
       }
       return;
     }
-    if(G.state==='stat'){
-      handleStatPanelClick(mx,my);
+    
+    if(G.state === 'stat'){
+      handleStatPanelClick(mx, my);
       return;
     }
-    if(G.state==='anvil'){
-      handleAnvilClick(mx,my);
+    
+    if(G.state === 'anvil'){
+      handleAnvilClick(mx, my);
       return;
     }
-    if(G.state==='market'){
-      handleMarketClick(mx,my);
+    
+    if(G.state === 'market'){
+      handleMarketClick(mx, my);
       return;
     }
   });
 
-  canvas.addEventListener('contextmenu',e=>{
+  canvas.addEventListener('contextmenu', e => {
     e.preventDefault();
-    if(G.state==='playing'){
-      const cam=G.camera;
-      G.player.moveTarget={
+    if(G.state === 'playing'){
+      const cam = G.camera;
+      G.player.moveTarget = {
         x: e.clientX - W/2 + cam.x,
         y: e.clientY - H/2 + cam.y
       };
     }
   });
 
-  canvas.addEventListener('touchstart',e=>{
+  canvas.addEventListener('touchstart', e => {
     e.preventDefault();
     const touches = e.changedTouches;
     
-    // Menü durumunda ilk dokunuşu işle
-    if (G.state === 'menu' && touches.length > 0) {
+    if(G.state === 'menu' && touches.length > 0){
       const t = touches[0];
       handleMenuInteraction(t.clientX, t.clientY);
       return;
@@ -3654,13 +3777,13 @@ function setupInput(){
       if(G.state === 'playing'){
         const btns = getMobileBtns();
         const atk = btns.atk;
-        if(Math.hypot(t.clientX-atk.x, t.clientY-atk.y) < atk.r + 8){
+        if(Math.hypot(t.clientX - atk.x, t.clientY - atk.y) < atk.r + 8){
           G.forceAttack = true;
           continue;
         }
         let hitSkill = false;
         for(const sb of btns.skills){
-          if(Math.hypot(t.clientX-sb.x, t.clientY-sb.y) < sb.r + 6){
+          if(Math.hypot(t.clientX - sb.x, t.clientY - sb.y) < sb.r + 6){
             G.skills.use(sb.id, G.player, G.mobs);
             hitSkill = true;
             break;
@@ -3668,13 +3791,13 @@ function setupInput(){
         }
         if(hitSkill) continue;
         const pot = btns.potion;
-        if(Math.hypot(t.clientX-pot.x, t.clientY-pot.y) < pot.r + 6){
-          const potSlot = G.player.inventory.slots.findIndex(s=>s&&s.type==='potion'&&(s.heal||s.mp));
+        if(Math.hypot(t.clientX - pot.x, t.clientY - pot.y) < pot.r + 6){
+          const potSlot = G.player.inventory.slots.findIndex(s => s && s.type === 'potion' && (s.heal || s.mp));
           if(potSlot >= 0) G.player.inventory.usePotion(potSlot, G.player);
           continue;
         }
         for(const pb of btns.panels){
-          if(Math.hypot(t.clientX-pb.x, t.clientY-pb.y) < pb.r + 6){
+          if(Math.hypot(t.clientX - pb.x, t.clientY - pb.y) < pb.r + 6){
             G.state = G.state === pb.panel ? 'playing' : pb.panel;
             break;
           }
@@ -3682,65 +3805,69 @@ function setupInput(){
       } else {
         const btns = getMobileBtns();
         for(const pb of btns.panels){
-          if(Math.hypot(t.clientX-pb.x, t.clientY-pb.y) < pb.r + 6){
+          if(Math.hypot(t.clientX - pb.x, t.clientY - pb.y) < pb.r + 6){
             G.state = G.state === pb.panel ? 'playing' : pb.panel;
             break;
           }
         }
       }
     }
-  },{passive:false});
+  }, {passive: false});
 
-  canvas.addEventListener('touchmove',e=>{
+  canvas.addEventListener('touchmove', e => {
     e.preventDefault();
     for(const t of e.changedTouches) G.joystick.onTouchMove(t);
-  },{passive:false});
+  }, {passive: false});
 
-  canvas.addEventListener('touchend',e=>{
+  canvas.addEventListener('touchend', e => {
     e.preventDefault();
     for(const t of e.changedTouches){
       G.joystick.onTouchEnd(t);
       G.forceAttack = false;
     }
-  },{passive:false});
+  }, {passive: false});
 
-  window.addEventListener('resize',()=>{
-    W = window.innerWidth; H = window.innerHeight;
-    canvas.width = W; canvas.height = H;
+  window.addEventListener('resize', () => {
+    W = window.innerWidth;
+    H = window.innerHeight;
+    canvas.width = W;
+    canvas.height = H;
     if(G.joystick){ G.joystick.resetBase(); }
   });
-  window.addEventListener('orientationchange',()=>{
-    setTimeout(()=>{
-      W = window.innerWidth; H = window.innerHeight;
-      canvas.width = W; canvas.height = H;
+  window.addEventListener('orientationchange', () => {
+    setTimeout(() => {
+      W = window.innerWidth;
+      H = window.innerHeight;
+      canvas.width = W;
+      canvas.height = H;
       if(G.joystick){ G.joystick.resetBase(); }
     }, 300);
   });
 }
 
 // === MAIN GAME LOOP ===
-let lastTime=0;
+let lastTime = 0;
 function gameLoop(ts){
-  const dt=Math.min((ts-lastTime)/1000, 0.05);
-  lastTime=ts;
+  const dt = Math.min((ts - lastTime) / 1000, 0.05);
+  lastTime = ts;
 
-  ctx.clearRect(0,0,W,H);
+  ctx.clearRect(0, 0, W, H);
 
-  if(G.state==='menu'){
+  if(G.state === 'menu'){
     updateMenuParticles(dt);
     drawMenuScreen();
     requestAnimationFrame(gameLoop);
     return;
   }
 
-  if(G.state==='dead'){
+  if(G.state === 'dead'){
     if(G.world) G.world.draw(G.camera);
     drawDeathScreen();
     requestAnimationFrame(gameLoop);
     return;
   }
 
-  if(G.state==='playing'){
+  if(G.state === 'playing'){
     G.player.update(dt, G.keys, G.mobs);
     G.camera.follow(G.player, dt);
     G.skills.update(dt);
@@ -3749,9 +3876,9 @@ function gameLoop(ts){
 
     for(const mob of G.mobs){
       if(mob.dead){
-        if(mob.respawnTimer>0){
-          mob.respawnTimer-=dt;
-          if(mob.respawnTimer<=0) mob.respawn();
+        if(mob.respawnTimer > 0){
+          mob.respawnTimer -= dt;
+          if(mob.respawnTimer <= 0) mob.respawn();
         }
       } else {
         mob.update(dt, G.player);
@@ -3761,9 +3888,9 @@ function gameLoop(ts){
     G.particles.update(dt);
 
     if(G.pendingStatScreen){
-      G.pendingStatScreen=false;
-      G.statPanelStats=null;
-      G.state='stat';
+      G.pendingStatScreen = false;
+      G.statPanelStats = null;
+      G.state = 'stat';
     }
   } else {
     G.particles.update(dt);
@@ -3777,7 +3904,7 @@ function gameLoop(ts){
   drawGroundItems(G.camera);
 
   for(const mob of G.mobs){
-    if(!mob.dead || mob.deadTimer>0) mob.draw(G.camera);
+    if(!mob.dead || mob.deadTimer > 0) mob.draw(G.camera);
   }
 
   G.player.draw(G.camera);
@@ -3785,12 +3912,12 @@ function gameLoop(ts){
   drawHUD();
   drawMobileUI();
 
-  if(G.state==='inventory') drawInventoryPanel();
-  else if(G.state==='skills') drawSkillPanel();
-  else if(G.state==='quests') drawQuestPanel();
-  else if(G.state==='stat') drawStatPanel();
-  else if(G.state==='anvil') drawAnvilPanel();
-  else if(G.state==='market') drawMarketPanel();
+  if(G.state === 'inventory') drawInventoryPanel();
+  else if(G.state === 'skills') drawSkillPanel();
+  else if(G.state === 'quests') drawQuestPanel();
+  else if(G.state === 'stat') drawStatPanel();
+  else if(G.state === 'anvil') drawAnvilPanel();
+  else if(G.state === 'market') drawMarketPanel();
 
   requestAnimationFrame(gameLoop);
 }
@@ -3798,9 +3925,9 @@ function gameLoop(ts){
 // === STARTUP ===
 setupInput();
 
-G.menuParticles=[];
-G.menuTimer=0;
-G.rainbowAngle=0;
+G.menuParticles = [];
+G.menuTimer = 0;
+G.rainbowAngle = 0;
 
 requestAnimationFrame(gameLoop);
 
