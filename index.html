@@ -2002,660 +2002,950 @@ function drawHUD(){
 
   if(G.screenShake>0){ ctx.restore(); G.screenShake-=1/60; }
 }
-// === PANEL: INVENTORY ===
+// === PANEL: INVENTORY (Mobil uyumlu ölçeklendirme eklendi) ===
 function drawInventoryPanel(){
-  const pw=Math.min(640, W-20), ph=Math.min(460, H-20);
-  const px=(W-pw)/2, py=(H-ph)/2;
-  ctx.fillStyle='rgba(5,2,10,0.97)';
-  drawRoundRect(ctx,px,py,pw,ph,10,'rgba(5,2,10,0.97)','#a80');
-  ctx.lineWidth=2;
+  // Panel boyutlarını ekrana göre dinamik hesapla (mobilde daha küçük)
+  const maxW = isMobile ? Math.min(W * 0.95, 640) : Math.min(640, W - 20);
+  const maxH = isMobile ? Math.min(H * 0.85, 460) : Math.min(460, H - 20);
+  const pw = maxW;
+  const ph = maxH;
+  const px = (W - pw) / 2;
+  const py = (H - ph) / 2;
+  
+  // Ölçek faktörü (mobilde küçült)
+  const scale = isMobile ? Math.min(pw / 640, ph / 460) : 1;
+  const fontSizeTitle = Math.floor(18 * scale);
+  const fontSizeNormal = Math.floor(12 * scale);
+  const fontSizeSmall = Math.floor(9 * scale);
+  
+  ctx.fillStyle = 'rgba(5,2,10,0.97)';
+  drawRoundRect(ctx, px, py, pw, ph, 10, 'rgba(5,2,10,0.97)', '#a80');
+  ctx.lineWidth = 2;
 
-  ctx.fillStyle='#fd0'; ctx.font='bold 18px Arial'; ctx.textAlign='center';
-  ctx.fillText('INVENTORY',px+pw/2,py+28);
-  ctx.fillStyle='#aaa'; ctx.font='12px Arial';
-  ctx.fillText('Click: Use/Equip  Shift+Click: Drop  [I] Close',px+pw/2,py+44);
+  ctx.fillStyle = '#fd0'; 
+  ctx.font = `bold ${fontSizeTitle}px Arial`; 
+  ctx.textAlign = 'center';
+  ctx.fillText('INVENTORY', px + pw/2, py + 28 * scale);
+  ctx.fillStyle = '#aaa'; 
+  ctx.font = `${fontSizeNormal}px Arial`;
+  ctx.fillText('Click: Use/Equip  Shift+Click: Drop  [I] Close', px + pw/2, py + 44 * scale);
 
   const p = G.player;
-  const slotSize=48, slotPad=4, gridX=px+15, gridY=py+55;
-  const cols=6, rows=4;
+  // Slot boyutları ölçeğe göre ayarla
+  const slotSize = Math.floor(48 * scale);
+  const slotPad = Math.floor(4 * scale);
+  const gridX = px + 15 * scale;
+  const gridY = py + 55 * scale;
+  const cols = 6, rows = 4;
 
-  for(let i=0;i<42;i++){
-    const col=i%cols, row=Math.floor(i/cols);
-    const sx=gridX+col*(slotSize+slotPad);
-    const sy=gridY+row*(slotSize+slotPad);
-    const item=p.inventory.slots[i];
-    ctx.fillStyle=G.hoveredSlot===i?'rgba(80,60,20,0.8)':'rgba(30,20,10,0.8)';
-    drawRoundRect(ctx,sx,sy,slotSize,slotSize,4,G.hoveredSlot===i?'rgba(80,60,20,0.8)':'rgba(30,20,10,0.8)','#444');
+  for(let i = 0; i < 42; i++){
+    const col = i % cols, row = Math.floor(i / cols);
+    const sx = gridX + col * (slotSize + slotPad);
+    const sy = gridY + row * (slotSize + slotPad);
+    const item = p.inventory.slots[i];
+    
+    ctx.fillStyle = G.hoveredSlot === i ? 'rgba(80,60,20,0.8)' : 'rgba(30,20,10,0.8)';
+    drawRoundRect(ctx, sx, sy, slotSize, slotSize, 4 * scale, 
+      G.hoveredSlot === i ? 'rgba(80,60,20,0.8)' : 'rgba(30,20,10,0.8)', '#444');
+      
     if(item && item.valid){
-      if(item.enhance>=7){
+      if(item.enhance >= 7){
         ctx.save();
-        const gc=item.getGlowColor();
-        if(gc){ ctx.shadowColor=gc; ctx.shadowBlur=12; }
+        const gc = item.getGlowColor();
+        if(gc){ ctx.shadowColor = gc; ctx.shadowBlur = 12 * scale; }
         else {
           G.rainbowAngle += 0.001;
-          ctx.shadowColor=`hsl(${(Date.now()*0.2)%360},100%,60%)`;
-          ctx.shadowBlur=15;
+          ctx.shadowColor = `hsl(${(Date.now()*0.2)%360},100%,60%)`;
+          ctx.shadowBlur = 15 * scale;
         }
       }
-      ctx.fillStyle=item.color||'#888';
-      ctx.beginPath(); ctx.arc(sx+slotSize/2,sy+slotSize/2,18,0,Math.PI*2); ctx.fill();
-      if(item.enhance>=7) ctx.restore();
-      ctx.fillStyle='#fff'; ctx.font='bold 16px Arial'; ctx.textAlign='center';
-      ctx.fillText(item.symbol||'?',sx+slotSize/2,sy+slotSize/2+6);
-      if(item.enhance>0){
-        ctx.fillStyle='#fd0'; ctx.font='bold 10px Arial';
-        ctx.fillText('+'+item.enhance,sx+slotSize-8,sy+12);
+      ctx.fillStyle = item.color || '#888';
+      ctx.beginPath(); 
+      ctx.arc(sx + slotSize/2, sy + slotSize/2, 18 * scale, 0, Math.PI*2); 
+      ctx.fill();
+      if(item.enhance >= 7) ctx.restore();
+      
+      ctx.fillStyle = '#fff'; 
+      ctx.font = `bold ${Math.floor(16 * scale)}px Arial`; 
+      ctx.textAlign = 'center';
+      ctx.fillText(item.symbol || '?', sx + slotSize/2, sy + slotSize/2 + 6 * scale);
+      
+      if(item.enhance > 0){
+        ctx.fillStyle = '#fd0'; 
+        ctx.font = `bold ${Math.floor(10 * scale)}px Arial`;
+        ctx.fillText('+' + item.enhance, sx + slotSize - 8 * scale, sy + 12 * scale);
       }
-      ctx.fillStyle='rgba(0,0,0,0.5)';
-      ctx.fillRect(sx,sy+slotSize-14,slotSize,14);
-      ctx.fillStyle='#ccc'; ctx.font='9px Arial';
-      ctx.fillText(item.name.slice(0,8),sx+slotSize/2,sy+slotSize-3);
+      
+      ctx.fillStyle = 'rgba(0,0,0,0.5)';
+      ctx.fillRect(sx, sy + slotSize - 14 * scale, slotSize, 14 * scale);
+      ctx.fillStyle = '#ccc'; 
+      ctx.font = `${fontSizeSmall}px Arial`;
+      ctx.fillText(item.name.slice(0,8), sx + slotSize/2, sy + slotSize - 3 * scale);
     }
-    ctx.strokeStyle='#555'; ctx.lineWidth=1;
-    ctx.strokeRect(sx,sy,slotSize,slotSize);
-    ctx.fillStyle='#333'; ctx.font='9px Arial'; ctx.textAlign='left';
-    ctx.fillText(i+1,sx+2,sy+10);
+    
+    ctx.strokeStyle = '#555'; 
+    ctx.lineWidth = 1;
+    ctx.strokeRect(sx, sy, slotSize, slotSize);
+    ctx.fillStyle = '#333'; 
+    ctx.font = `${fontSizeSmall}px Arial`; 
+    ctx.textAlign = 'left';
+    ctx.fillText(i+1, sx + 2 * scale, sy + 10 * scale);
   }
 
-  const eqX=px+340, eqY=py+55;
-  ctx.fillStyle='#fd0'; ctx.font='bold 14px Arial'; ctx.textAlign='left';
-  ctx.fillText('EQUIPMENT',eqX,eqY+14);
+  // Ekipman bölümü
+  const eqX = px + 340 * scale;
+  const eqY = py + 55 * scale;
+  ctx.fillStyle = '#fd0'; 
+  ctx.font = `bold ${Math.floor(14 * scale)}px Arial`; 
+  ctx.textAlign = 'left';
+  ctx.fillText('EQUIPMENT', eqX, eqY + 14 * scale);
 
-  const equipSlots=[
-    {key:'weapon',label:'Weapon',y:eqY+26},
-    {key:'head',label:'Head',y:eqY+82},
-    {key:'chest',label:'Chest',y:eqY+138},
-    {key:'legs',label:'Legs',y:eqY+194},
-    {key:'boots',label:'Boots',y:eqY+250},
+  const equipSlots = [
+    {key:'weapon', label:'Weapon', y: eqY + 26 * scale},
+    {key:'head',   label:'Head',   y: eqY + 82 * scale},
+    {key:'chest',  label:'Chest',  y: eqY + 138 * scale},
+    {key:'legs',   label:'Legs',   y: eqY + 194 * scale},
+    {key:'boots',  label:'Boots',  y: eqY + 250 * scale},
   ];
+  
+  const eqWidth = 270 * scale;
+  const eqHeight = 50 * scale;
+  
   for(const es of equipSlots){
-    const item=p.inventory.equipment[es.key];
-    const hover=G.hoveredEquip===es.key;
-    ctx.fillStyle=hover?'rgba(80,60,20,0.8)':'rgba(30,20,10,0.8)';
-    drawRoundRect(ctx,eqX,es.y,270,50,4,hover?'rgba(80,60,20,0.8)':'rgba(30,20,10,0.8)','#666');
-    ctx.fillStyle='#888'; ctx.font='11px Arial'; ctx.textAlign='left';
-    ctx.fillText('['+es.label+']',eqX+6,es.y+16);
-    if(item&&item.valid){
-      if(item.enhance>=7){
+    const item = p.inventory.equipment[es.key];
+    const hover = G.hoveredEquip === es.key;
+    ctx.fillStyle = hover ? 'rgba(80,60,20,0.8)' : 'rgba(30,20,10,0.8)';
+    drawRoundRect(ctx, eqX, es.y, eqWidth, eqHeight, 4 * scale, 
+      hover ? 'rgba(80,60,20,0.8)' : 'rgba(30,20,10,0.8)', '#666');
+      
+    ctx.fillStyle = '#888'; 
+    ctx.font = `${Math.floor(11 * scale)}px Arial`; 
+    ctx.textAlign = 'left';
+    ctx.fillText('[' + es.label + ']', eqX + 6 * scale, es.y + 16 * scale);
+    
+    if(item && item.valid){
+      if(item.enhance >= 7){
         ctx.save();
-        const gc=item.getGlowColor();
-        ctx.shadowColor=gc||`hsl(${(Date.now()*0.2)%360},100%,60%)`;
-        ctx.shadowBlur=10;
+        const gc = item.getGlowColor();
+        ctx.shadowColor = gc || `hsl(${(Date.now()*0.2)%360},100%,60%)`;
+        ctx.shadowBlur = 10 * scale;
       }
-      ctx.fillStyle=item.color||'#888';
-      ctx.beginPath(); ctx.arc(eqX+20,es.y+33,14,0,Math.PI*2); ctx.fill();
-      if(item.enhance>=7) ctx.restore();
-      ctx.fillStyle='#fff'; ctx.font='bold 13px Arial'; ctx.textAlign='center';
-      ctx.fillText(item.symbol,eqX+20,es.y+38);
-      ctx.fillStyle='#eee'; ctx.font='12px Arial'; ctx.textAlign='left';
-      ctx.fillText(item.getDisplayName(),eqX+40,es.y+30);
-      const stats=[];
-      if(item.getEnhancedAtk()>0) stats.push('ATK+'+item.getEnhancedAtk());
-      if(item.getEnhancedDef()>0) stats.push('DEF+'+item.getEnhancedDef());
-      if(item.getEnhancedHp()>0) stats.push('HP+'+item.getEnhancedHp());
-      ctx.fillStyle='#aaa'; ctx.font='10px Arial';
-      ctx.fillText(stats.join(' '),eqX+40,es.y+44);
-      ctx.fillStyle='#a66'; ctx.font='10px Arial';
-      ctx.fillText('Right-click to unequip',eqX+160,es.y+44);
+      ctx.fillStyle = item.color || '#888';
+      ctx.beginPath(); 
+      ctx.arc(eqX + 20 * scale, es.y + 33 * scale, 14 * scale, 0, Math.PI*2); 
+      ctx.fill();
+      if(item.enhance >= 7) ctx.restore();
+      
+      ctx.fillStyle = '#fff'; 
+      ctx.font = `bold ${Math.floor(13 * scale)}px Arial`; 
+      ctx.textAlign = 'center';
+      ctx.fillText(item.symbol, eqX + 20 * scale, es.y + 38 * scale);
+      
+      ctx.fillStyle = '#eee'; 
+      ctx.font = `${Math.floor(12 * scale)}px Arial`; 
+      ctx.textAlign = 'left';
+      ctx.fillText(item.getDisplayName(), eqX + 40 * scale, es.y + 30 * scale);
+      
+      const stats = [];
+      if(item.getEnhancedAtk() > 0) stats.push('ATK+' + item.getEnhancedAtk());
+      if(item.getEnhancedDef() > 0) stats.push('DEF+' + item.getEnhancedDef());
+      if(item.getEnhancedHp() > 0) stats.push('HP+' + item.getEnhancedHp());
+      ctx.fillStyle = '#aaa'; 
+      ctx.font = `${Math.floor(10 * scale)}px Arial`;
+      ctx.fillText(stats.join(' '), eqX + 40 * scale, es.y + 44 * scale);
+      
+      ctx.fillStyle = '#a66'; 
+      ctx.font = `${Math.floor(10 * scale)}px Arial`;
+      ctx.fillText('Right-click to unequip', eqX + 160 * scale, es.y + 44 * scale);
     } else {
-      ctx.fillStyle='#444'; ctx.font='12px Arial'; ctx.textAlign='center';
-      ctx.fillText('Empty',eqX+135,es.y+30);
+      ctx.fillStyle = '#444'; 
+      ctx.font = `${Math.floor(12 * scale)}px Arial`; 
+      ctx.textAlign = 'center';
+      ctx.fillText('Empty', eqX + 135 * scale, es.y + 30 * scale);
     }
   }
 
-  const statX=eqX, statY=eqY+310;
-  ctx.fillStyle='rgba(20,15,5,0.8)';
-  drawRoundRect(ctx,statX,statY,270,100,4,'rgba(20,15,5,0.8)','#555');
-  ctx.fillStyle='#fd0'; ctx.font='bold 12px Arial'; ctx.textAlign='left';
-  ctx.fillText('CHARACTER STATS',statX+8,statY+16);
-  ctx.fillStyle='#ccc'; ctx.font='11px Arial';
-  ctx.fillText(`ATK: ${Math.floor(p.getAtk())}  DEF: ${Math.floor(p.getDef())}`,statX+8,statY+34);
-  ctx.fillText(`HP: ${Math.floor(p.hp)}/${p.maxHp}  MP: ${Math.floor(p.mp)}/${p.maxMp}`,statX+8,statY+50);
-  ctx.fillText(`Crit: ${(p.critChance*100).toFixed(1)}%  Speed: ${p.speed}`,statX+8,statY+66);
-  ctx.fillStyle='#fd0'; ctx.font='bold 12px Arial';
-  ctx.fillText(`Noah: ${p.inventory.noah}`,statX+8,statY+84);
+  // İstatistik ve otomatik satış bölümü
+  const statX = eqX;
+  const statY = eqY + 310 * scale;
+  const statW = 270 * scale;
+  const statH = 100 * scale;
+  
+  ctx.fillStyle = 'rgba(20,15,5,0.8)';
+  drawRoundRect(ctx, statX, statY, statW, statH, 4 * scale, 'rgba(20,15,5,0.8)', '#555');
+  ctx.fillStyle = '#fd0'; 
+  ctx.font = `bold ${Math.floor(12 * scale)}px Arial`; 
+  ctx.textAlign = 'left';
+  ctx.fillText('CHARACTER STATS', statX + 8 * scale, statY + 16 * scale);
+  
+  ctx.fillStyle = '#ccc'; 
+  ctx.font = `${Math.floor(11 * scale)}px Arial`;
+  ctx.fillText(`ATK: ${Math.floor(p.getAtk())}  DEF: ${Math.floor(p.getDef())}`, statX + 8 * scale, statY + 34 * scale);
+  ctx.fillText(`HP: ${Math.floor(p.hp)}/${p.maxHp}  MP: ${Math.floor(p.mp)}/${p.maxMp}`, statX + 8 * scale, statY + 50 * scale);
+  ctx.fillText(`Crit: ${(p.critChance*100).toFixed(1)}%  Speed: ${p.speed}`, statX + 8 * scale, statY + 66 * scale);
+  ctx.fillStyle = '#fd0'; 
+  ctx.font = `bold ${Math.floor(12 * scale)}px Arial`;
+  ctx.fillText(`Noah: ${p.inventory.noah}`, statX + 8 * scale, statY + 84 * scale);
 
   const autoSellX = eqX;
-  const autoSellY = statY + 108;
-  const autoSellW = 270;
-  const autoSellH = 38;
+  const autoSellY = statY + statH + 8 * scale;
+  const autoSellW = 270 * scale;
+  const autoSellH = 38 * scale;
+  
   ctx.fillStyle = p.inventory.autoSellMaterials ? 'rgba(0,80,0,0.8)' : 'rgba(80,40,0,0.8)';
-  drawRoundRect(ctx, autoSellX, autoSellY, autoSellW, autoSellH, 6, p.inventory.autoSellMaterials ? 'rgba(0,80,0,0.8)' : 'rgba(80,40,0,0.8)', '#fd0');
+  drawRoundRect(ctx, autoSellX, autoSellY, autoSellW, autoSellH, 6 * scale, 
+    p.inventory.autoSellMaterials ? 'rgba(0,80,0,0.8)' : 'rgba(80,40,0,0.8)', '#fd0');
   ctx.fillStyle = '#fff';
-  ctx.font = 'bold 12px Arial';
+  ctx.font = `bold ${Math.floor(12 * scale)}px Arial`;
   ctx.textAlign = 'center';
-  ctx.fillText(`Auto-sell Materials: ${p.inventory.autoSellMaterials ? 'ON' : 'OFF'}`, autoSellX + autoSellW/2, autoSellY + autoSellH/2 + 4);
+  ctx.fillText(`Auto-sell Materials: ${p.inventory.autoSellMaterials ? 'ON' : 'OFF'}`, 
+    autoSellX + autoSellW/2, autoSellY + autoSellH/2 + 4 * scale);
   ctx.fillStyle = '#aaa';
-  ctx.font = '10px Arial';
-  ctx.fillText('(Materials will be sold automatically when picked up)', autoSellX + autoSellW/2, autoSellY + autoSellH - 8);
+  ctx.font = `${Math.floor(10 * scale)}px Arial`;
+  ctx.fillText('(Materials will be sold automatically when picked up)', 
+    autoSellX + autoSellW/2, autoSellY + autoSellH - 8 * scale);
 
-  if(G.hoveredSlot>=0 && G.hoveredSlot<42){
-    const item=p.inventory.slots[G.hoveredSlot];
-    if(item&&item.valid) drawItemTooltip(item, G.mouseX, G.mouseY);
+  if(G.hoveredSlot >= 0 && G.hoveredSlot < 42){
+    const item = p.inventory.slots[G.hoveredSlot];
+    if(item && item.valid) drawItemTooltip(item, G.mouseX, G.mouseY);
   }
   if(G.hoveredEquip){
-    const item=p.inventory.equipment[G.hoveredEquip];
-    if(item&&item.valid) drawItemTooltip(item, G.mouseX, G.mouseY);
+    const item = p.inventory.equipment[G.hoveredEquip];
+    if(item && item.valid) drawItemTooltip(item, G.mouseX, G.mouseY);
   }
 }
 
+// === ITEM TOOLTIP (ölçeklendirilmiş) ===
 function drawItemTooltip(item, mx, my){
-  const lines=[item.getDisplayName()];
-  if(item.type) lines.push('Type: '+item.type);
-  if(item.atk||item.getEnhancedAtk()>0) lines.push('ATK: +'+item.getEnhancedAtk());
-  if(item.def||item.getEnhancedDef()>0) lines.push('DEF: +'+item.getEnhancedDef());
-  if(item.hp||item.getEnhancedHp()>0) lines.push('HP: +'+item.getEnhancedHp());
-  if(item.heal) lines.push('Heal: '+item.heal+' HP');
-  if(item.mp) lines.push('Restore: '+item.mp+' MP');
-  if(item.atk_buff) lines.push('ATK Buff: +'+(item.atk_buff*100)+'%');
-  if(item.value) lines.push('Value: '+item.value+' Noah');
-  if(item.enhance>0) lines.push('Enhance: +'+item.enhance);
-  const tw=200, th=16+lines.length*16+8;
-  let tx=mx+15, ty=my-th/2;
-  if(tx+tw>W) tx=mx-tw-5;
-  if(ty<0) ty=0;
-  if(ty+th>H) ty=H-th;
-  ctx.fillStyle='rgba(5,2,15,0.95)';
-  drawRoundRect(ctx,tx,ty,tw,th,6,'rgba(5,2,15,0.95)','#fd0');
-  ctx.fillStyle='#fd0'; ctx.font='bold 12px Arial'; ctx.textAlign='left';
-  ctx.fillText(lines[0],tx+8,ty+16);
-  ctx.fillStyle='#ccc'; ctx.font='11px Arial';
-  for(let i=1;i<lines.length;i++) ctx.fillText(lines[i],tx+8,ty+16+i*15);
+  const scale = isMobile ? 0.8 : 1;
+  const lines = [item.getDisplayName()];
+  if(item.type) lines.push('Type: ' + item.type);
+  if(item.atk || item.getEnhancedAtk() > 0) lines.push('ATK: +' + item.getEnhancedAtk());
+  if(item.def || item.getEnhancedDef() > 0) lines.push('DEF: +' + item.getEnhancedDef());
+  if(item.hp || item.getEnhancedHp() > 0) lines.push('HP: +' + item.getEnhancedHp());
+  if(item.heal) lines.push('Heal: ' + item.heal + ' HP');
+  if(item.mp) lines.push('Restore: ' + item.mp + ' MP');
+  if(item.atk_buff) lines.push('ATK Buff: +' + (item.atk_buff*100) + '%');
+  if(item.value) lines.push('Value: ' + item.value + ' Noah');
+  if(item.enhance > 0) lines.push('Enhance: +' + item.enhance);
+  
+  const fontSize = Math.floor(12 * scale);
+  const lineH = fontSize + 4;
+  const tw = 200 * scale;
+  const th = 16 * scale + lines.length * lineH + 8 * scale;
+  let tx = mx + 15 * scale;
+  let ty = my - th/2;
+  if(tx + tw > W) tx = mx - tw - 5 * scale;
+  if(ty < 0) ty = 0;
+  if(ty + th > H) ty = H - th;
+  
+  ctx.fillStyle = 'rgba(5,2,15,0.95)';
+  drawRoundRect(ctx, tx, ty, tw, th, 6 * scale, 'rgba(5,2,15,0.95)', '#fd0');
+  ctx.fillStyle = '#fd0'; 
+  ctx.font = `bold ${fontSize}px Arial`; 
+  ctx.textAlign = 'left';
+  ctx.fillText(lines[0], tx + 8 * scale, ty + 16 * scale);
+  ctx.fillStyle = '#ccc'; 
+  ctx.font = `${Math.floor(11 * scale)}px Arial`;
+  for(let i = 1; i < lines.length; i++) {
+    ctx.fillText(lines[i], tx + 8 * scale, ty + 16 * scale + i * lineH);
+  }
 }
 
-// === PANEL: SKILLS ===
+// === PANEL: SKILLS (Mobil uyumlu) ===
 function drawSkillPanel(){
-  const pw=560, ph=500, px=(W-pw)/2, py=(H-ph)/2;
-  ctx.fillStyle='rgba(5,2,10,0.97)';
-  drawRoundRect(ctx,px,py,pw,ph,10,'rgba(5,2,10,0.97)','#a0f');
-  ctx.lineWidth=2;
-  ctx.fillStyle='#a0f'; ctx.font='bold 18px Arial'; ctx.textAlign='center';
-  ctx.fillText('SKILL TREE',px+pw/2,py+28);
-  const p=G.player;
-  ctx.fillStyle='#fd0'; ctx.font='bold 14px Arial';
-  ctx.fillText(`Skill Points: ${p.skillPoints}`,px+pw/2,py+46);
+  const maxW = isMobile ? Math.min(W * 0.95, 560) : 560;
+  const maxH = isMobile ? Math.min(H * 0.85, 500) : 500;
+  const pw = maxW;
+  const ph = maxH;
+  const px = (W - pw) / 2;
+  const py = (H - ph) / 2;
+  const scale = isMobile ? Math.min(pw / 560, ph / 500) : 1;
+  
+  ctx.fillStyle = 'rgba(5,2,10,0.97)';
+  drawRoundRect(ctx, px, py, pw, ph, 10 * scale, 'rgba(5,2,10,0.97)', '#a0f');
+  ctx.lineWidth = 2;
+  ctx.fillStyle = '#a0f'; 
+  ctx.font = `bold ${Math.floor(18 * scale)}px Arial`; 
+  ctx.textAlign = 'center';
+  ctx.fillText('SKILL TREE', px + pw/2, py + 28 * scale);
+  
+  const p = G.player;
+  ctx.fillStyle = '#fd0'; 
+  ctx.font = `bold ${Math.floor(14 * scale)}px Arial`;
+  ctx.fillText(`Skill Points: ${p.skillPoints}`, px + pw/2, py + 46 * scale);
 
-  for(let i=0;i<SKILL_ORDER.length;i++){
-    const id=SKILL_ORDER[i];
-    const def=SKILL_DEFS[id];
-    const lv=G.skills.skills[id];
-    const unlocked=p.level>=def.unlockLv;
-    const sy=py+65+i*58;
-    ctx.fillStyle=unlocked?'rgba(30,20,50,0.8)':'rgba(15,10,25,0.8)';
-    drawRoundRect(ctx,px+10,sy,pw-20,52,6,unlocked?'rgba(30,20,50,0.8)':'rgba(15,10,25,0.8)','#333');
-    ctx.fillStyle=unlocked?def.color:'#444';
-    ctx.beginPath(); ctx.arc(px+36,sy+26,20,0,Math.PI*2); ctx.fill();
-    ctx.strokeStyle=unlocked?def.color:'#333'; ctx.lineWidth=1.5; ctx.stroke();
-    ctx.fillStyle='#fff'; ctx.font='bold 10px Arial'; ctx.textAlign='center';
-    ctx.fillText(def.name.slice(0,3),px+36,sy+30);
-    ctx.fillStyle=unlocked?'#eee':'#555'; ctx.font='bold 13px Arial'; ctx.textAlign='left';
-    ctx.fillText(`${i+1}. ${def.name}`,px+64,sy+16);
-    ctx.fillStyle=unlocked?'#aaa':'#444'; ctx.font='11px Arial';
-    ctx.fillText(`${def.desc}  |  MP:${def.mp}  CD:${def.cd}s`,px+64,sy+30);
+  for(let i = 0; i < SKILL_ORDER.length; i++){
+    const id = SKILL_ORDER[i];
+    const def = SKILL_DEFS[id];
+    const lv = G.skills.skills[id];
+    const unlocked = p.level >= def.unlockLv;
+    const sy = py + (65 + i * 58) * scale;
+    
+    ctx.fillStyle = unlocked ? 'rgba(30,20,50,0.8)' : 'rgba(15,10,25,0.8)';
+    drawRoundRect(ctx, px + 10 * scale, sy, (pw - 20) * scale, 52 * scale, 6 * scale, 
+      unlocked ? 'rgba(30,20,50,0.8)' : 'rgba(15,10,25,0.8)', '#333');
+      
+    ctx.fillStyle = unlocked ? def.color : '#444';
+    ctx.beginPath(); 
+    ctx.arc(px + 36 * scale, sy + 26 * scale, 20 * scale, 0, Math.PI*2); 
+    ctx.fill();
+    ctx.strokeStyle = unlocked ? def.color : '#333'; 
+    ctx.lineWidth = 1.5; 
+    ctx.stroke();
+    
+    ctx.fillStyle = '#fff'; 
+    ctx.font = `bold ${Math.floor(10 * scale)}px Arial`; 
+    ctx.textAlign = 'center';
+    ctx.fillText(def.name.slice(0,3), px + 36 * scale, sy + 30 * scale);
+    
+    ctx.fillStyle = unlocked ? '#eee' : '#555'; 
+    ctx.font = `bold ${Math.floor(13 * scale)}px Arial`; 
+    ctx.textAlign = 'left';
+    ctx.fillText(`${i+1}. ${def.name}`, px + 64 * scale, sy + 16 * scale);
+    
+    ctx.fillStyle = unlocked ? '#aaa' : '#444'; 
+    ctx.font = `${Math.floor(11 * scale)}px Arial`;
+    ctx.fillText(`${def.desc}  |  MP:${def.mp}  CD:${def.cd}s`, px + 64 * scale, sy + 30 * scale);
+    
     if(!unlocked){
-      ctx.fillStyle='#f44'; ctx.font='bold 11px Arial';
-      ctx.fillText(`Requires Lv ${def.unlockLv}`,px+64,sy+44);
+      ctx.fillStyle = '#f44'; 
+      ctx.font = `bold ${Math.floor(11 * scale)}px Arial`;
+      ctx.fillText(`Requires Lv ${def.unlockLv}`, px + 64 * scale, sy + 44 * scale);
     } else {
-      ctx.fillStyle='#fd0'; ctx.font='11px Arial';
-      ctx.fillText(`Lv: ${lv}/${def.maxLv}`,px+64,sy+44);
+      ctx.fillStyle = '#fd0'; 
+      ctx.font = `${Math.floor(11 * scale)}px Arial`;
+      ctx.fillText(`Lv: ${lv}/${def.maxLv}`, px + 64 * scale, sy + 44 * scale);
     }
-    for(let s=0;s<def.maxLv;s++){
-      ctx.fillStyle=s<lv?'#fd0':'#333';
-      ctx.beginPath(); ctx.arc(px+350+s*18,sy+26,7,0,Math.PI*2); ctx.fill();
+    
+    for(let s = 0; s < def.maxLv; s++){
+      ctx.fillStyle = s < lv ? '#fd0' : '#333';
+      ctx.beginPath(); 
+      ctx.arc(px + (350 + s * 18) * scale, sy + 26 * scale, 7 * scale, 0, Math.PI*2); 
+      ctx.fill();
     }
-    if(unlocked && lv<def.maxLv && p.skillPoints>0){
-      ctx.fillStyle='#4f4';
-      drawRoundRect(ctx,px+pw-65,sy+12,50,28,6,'#4f4','#2a2');
-      ctx.fillStyle='#000'; ctx.font='bold 14px Arial'; ctx.textAlign='center';
-      ctx.fillText('+ UP',px+pw-40,sy+30);
-    } else if(lv>=def.maxLv && unlocked){
-      ctx.fillStyle='#fd0'; ctx.font='bold 11px Arial'; ctx.textAlign='center';
-      ctx.fillText('MAX',px+pw-40,sy+28);
+    
+    if(unlocked && lv < def.maxLv && p.skillPoints > 0){
+      ctx.fillStyle = '#4f4';
+      drawRoundRect(ctx, px + (pw - 65) * scale, sy + 12 * scale, 50 * scale, 28 * scale, 6 * scale, '#4f4', '#2a2');
+      ctx.fillStyle = '#000'; 
+      ctx.font = `bold ${Math.floor(14 * scale)}px Arial`; 
+      ctx.textAlign = 'center';
+      ctx.fillText('+ UP', px + (pw - 40) * scale, sy + 30 * scale);
+    } else if(lv >= def.maxLv && unlocked){
+      ctx.fillStyle = '#fd0'; 
+      ctx.font = `bold ${Math.floor(11 * scale)}px Arial`; 
+      ctx.textAlign = 'center';
+      ctx.fillText('MAX', px + (pw - 40) * scale, sy + 28 * scale);
     }
   }
 }
 
-// === PANEL: QUEST LOG ===
+// === PANEL: QUEST LOG (Mobil uyumlu) ===
 function drawQuestPanel(){
-  const pw=560, ph=480, px=(W-pw)/2, py=(H-ph)/2;
-  ctx.fillStyle='rgba(5,2,10,0.97)';
-  drawRoundRect(ctx,px,py,pw,ph,10,'rgba(5,2,10,0.97)','#a80');
-  ctx.lineWidth=2;
-  ctx.fillStyle='#fd0'; ctx.font='bold 18px Arial'; ctx.textAlign='center';
-  ctx.fillText('QUEST LOG',px+pw/2,py+28);
+  const maxW = isMobile ? Math.min(W * 0.95, 560) : 560;
+  const maxH = isMobile ? Math.min(H * 0.85, 480) : 480;
+  const pw = maxW;
+  const ph = maxH;
+  const px = (W - pw) / 2;
+  const py = (H - ph) / 2;
+  const scale = isMobile ? Math.min(pw / 560, ph / 480) : 1;
+  
+  ctx.fillStyle = 'rgba(5,2,10,0.97)';
+  drawRoundRect(ctx, px, py, pw, ph, 10 * scale, 'rgba(5,2,10,0.97)', '#a80');
+  ctx.lineWidth = 2;
+  ctx.fillStyle = '#fd0'; 
+  ctx.font = `bold ${Math.floor(18 * scale)}px Arial`; 
+  ctx.textAlign = 'center';
+  ctx.fillText('QUEST LOG', px + pw/2, py + 28 * scale);
 
-  const tabs=['active','available','completed'];
-  for(let i=0;i<tabs.length;i++){
-    const tx=px+10+i*180, ty=py+38;
-    const active=G.questTab===tabs[i];
-    ctx.fillStyle=active?'rgba(100,70,0,0.9)':'rgba(30,20,10,0.8)';
-    drawRoundRect(ctx,tx,ty,170,24,4,active?'rgba(100,70,0,0.9)':'rgba(30,20,10,0.8)',active?'#fd0':'#555');
-    ctx.fillStyle=active?'#fff':'#888'; ctx.font='bold 12px Arial'; ctx.textAlign='center';
-    ctx.fillText(tabs[i].charAt(0).toUpperCase()+tabs[i].slice(1),tx+85,ty+16);
+  const tabs = ['active','available','completed'];
+  for(let i = 0; i < tabs.length; i++){
+    const tx = px + (10 + i * 180) * scale;
+    const ty = py + 38 * scale;
+    const active = G.questTab === tabs[i];
+    ctx.fillStyle = active ? 'rgba(100,70,0,0.9)' : 'rgba(30,20,10,0.8)';
+    drawRoundRect(ctx, tx, ty, 170 * scale, 24 * scale, 4 * scale, 
+      active ? 'rgba(100,70,0,0.9)' : 'rgba(30,20,10,0.8)', active ? '#fd0' : '#555');
+    ctx.fillStyle = active ? '#fff' : '#888'; 
+    ctx.font = `bold ${Math.floor(12 * scale)}px Arial`; 
+    ctx.textAlign = 'center';
+    ctx.fillText(tabs[i].charAt(0).toUpperCase() + tabs[i].slice(1), tx + 85 * scale, ty + 16 * scale);
   }
 
   let quests;
-  if(G.questTab==='active') quests=G.quests.getActive();
-  else if(G.questTab==='available') quests=G.quests.getAvailable();
-  else quests=G.quests.getCompleted();
+  if(G.questTab === 'active') quests = G.quests.getActive();
+  else if(G.questTab === 'available') quests = G.quests.getAvailable();
+  else quests = G.quests.getCompleted();
 
-  const listY=py+72;
-  if(quests.length===0){
-    ctx.fillStyle='#555'; ctx.font='14px Arial'; ctx.textAlign='center';
-    ctx.fillText('No quests here.',px+pw/2,listY+60);
+  const listY = py + 72 * scale;
+  if(quests.length === 0){
+    ctx.fillStyle = '#555'; 
+    ctx.font = `${Math.floor(14 * scale)}px Arial`; 
+    ctx.textAlign = 'center';
+    ctx.fillText('No quests here.', px + pw/2, listY + 60 * scale);
   }
 
-  for(let i=0;i<quests.length;i++){
-    const q=quests[i];
-    const qs=G.quests.quests[q.id];
-    const qy=listY+i*90;
-    if(qy>py+ph-40) break;
-    ctx.fillStyle='rgba(20,15,5,0.9)';
-    drawRoundRect(ctx,px+10,qy,pw-20,82,6,'rgba(20,15,5,0.9)','#664');
+  for(let i = 0; i < quests.length; i++){
+    const q = quests[i];
+    const qs = G.quests.quests[q.id];
+    const qy = listY + i * 90 * scale;
+    if(qy > py + ph - 40 * scale) break;
+    
+    ctx.fillStyle = 'rgba(20,15,5,0.9)';
+    drawRoundRect(ctx, px + 10 * scale, qy, (pw - 20) * scale, 82 * scale, 6 * scale, 'rgba(20,15,5,0.9)', '#664');
 
-    ctx.fillStyle='#fd0'; ctx.font='bold 14px Arial'; ctx.textAlign='left';
-    ctx.fillText(q.name,px+18,qy+18);
-    ctx.fillStyle='#ccc'; ctx.font='12px Arial';
-    ctx.fillText(q.desc,px+18,qy+34);
+    ctx.fillStyle = '#fd0'; 
+    ctx.font = `bold ${Math.floor(14 * scale)}px Arial`; 
+    ctx.textAlign = 'left';
+    ctx.fillText(q.name, px + 18 * scale, qy + 18 * scale);
+    ctx.fillStyle = '#ccc'; 
+    ctx.font = `${Math.floor(12 * scale)}px Arial`;
+    ctx.fillText(q.desc, px + 18 * scale, qy + 34 * scale);
 
-    if(G.questTab==='active'){
-      const total=q.killCount||q.collectNoah;
-      const prog=Math.min(qs.progress,total);
-      const pct=prog/total;
-      ctx.fillStyle='#333'; ctx.fillRect(px+18,qy+42,pw-60,8);
-      ctx.fillStyle='#4f4'; ctx.fillRect(px+18,qy+42,(pw-60)*pct,8);
-      ctx.fillStyle='#aaa'; ctx.font='11px Arial';
-      ctx.fillText(`${prog}/${total}`,px+18,qy+64);
+    if(G.questTab === 'active'){
+      const total = q.killCount || q.collectNoah;
+      const prog = Math.min(qs.progress, total);
+      const pct = prog / total;
+      ctx.fillStyle = '#333'; 
+      ctx.fillRect(px + 18 * scale, qy + 42 * scale, (pw - 60) * scale, 8 * scale);
+      ctx.fillStyle = '#4f4'; 
+      ctx.fillRect(px + 18 * scale, qy + 42 * scale, (pw - 60) * scale * pct, 8 * scale);
+      ctx.fillStyle = '#aaa'; 
+      ctx.font = `${Math.floor(11 * scale)}px Arial`;
+      ctx.fillText(`${prog}/${total}`, px + 18 * scale, qy + 64 * scale);
     }
 
-    const rewards=[];
-    rewards.push(q.rewards.exp+' EXP');
-    rewards.push(q.rewards.noah+' Noah');
-    if(q.rewards.items&&q.rewards.items.length>0) rewards.push(q.rewards.items.map(id=>ITEM_DEFS[id]?ITEM_DEFS[id].name:'?').join(', '));
-    ctx.fillStyle='#a80'; ctx.font='11px Arial'; ctx.textAlign='left';
-    ctx.fillText('Reward: '+rewards.join(' | '),px+18,G.questTab==='active'?qy+78:qy+54);
+    const rewards = [];
+    rewards.push(q.rewards.exp + ' EXP');
+    rewards.push(q.rewards.noah + ' Noah');
+    if(q.rewards.items && q.rewards.items.length > 0) {
+      rewards.push(q.rewards.items.map(id => ITEM_DEFS[id] ? ITEM_DEFS[id].name : '?').join(', '));
+    }
+    ctx.fillStyle = '#a80'; 
+    ctx.font = `${Math.floor(11 * scale)}px Arial`; 
+    ctx.textAlign = 'left';
+    ctx.fillText('Reward: ' + rewards.join(' | '), px + 18 * scale, 
+      (G.questTab === 'active' ? qy + 78 : qy + 54) * scale);
 
-    if(G.questTab==='available'){
-      ctx.fillStyle='#4a4';
-      drawRoundRect(ctx,px+pw-90,qy+25,75,28,6,'#4a4','#2a2');
-      ctx.fillStyle='#fff'; ctx.font='bold 12px Arial'; ctx.textAlign='center';
-      ctx.fillText('Accept',px+pw-52,qy+43);
-    } else if(G.questTab==='active'){
-      ctx.fillStyle='#833';
-      drawRoundRect(ctx,px+pw-100,qy+25,85,28,6,'#833','#622');
-      ctx.fillStyle='#fff'; ctx.font='bold 12px Arial'; ctx.textAlign='center';
-      ctx.fillText('Abandon',px+pw-57,qy+43);
+    if(G.questTab === 'available'){
+      ctx.fillStyle = '#4a4';
+      drawRoundRect(ctx, px + (pw - 90) * scale, qy + 25 * scale, 75 * scale, 28 * scale, 6 * scale, '#4a4', '#2a2');
+      ctx.fillStyle = '#fff'; 
+      ctx.font = `bold ${Math.floor(12 * scale)}px Arial`; 
+      ctx.textAlign = 'center';
+      ctx.fillText('Accept', px + (pw - 52) * scale, qy + 43 * scale);
+    } else if(G.questTab === 'active'){
+      ctx.fillStyle = '#833';
+      drawRoundRect(ctx, px + (pw - 100) * scale, qy + 25 * scale, 85 * scale, 28 * scale, 6 * scale, '#833', '#622');
+      ctx.fillStyle = '#fff'; 
+      ctx.font = `bold ${Math.floor(12 * scale)}px Arial`; 
+      ctx.textAlign = 'center';
+      ctx.fillText('Abandon', px + (pw - 57) * scale, qy + 43 * scale);
     } else {
-      ctx.fillStyle='#353';
-      drawRoundRect(ctx,px+pw-90,qy+25,75,28,6,'#353','#242');
-      ctx.fillStyle='#4f4'; ctx.font='bold 12px Arial'; ctx.textAlign='center';
-      ctx.fillText('DONE',px+pw-52,qy+43);
+      ctx.fillStyle = '#353';
+      drawRoundRect(ctx, px + (pw - 90) * scale, qy + 25 * scale, 75 * scale, 28 * scale, 6 * scale, '#353', '#242');
+      ctx.fillStyle = '#4f4'; 
+      ctx.font = `bold ${Math.floor(12 * scale)}px Arial`; 
+      ctx.textAlign = 'center';
+      ctx.fillText('DONE', px + (pw - 52) * scale, qy + 43 * scale);
     }
   }
 }
 
-// === PANEL: STAT ASSIGNMENT ===
+// === PANEL: STAT ASSIGNMENT (Mobil uyumlu) ===
 function drawStatPanel(){
-  const pw=400, ph=380, px=(W-pw)/2, py=(H-ph)/2;
-  ctx.fillStyle='rgba(5,2,10,0.97)';
-  drawRoundRect(ctx,px,py,pw,ph,10,'rgba(5,2,10,0.97)','#fd0');
-  ctx.lineWidth=2;
-  const p=G.player;
-  ctx.fillStyle='#fd0'; ctx.font='bold 18px Arial'; ctx.textAlign='center';
-  ctx.fillText('STAT ASSIGNMENT',px+pw/2,py+28);
-  ctx.fillStyle='#fff'; ctx.font='bold 14px Arial';
-  ctx.fillText(`Available Points: ${p.statPoints}`,px+pw/2,py+48);
+  const maxW = isMobile ? Math.min(W * 0.95, 400) : 400;
+  const maxH = isMobile ? Math.min(H * 0.85, 380) : 380;
+  const pw = maxW;
+  const ph = maxH;
+  const px = (W - pw) / 2;
+  const py = (H - ph) / 2;
+  const scale = isMobile ? Math.min(pw / 400, ph / 380) : 1;
+  
+  ctx.fillStyle = 'rgba(5,2,10,0.97)';
+  drawRoundRect(ctx, px, py, pw, ph, 10 * scale, 'rgba(5,2,10,0.97)', '#fd0');
+  ctx.lineWidth = 2;
+  const p = G.player;
+  ctx.fillStyle = '#fd0'; 
+  ctx.font = `bold ${Math.floor(18 * scale)}px Arial`; 
+  ctx.textAlign = 'center';
+  ctx.fillText('STAT ASSIGNMENT', px + pw/2, py + 28 * scale);
+  ctx.fillStyle = '#fff'; 
+  ctx.font = `bold ${Math.floor(14 * scale)}px Arial`;
+  ctx.fillText(`Available Points: ${p.statPoints}`, px + pw/2, py + 48 * scale);
 
   if(!G.statPanelStats){
-    G.statPanelStats={str:p.str,dex:p.dex,int:p.int,extraHp:0,extraMp:0,points:p.statPoints};
+    G.statPanelStats = {str:p.str, dex:p.dex, int:p.int, extraHp:0, extraMp:0, points:p.statPoints};
   }
-  const sp=G.statPanelStats;
+  const sp = G.statPanelStats;
 
-  const statRows=[
-    {key:'str',label:'STR',desc:'ATK, DEF, MaxHP',val:sp.str},
-    {key:'dex',label:'DEX',desc:'Crit Chance, Speed',val:sp.dex},
-    {key:'int',label:'INT',desc:'MaxMP, Skill Power',val:sp.int},
-    {key:'extraHp',label:'HP+',desc:'+30 MaxHP per point',val:sp.extraHp},
-    {key:'extraMp',label:'MP+',desc:'+20 MaxMP per point',val:sp.extraMp},
+  const statRows = [
+    {key:'str', label:'STR', desc:'ATK, DEF, MaxHP', val:sp.str},
+    {key:'dex', label:'DEX', desc:'Crit Chance, Speed', val:sp.dex},
+    {key:'int', label:'INT', desc:'MaxMP, Skill Power', val:sp.int},
+    {key:'extraHp', label:'HP+', desc:'+30 MaxHP per point', val:sp.extraHp},
+    {key:'extraMp', label:'MP+', desc:'+20 MaxMP per point', val:sp.extraMp},
   ];
 
-  for(let i=0;i<statRows.length;i++){
-    const row=statRows[i];
-    const ry=py+70+i*52;
-    ctx.fillStyle='rgba(20,15,5,0.8)';
-    drawRoundRect(ctx,px+15,ry,pw-30,44,6,'rgba(20,15,5,0.8)','#444');
-    ctx.fillStyle='#fd0'; ctx.font='bold 14px Arial'; ctx.textAlign='left';
-    ctx.fillText(row.label,px+28,ry+18);
-    ctx.fillStyle='#ccc'; ctx.font='11px Arial';
-    ctx.fillText(row.desc,px+70,ry+18);
-    ctx.fillStyle='#fff'; ctx.font='bold 16px Arial'; ctx.textAlign='center';
-    ctx.fillText(row.val,px+270,ry+28);
-    ctx.fillStyle=row.val>0?'#833':'#333';
-    drawRoundRect(ctx,px+230,ry+10,24,24,4,row.val>0?'#833':'#333','#555');
-    ctx.fillStyle='#fff'; ctx.font='bold 14px Arial'; ctx.textAlign='center';
-    ctx.fillText('-',px+242,ry+26);
-    ctx.fillStyle=sp.points>0?'#484':'#333';
-    drawRoundRect(ctx,px+300,ry+10,24,24,4,sp.points>0?'#484':'#333','#555');
-    ctx.fillStyle='#fff';
-    ctx.fillText('+',px+312,ry+26);
+  for(let i = 0; i < statRows.length; i++){
+    const row = statRows[i];
+    const ry = py + (70 + i * 52) * scale;
+    ctx.fillStyle = 'rgba(20,15,5,0.8)';
+    drawRoundRect(ctx, px + 15 * scale, ry, (pw - 30) * scale, 44 * scale, 6 * scale, 'rgba(20,15,5,0.8)', '#444');
+    ctx.fillStyle = '#fd0'; 
+    ctx.font = `bold ${Math.floor(14 * scale)}px Arial`; 
+    ctx.textAlign = 'left';
+    ctx.fillText(row.label, px + 28 * scale, ry + 18 * scale);
+    ctx.fillStyle = '#ccc'; 
+    ctx.font = `${Math.floor(11 * scale)}px Arial`;
+    ctx.fillText(row.desc, px + 70 * scale, ry + 18 * scale);
+    ctx.fillStyle = '#fff'; 
+    ctx.font = `bold ${Math.floor(16 * scale)}px Arial`; 
+    ctx.textAlign = 'center';
+    ctx.fillText(row.val, px + 270 * scale, ry + 28 * scale);
+    
+    ctx.fillStyle = row.val > 0 ? '#833' : '#333';
+    drawRoundRect(ctx, px + 230 * scale, ry + 10 * scale, 24 * scale, 24 * scale, 4 * scale, 
+      row.val > 0 ? '#833' : '#333', '#555');
+    ctx.fillStyle = '#fff'; 
+    ctx.font = `bold ${Math.floor(14 * scale)}px Arial`; 
+    ctx.textAlign = 'center';
+    ctx.fillText('-', px + 242 * scale, ry + 26 * scale);
+    
+    ctx.fillStyle = sp.points > 0 ? '#484' : '#333';
+    drawRoundRect(ctx, px + 300 * scale, ry + 10 * scale, 24 * scale, 24 * scale, 4 * scale, 
+      sp.points > 0 ? '#484' : '#333', '#555');
+    ctx.fillStyle = '#fff';
+    ctx.fillText('+', px + 312 * scale, ry + 26 * scale);
   }
 
-  ctx.fillStyle='#484';
-  drawRoundRect(ctx,px+pw/2-70,py+ph-55,140,36,8,'#484','#6f6');
-  ctx.fillStyle='#fff'; ctx.font='bold 16px Arial'; ctx.textAlign='center';
-  ctx.fillText('Confirm',px+pw/2,py+ph-30);
+  ctx.fillStyle = '#484';
+  drawRoundRect(ctx, px + pw/2 - 70 * scale, py + ph - 55 * scale, 140 * scale, 36 * scale, 8 * scale, '#484', '#6f6');
+  ctx.fillStyle = '#fff'; 
+  ctx.font = `bold ${Math.floor(16 * scale)}px Arial`; 
+  ctx.textAlign = 'center';
+  ctx.fillText('Confirm', px + pw/2, py + ph - 30 * scale);
 
-  const previewHp=200+(sp.str*10)+(sp.extraHp*30)+p.inventory.getEquipBonus().hp;
-  const previewMp=100+(sp.int*8)+(sp.extraMp*20);
-  ctx.fillStyle='#aaa'; ctx.font='11px Arial'; ctx.textAlign='center';
-  ctx.fillText(`Preview: HP ${previewHp}  MP ${previewMp}  ATK ${10+sp.str*2}`,px+pw/2,py+ph-12);
+  const previewHp = 200 + (sp.str * 10) + (sp.extraHp * 30) + p.inventory.getEquipBonus().hp;
+  const previewMp = 100 + (sp.int * 8) + (sp.extraMp * 20);
+  ctx.fillStyle = '#aaa'; 
+  ctx.font = `${Math.floor(11 * scale)}px Arial`; 
+  ctx.textAlign = 'center';
+  ctx.fillText(`Preview: HP ${previewHp}  MP ${previewMp}  ATK ${10 + sp.str*2}`, px + pw/2, py + ph - 12 * scale);
 }
 
-function handleStatPanelClick(mx,my){
-  const pw=400, ph=380, px=(W-pw)/2, py=(H-ph)/2;
-  const p=G.player;
-  if(!G.statPanelStats) G.statPanelStats={str:p.str,dex:p.dex,int:p.int,extraHp:0,extraMp:0,points:p.statPoints};
-  const sp=G.statPanelStats;
-  const statKeys=['str','dex','int','extraHp','extraMp'];
+// handleStatPanelClick ve applyStatPanel fonksiyonlarında tıklama koordinatları da ölçeklenmeli.
+// Bu nedenle onları da güncelliyorum:
 
-  for(let i=0;i<statKeys.length;i++){
-    const key=statKeys[i];
-    const ry=py+70+i*52;
-    if(mx>=px+230&&mx<=px+254&&my>=ry+10&&my<=ry+34){
-      const base={str:p.str,dex:p.dex,int:p.int,extraHp:0,extraMp:0};
-      if(sp[key]>base[key]||sp[key]>0){
-        if(key==='str'&&sp.str>p.str){ sp.str--; sp.points++; }
-        else if(key==='dex'&&sp.dex>p.dex){ sp.dex--; sp.points++; }
-        else if(key==='int'&&sp.int>p.int){ sp.int--; sp.points++; }
-        else if(key==='extraHp'&&sp.extraHp>0){ sp.extraHp--; sp.points++; }
-        else if(key==='extraMp'&&sp.extraMp>0){ sp.extraMp--; sp.points++; }
+function handleStatPanelClick(mx, my){
+  const maxW = isMobile ? Math.min(W * 0.95, 400) : 400;
+  const maxH = isMobile ? Math.min(H * 0.85, 380) : 380;
+  const pw = maxW;
+  const ph = maxH;
+  const px = (W - pw) / 2;
+  const py = (H - ph) / 2;
+  const scale = isMobile ? Math.min(pw / 400, ph / 380) : 1;
+  
+  const p = G.player;
+  if(!G.statPanelStats) G.statPanelStats = {str:p.str, dex:p.dex, int:p.int, extraHp:0, extraMp:0, points:p.statPoints};
+  const sp = G.statPanelStats;
+  const statKeys = ['str','dex','int','extraHp','extraMp'];
+
+  for(let i = 0; i < statKeys.length; i++){
+    const key = statKeys[i];
+    const ry = py + (70 + i * 52) * scale;
+    // Eksi butonu
+    if(mx >= px + 230 * scale && mx <= px + 254 * scale && my >= ry + 10 * scale && my <= ry + 34 * scale){
+      const base = {str:p.str, dex:p.dex, int:p.int, extraHp:0, extraMp:0};
+      if(sp[key] > base[key] || sp[key] > 0){
+        if(key === 'str' && sp.str > p.str){ sp.str--; sp.points++; }
+        else if(key === 'dex' && sp.dex > p.dex){ sp.dex--; sp.points++; }
+        else if(key === 'int' && sp.int > p.int){ sp.int--; sp.points++; }
+        else if(key === 'extraHp' && sp.extraHp > 0){ sp.extraHp--; sp.points++; }
+        else if(key === 'extraMp' && sp.extraMp > 0){ sp.extraMp--; sp.points++; }
       }
       return;
     }
-    if(mx>=px+300&&mx<=px+324&&my>=ry+10&&my<=ry+34){
-      if(sp.points>0){
+    // Artı butonu
+    if(mx >= px + 300 * scale && mx <= px + 324 * scale && my >= ry + 10 * scale && my <= ry + 34 * scale){
+      if(sp.points > 0){
         sp[key]++;
         sp.points--;
       }
       return;
     }
   }
-  if(mx>=px+pw/2-70&&mx<=px+pw/2+70&&my>=py+ph-55&&my<=py+ph-19){
+  // Confirm butonu
+  if(mx >= px + pw/2 - 70 * scale && mx <= px + pw/2 + 70 * scale && 
+     my >= py + ph - 55 * scale && my <= py + ph - 19 * scale){
     applyStatPanel();
-    G.state='playing';
-    G.pendingStatScreen=false;
+    G.state = 'playing';
+    G.pendingStatScreen = false;
   }
 }
 
+// applyStatPanel aynı kalabilir (değişiklik yok)
 function applyStatPanel(){
   if(!G.statPanelStats) return;
-  const sp=G.statPanelStats;
-  const p=G.player;
-  p.str=sp.str; p.dex=sp.dex; p.int=sp.int;
+  const sp = G.statPanelStats;
+  const p = G.player;
+  p.str = sp.str; p.dex = sp.dex; p.int = sp.int;
   p.bonusHp = sp.extraHp * 30;
   p.bonusMp = sp.extraMp * 20;
-  p.statPoints=sp.points;
+  p.statPoints = sp.points;
   p.recalcStats();
-  G.statPanelStats=null;
+  G.statPanelStats = null;
 }
 
-// === PANEL: ANVIL ===
+// === PANEL: ANVIL (Mobil uyumlu) ===
 function drawAnvilPanel(){
-  const pw=580, ph=480, px=(W-pw)/2, py=(H-ph)/2;
-  ctx.fillStyle='rgba(5,2,10,0.97)';
-  drawRoundRect(ctx,px,py,pw,ph,10,'rgba(5,2,10,0.97)','#f80');
-  ctx.lineWidth=2;
-  ctx.fillStyle='#f80'; ctx.font='bold 18px Arial'; ctx.textAlign='center';
-  ctx.fillText('ANVIL - ITEM ENHANCEMENT',px+pw/2,py+28);
+  const maxW = isMobile ? Math.min(W * 0.95, 580) : 580;
+  const maxH = isMobile ? Math.min(H * 0.85, 480) : 480;
+  const pw = maxW;
+  const ph = maxH;
+  const px = (W - pw) / 2;
+  const py = (H - ph) / 2;
+  const scale = isMobile ? Math.min(pw / 580, ph / 480) : 1;
+  
+  ctx.fillStyle = 'rgba(5,2,10,0.97)';
+  drawRoundRect(ctx, px, py, pw, ph, 10 * scale, 'rgba(5,2,10,0.97)', '#f80');
+  ctx.lineWidth = 2;
+  ctx.fillStyle = '#f80'; 
+  ctx.font = `bold ${Math.floor(18 * scale)}px Arial`; 
+  ctx.textAlign = 'center';
+  ctx.fillText('ANVIL - ITEM ENHANCEMENT', px + pw/2, py + 28 * scale);
 
-  const p=G.player;
-  const inv=p.inventory;
+  const p = G.player;
+  const inv = p.inventory;
 
-  ctx.fillStyle='#aaa'; ctx.font='12px Arial'; ctx.textAlign='left';
-  ctx.fillText('Select item to enhance:',px+15,py+50);
-  const equipTypes=['weapon','head','chest','legs','boots'];
-  const enhanceable=[];
-  for(let i=0;i<42;i++){
-    const it=inv.slots[i];
-    if(it&&equipTypes.includes(it.type)) enhanceable.push({item:it,src:'inv',idx:i});
+  ctx.fillStyle = '#aaa'; 
+  ctx.font = `${Math.floor(12 * scale)}px Arial`; 
+  ctx.textAlign = 'left';
+  ctx.fillText('Select item to enhance:', px + 15 * scale, py + 50 * scale);
+  
+  const equipTypes = ['weapon','head','chest','legs','boots'];
+  const enhanceable = [];
+  for(let i = 0; i < 42; i++){
+    const it = inv.slots[i];
+    if(it && equipTypes.includes(it.type)) enhanceable.push({item:it, src:'inv', idx:i});
   }
   for(const slot of equipTypes){
-    const it=inv.equipment[slot];
-    if(it) enhanceable.push({item:it,src:'equip',slot});
+    const it = inv.equipment[slot];
+    if(it) enhanceable.push({item:it, src:'equip', slot});
   }
 
-  const listX=px+10, listY=py+58, itemH=40;
-  for(let i=0;i<Math.min(enhanceable.length,9);i++){
-    const e=enhanceable[i];
-    const it=e.item;
-    const iy=listY+i*itemH;
-    const selected=G.anvilSelected&&G.anvilSelected.item===it;
-    ctx.fillStyle=selected?'rgba(100,60,0,0.9)':'rgba(30,20,10,0.8)';
-    drawRoundRect(ctx,listX,iy,240,36,4,selected?'rgba(100,60,0,0.9)':'rgba(30,20,10,0.8)','#555');
-    if(it.enhance>=7){
+  const listX = px + 10 * scale;
+  const listY = py + 58 * scale;
+  const itemH = 40 * scale;
+  
+  for(let i = 0; i < Math.min(enhanceable.length, 9); i++){
+    const e = enhanceable[i];
+    const it = e.item;
+    const iy = listY + i * itemH;
+    const selected = G.anvilSelected && G.anvilSelected.item === it;
+    
+    ctx.fillStyle = selected ? 'rgba(100,60,0,0.9)' : 'rgba(30,20,10,0.8)';
+    drawRoundRect(ctx, listX, iy, 240 * scale, 36 * scale, 4 * scale, 
+      selected ? 'rgba(100,60,0,0.9)' : 'rgba(30,20,10,0.8)', '#555');
+      
+    if(it.enhance >= 7){
       ctx.save();
-      ctx.shadowColor=it.getGlowColor()||`hsl(${(Date.now()*0.2)%360},100%,60%)`;
-      ctx.shadowBlur=8;
+      ctx.shadowColor = it.getGlowColor() || `hsl(${(Date.now()*0.2)%360},100%,60%)`;
+      ctx.shadowBlur = 8 * scale;
     }
-    ctx.fillStyle=it.color||'#888';
-    ctx.beginPath(); ctx.arc(listX+18,iy+18,13,0,Math.PI*2); ctx.fill();
-    if(it.enhance>=7) ctx.restore();
-    ctx.fillStyle='#fff'; ctx.font='bold 11px Arial'; ctx.textAlign='center';
-    ctx.fillText(it.symbol,listX+18,iy+22);
-    ctx.fillStyle=it.enhance>0?'#fd0':'#eee'; ctx.font='12px Arial'; ctx.textAlign='left';
-    ctx.fillText(it.getDisplayName(),listX+38,iy+14);
-    ctx.fillStyle='#aaa'; ctx.font='10px Arial';
-    if(it.getEnhancedAtk()>0) ctx.fillText('ATK+'+it.getEnhancedAtk(),listX+38,iy+28);
-    else if(it.getEnhancedDef()>0) ctx.fillText('DEF+'+it.getEnhancedDef()+' HP+'+it.getEnhancedHp(),listX+38,iy+28);
+    ctx.fillStyle = it.color || '#888';
+    ctx.beginPath(); 
+    ctx.arc(listX + 18 * scale, iy + 18 * scale, 13 * scale, 0, Math.PI*2); 
+    ctx.fill();
+    if(it.enhance >= 7) ctx.restore();
+    
+    ctx.fillStyle = '#fff'; 
+    ctx.font = `bold ${Math.floor(11 * scale)}px Arial`; 
+    ctx.textAlign = 'center';
+    ctx.fillText(it.symbol, listX + 18 * scale, iy + 22 * scale);
+    ctx.fillStyle = it.enhance > 0 ? '#fd0' : '#eee'; 
+    ctx.font = `${Math.floor(12 * scale)}px Arial`; 
+    ctx.textAlign = 'left';
+    ctx.fillText(it.getDisplayName(), listX + 38 * scale, iy + 14 * scale);
+    ctx.fillStyle = '#aaa'; 
+    ctx.font = `${Math.floor(10 * scale)}px Arial`;
+    if(it.getEnhancedAtk() > 0) ctx.fillText('ATK+' + it.getEnhancedAtk(), listX + 38 * scale, iy + 28 * scale);
+    else if(it.getEnhancedDef() > 0) ctx.fillText('DEF+' + it.getEnhancedDef() + ' HP+' + it.getEnhancedHp(), listX + 38 * scale, iy + 28 * scale);
   }
 
-  const selX=px+270, selY=py+55;
-  ctx.fillStyle='rgba(20,15,5,0.8)';
-  drawRoundRect(ctx,selX,selY,pw-280,380,6,'rgba(20,15,5,0.8)','#555');
+  const selX = px + 270 * scale;
+  const selY = py + 55 * scale;
+  const selW = (pw - 280) * scale;
+  const selH = 380 * scale;
+  
+  ctx.fillStyle = 'rgba(20,15,5,0.8)';
+  drawRoundRect(ctx, selX, selY, selW, selH, 6 * scale, 'rgba(20,15,5,0.8)', '#555');
 
   if(G.anvilSelected){
-    const it=G.anvilSelected.item;
-    const en=it.enhance;
-    ctx.fillStyle='#fd0'; ctx.font='bold 14px Arial'; ctx.textAlign='center';
-    ctx.fillText(it.getDisplayName(),selX+(pw-280)/2,selY+22);
+    const it = G.anvilSelected.item;
+    const en = it.enhance;
+    ctx.fillStyle = '#fd0'; 
+    ctx.font = `bold ${Math.floor(14 * scale)}px Arial`; 
+    ctx.textAlign = 'center';
+    ctx.fillText(it.getDisplayName(), selX + selW/2, selY + 22 * scale);
 
-    if(en>=7){
+    if(en >= 7){
       ctx.save();
-      ctx.shadowColor=it.getGlowColor()||`hsl(${(Date.now()*0.2)%360},100%,60%)`;
-      ctx.shadowBlur=20;
+      ctx.shadowColor = it.getGlowColor() || `hsl(${(Date.now()*0.2)%360},100%,60%)`;
+      ctx.shadowBlur = 20 * scale;
     }
-    ctx.fillStyle=it.color||'#888';
-    ctx.beginPath(); ctx.arc(selX+(pw-280)/2,selY+68,32,0,Math.PI*2); ctx.fill();
-    if(en>=7) ctx.restore();
-    ctx.fillStyle='#fff'; ctx.font='bold 24px Arial'; ctx.textAlign='center';
-    ctx.fillText(it.symbol,selX+(pw-280)/2,selY+78);
+    ctx.fillStyle = it.color || '#888';
+    ctx.beginPath(); 
+    ctx.arc(selX + selW/2, selY + 68 * scale, 32 * scale, 0, Math.PI*2); 
+    ctx.fill();
+    if(en >= 7) ctx.restore();
+    
+    ctx.fillStyle = '#fff'; 
+    ctx.font = `bold ${Math.floor(24 * scale)}px Arial`; 
+    ctx.textAlign = 'center';
+    ctx.fillText(it.symbol, selX + selW/2, selY + 78 * scale);
 
-    ctx.fillStyle='#aaa'; ctx.font='12px Arial';
-    if(it.getEnhancedAtk()>0) ctx.fillText('ATK: +'+it.getEnhancedAtk()+' → +'+(it.getEnhancedAtk()+3),selX+(pw-280)/2,selY+112);
-    if(it.getEnhancedDef()>0) ctx.fillText('DEF: +'+it.getEnhancedDef()+' → +'+(it.getEnhancedDef()+2),selX+(pw-280)/2,selY+128);
-    if(it.getEnhancedHp()>0) ctx.fillText('HP: +'+it.getEnhancedHp()+' → +'+(it.getEnhancedHp()+5),selX+(pw-280)/2,selY+144);
+    ctx.fillStyle = '#aaa'; 
+    ctx.font = `${Math.floor(12 * scale)}px Arial`;
+    if(it.getEnhancedAtk() > 0) ctx.fillText('ATK: +' + it.getEnhancedAtk() + ' → +' + (it.getEnhancedAtk()+3), selX + selW/2, selY + 112 * scale);
+    if(it.getEnhancedDef() > 0) ctx.fillText('DEF: +' + it.getEnhancedDef() + ' → +' + (it.getEnhancedDef()+2), selX + selW/2, selY + 128 * scale);
+    if(it.getEnhancedHp() > 0) ctx.fillText('HP: +' + it.getEnhancedHp() + ' → +' + (it.getEnhancedHp()+5), selX + selW/2, selY + 144 * scale);
 
-    const cost = en>=6 ? (en+1)*300 : (en+1)*100;
-    let successChance,burnChance=0;
-    if(en<6){ successChance=0.60; }
-    else if(en===6){ successChance=0.60; }
-    else if(en===7){ successChance=0.70; burnChance=0.30; }
-    else if(en===8){ successChance=0.50; burnChance=0.50; }
-    else if(en===9){ successChance=0.30; burnChance=0.70; }
-    else { successChance=0.10; burnChance=0.90; }
+    const cost = en >= 6 ? (en+1)*300 : (en+1)*100;
+    let successChance, burnChance = 0;
+    if(en < 6){ successChance = 0.60; }
+    else if(en === 6){ successChance = 0.60; }
+    else if(en === 7){ successChance = 0.70; burnChance = 0.30; }
+    else if(en === 8){ successChance = 0.50; burnChance = 0.50; }
+    else if(en === 9){ successChance = 0.30; burnChance = 0.70; }
+    else { successChance = 0.10; burnChance = 0.90; }
 
-    ctx.fillStyle='#fd0'; ctx.font='bold 13px Arial'; ctx.textAlign='center';
-    ctx.fillText(`Enhance: ${en} → ${en+1}`,selX+(pw-280)/2,selY+170);
-    ctx.fillStyle='#fff'; ctx.font='12px Arial';
-    ctx.fillText(`Cost: ${cost} Noah`,selX+(pw-280)/2,selY+188);
-    ctx.fillStyle='#4f4';
-    ctx.fillText(`Success: ${Math.round(successChance*100)}%`,selX+(pw-280)/2,selY+204);
-    if(en>=6){
-      ctx.fillStyle='#f44';
-      ctx.fillText(`BURN/DESTROY: ${Math.round(burnChance*100)}%`,selX+(pw-280)/2,selY+220);
-      ctx.fillStyle='#f80'; ctx.font='bold 11px Arial';
-      ctx.fillText('WARNING: Item can be DESTROYED!',selX+(pw-280)/2,selY+238);
-    }
-
-    ctx.fillStyle=inv.noah>=cost?'#4f4':'#f44'; ctx.font='12px Arial';
-    ctx.fillText(`Your Noah: ${inv.noah}`,selX+(pw-280)/2,selY+258);
-
-    const canAfford=inv.noah>=cost && en<10;
-    ctx.fillStyle=canAfford?'#f80':'#444';
-    drawRoundRect(ctx,selX+30,selY+272,pw-340,44,8,canAfford?'#f80':'#444',canAfford?'#fa0':'#333');
-    ctx.fillStyle=canAfford?'#000':'#666'; ctx.font='bold 18px Arial'; ctx.textAlign='center';
-    ctx.fillText(en>=10?'MAX ENHANCE':'ENHANCE!',selX+(pw-280)/2,selY+299);
-
-    if(G.anvilMsgTimer>0){
-      G.anvilMsgTimer-=1/60;
-      ctx.fillStyle=G.anvilMsg.startsWith('SUCCESS')?'#4f4':'#f44';
-      ctx.font='bold 16px Arial'; ctx.textAlign='center';
-      ctx.fillText(G.anvilMsg,selX+(pw-280)/2,selY+330);
+    ctx.fillStyle = '#fd0'; 
+    ctx.font = `bold ${Math.floor(13 * scale)}px Arial`; 
+    ctx.textAlign = 'center';
+    ctx.fillText(`Enhance: ${en} → ${en+1}`, selX + selW/2, selY + 170 * scale);
+    ctx.fillStyle = '#fff'; 
+    ctx.font = `${Math.floor(12 * scale)}px Arial`;
+    ctx.fillText(`Cost: ${cost} Noah`, selX + selW/2, selY + 188 * scale);
+    ctx.fillStyle = '#4f4';
+    ctx.fillText(`Success: ${Math.round(successChance*100)}%`, selX + selW/2, selY + 204 * scale);
+    
+    if(en >= 6){
+      ctx.fillStyle = '#f44';
+      ctx.fillText(`BURN/DESTROY: ${Math.round(burnChance*100)}%`, selX + selW/2, selY + 220 * scale);
+      ctx.fillStyle = '#f80'; 
+      ctx.font = `bold ${Math.floor(11 * scale)}px Arial`;
+      ctx.fillText('WARNING: Item can be DESTROYED!', selX + selW/2, selY + 238 * scale);
     }
 
+    ctx.fillStyle = inv.noah >= cost ? '#4f4' : '#f44'; 
+    ctx.font = `${Math.floor(12 * scale)}px Arial`;
+    ctx.fillText(`Your Noah: ${inv.noah}`, selX + selW/2, selY + 258 * scale);
+
+    const canAfford = inv.noah >= cost && en < 10;
+    ctx.fillStyle = canAfford ? '#f80' : '#444';
+    drawRoundRect(ctx, selX + 30 * scale, selY + 272 * scale, (selW - 60) * scale, 44 * scale, 8 * scale, 
+      canAfford ? '#f80' : '#444', canAfford ? '#fa0' : '#333');
+    ctx.fillStyle = canAfford ? '#000' : '#666'; 
+    ctx.font = `bold ${Math.floor(18 * scale)}px Arial`; 
+    ctx.textAlign = 'center';
+    ctx.fillText(en >= 10 ? 'MAX ENHANCE' : 'ENHANCE!', selX + selW/2, selY + 299 * scale);
+
+    if(G.anvilMsgTimer > 0){
+      G.anvilMsgTimer -= 1/60;
+      ctx.fillStyle = G.anvilMsg.startsWith('SUCCESS') ? '#4f4' : '#f44';
+      ctx.font = `bold ${Math.floor(16 * scale)}px Arial`; 
+      ctx.textAlign = 'center';
+      ctx.fillText(G.anvilMsg, selX + selW/2, selY + 330 * scale);
+    }
   } else {
-    ctx.fillStyle='#555'; ctx.font='14px Arial'; ctx.textAlign='center';
-    ctx.fillText('Select an item from the list',selX+(pw-280)/2,selY+80);
-    ctx.fillText('to enhance it.',selX+(pw-280)/2,selY+100);
-    ctx.fillStyle='#888'; ctx.font='11px Arial';
-    ctx.fillText('+1 to +6: 60% success',selX+(pw-280)/2,selY+140);
-    ctx.fillText('+7 to +10: Burn risk!',selX+(pw-280)/2,selY+158);
-    ctx.fillText('Failed +7 destroys item!',selX+(pw-280)/2,selY+176);
+    ctx.fillStyle = '#555'; 
+    ctx.font = `${Math.floor(14 * scale)}px Arial`; 
+    ctx.textAlign = 'center';
+    ctx.fillText('Select an item from the list', selX + selW/2, selY + 80 * scale);
+    ctx.fillText('to enhance it.', selX + selW/2, selY + 100 * scale);
+    ctx.fillStyle = '#888'; 
+    ctx.font = `${Math.floor(11 * scale)}px Arial`;
+    ctx.fillText('+1 to +6: 60% success', selX + selW/2, selY + 140 * scale);
+    ctx.fillText('+7 to +10: Burn risk!', selX + selW/2, selY + 158 * scale);
+    ctx.fillText('Failed +7 destroys item!', selX + selW/2, selY + 176 * scale);
   }
 
-  if(G.anvilFlash>0){
-    ctx.fillStyle=`rgba(255,0,0,${G.anvilFlash*0.4})`;
-    ctx.fillRect(0,0,W,H);
-    G.anvilFlash-=1/60;
+  if(G.anvilFlash > 0){
+    ctx.fillStyle = `rgba(255,0,0,${G.anvilFlash*0.4})`;
+    ctx.fillRect(0, 0, W, H);
+    G.anvilFlash -= 1/60;
   }
 }
 
-function handleAnvilClick(mx,my){
-  const pw=580, ph=480, px=(W-pw)/2, py=(H-ph)/2;
-  const p=G.player;
-  const inv=p.inventory;
-  const equipTypes=['weapon','head','chest','legs','boots'];
-  const enhanceable=[];
-  for(let i=0;i<42;i++){
-    const it=inv.slots[i];
-    if(it&&equipTypes.includes(it.type)) enhanceable.push({item:it,src:'inv',idx:i});
+// handleAnvilClick de ölçeklenmiş koordinatları kullanmalı
+function handleAnvilClick(mx, my){
+  const maxW = isMobile ? Math.min(W * 0.95, 580) : 580;
+  const maxH = isMobile ? Math.min(H * 0.85, 480) : 480;
+  const pw = maxW;
+  const ph = maxH;
+  const px = (W - pw) / 2;
+  const py = (H - ph) / 2;
+  const scale = isMobile ? Math.min(pw / 580, ph / 480) : 1;
+  
+  const p = G.player;
+  const inv = p.inventory;
+  const equipTypes = ['weapon','head','chest','legs','boots'];
+  const enhanceable = [];
+  for(let i = 0; i < 42; i++){
+    const it = inv.slots[i];
+    if(it && equipTypes.includes(it.type)) enhanceable.push({item:it, src:'inv', idx:i});
   }
   for(const slot of equipTypes){
-    const it=inv.equipment[slot];
-    if(it) enhanceable.push({item:it,src:'equip',slot});
+    const it = inv.equipment[slot];
+    if(it) enhanceable.push({item:it, src:'equip', slot});
   }
 
-  const listX=px+10, listY=py+58;
-  for(let i=0;i<Math.min(enhanceable.length,9);i++){
-    const iy=listY+i*40;
-    if(mx>=listX&&mx<=listX+240&&my>=iy&&my<=iy+36){
-      G.anvilSelected=enhanceable[i];
+  const listX = px + 10 * scale;
+  const listY = py + 58 * scale;
+  for(let i = 0; i < Math.min(enhanceable.length, 9); i++){
+    const iy = listY + i * 40 * scale;
+    if(mx >= listX && mx <= listX + 240 * scale && my >= iy && my <= iy + 36 * scale){
+      G.anvilSelected = enhanceable[i];
       return;
     }
   }
 
   if(G.anvilSelected){
-    const selX=px+270, selY=py+55;
-    const bx=selX+30, by=selY+272, bw=pw-340, bh=44;
-    if(mx>=bx&&mx<=bx+bw&&my>=by&&my<=by+bh){
+    const selX = px + 270 * scale;
+    const selY = py + 55 * scale;
+    const selW = (pw - 280) * scale;
+    const bx = selX + 30 * scale;
+    const by = selY + 272 * scale;
+    const bw = (selW - 60) * scale;
+    const bh = 44 * scale;
+    if(mx >= bx && mx <= bx + bw && my >= by && my <= by + bh){
       doAnvilEnhance();
       return;
     }
   }
 }
 
+// doAnvilEnhance aynı kalabilir (değişiklik yok)
 function doAnvilEnhance(){
   if(!G.anvilSelected) return;
-  const it=G.anvilSelected.item;
-  const inv=G.player.inventory;
-  const en=it.enhance;
-  if(en>=10){ G.anvilMsg='Already MAX enhance!'; G.anvilMsgTimer=2; return; }
-  const cost=en>=6?(en+1)*300:(en+1)*100;
-  if(inv.noah<cost){ G.anvilMsg='Not enough Noah!'; G.anvilMsgTimer=2; return; }
-  inv.noah-=cost;
+  const it = G.anvilSelected.item;
+  const inv = G.player.inventory;
+  const en = it.enhance;
+  if(en >= 10){ G.anvilMsg = 'Already MAX enhance!'; G.anvilMsgTimer = 2; return; }
+  const cost = en >= 6 ? (en+1)*300 : (en+1)*100;
+  if(inv.noah < cost){ G.anvilMsg = 'Not enough Noah!'; G.anvilMsgTimer = 2; return; }
+  inv.noah -= cost;
 
-  let successChance,burnChance=0;
-  if(en<6){ successChance=0.60; }
-  else if(en===6){ successChance=0.60; }
-  else if(en===7){ successChance=0.70; burnChance=0.30; }
-  else if(en===8){ successChance=0.50; burnChance=0.50; }
-  else if(en===9){ successChance=0.30; burnChance=0.70; }
-  else { successChance=0.10; burnChance=0.90; }
+  let successChance, burnChance = 0;
+  if(en < 6){ successChance = 0.60; }
+  else if(en === 6){ successChance = 0.60; }
+  else if(en === 7){ successChance = 0.70; burnChance = 0.30; }
+  else if(en === 8){ successChance = 0.50; burnChance = 0.50; }
+  else if(en === 9){ successChance = 0.30; burnChance = 0.70; }
+  else { successChance = 0.10; burnChance = 0.90; }
 
-  const roll=Math.random();
-  if(roll<successChance){
+  const roll = Math.random();
+  if(roll < successChance){
     it.enhance++;
-    G.anvilMsg='SUCCESS! +'+it.enhance;
-    G.anvilMsgTimer=2;
-    G.particles.spawn('spark',G.player.x,G.player.y,'');
-    G.particles.spawn('spark',G.player.x+20,G.player.y-20,'');
-  } else if(en>=6 && roll<successChance+burnChance){
-    G.anvilMsg='DESTROYED! Item burned to ash!';
-    G.anvilMsgTimer=3;
-    G.anvilFlash=1;
-    G.particles.spawn('burn',G.player.x,G.player.y,'');
-    if(G.anvilSelected.src==='inv'){
-      inv.slots[G.anvilSelected.idx]=null;
+    G.anvilMsg = 'SUCCESS! +' + it.enhance;
+    G.anvilMsgTimer = 2;
+    G.particles.spawn('spark', G.player.x, G.player.y, '');
+    G.particles.spawn('spark', G.player.x+20, G.player.y-20, '');
+  } else if(en >= 6 && roll < successChance + burnChance){
+    G.anvilMsg = 'DESTROYED! Item burned to ash!';
+    G.anvilMsgTimer = 3;
+    G.anvilFlash = 1;
+    G.particles.spawn('burn', G.player.x, G.player.y, '');
+    if(G.anvilSelected.src === 'inv'){
+      inv.slots[G.anvilSelected.idx] = null;
     } else {
-      inv.equipment[G.anvilSelected.slot]=null;
+      inv.equipment[G.anvilSelected.slot] = null;
       G.player.recalcStats();
     }
-    G.anvilSelected=null;
+    G.anvilSelected = null;
   } else {
-    G.anvilMsg='FAILED! Noah lost.';
-    G.anvilMsgTimer=2;
+    G.anvilMsg = 'FAILED! Noah lost.';
+    G.anvilMsgTimer = 2;
   }
 }
 
-// === MARKET PANEL ===
+// === MARKET PANEL (Mobil uyumlu) ===
 function drawMarketPanel(){
-  const pw = 700, ph = 520;
-  const px = (W - pw) / 2, py = (H - ph) / 2;
+  const maxW = isMobile ? Math.min(W * 0.95, 700) : 700;
+  const maxH = isMobile ? Math.min(H * 0.85, 520) : 520;
+  const pw = maxW;
+  const ph = maxH;
+  const px = (W - pw) / 2;
+  const py = (H - ph) / 2;
+  const scale = isMobile ? Math.min(pw / 700, ph / 520) : 1;
+  
   ctx.fillStyle = 'rgba(5,2,10,0.97)';
-  drawRoundRect(ctx, px, py, pw, ph, 10, 'rgba(5,2,10,0.97)', '#2a8');
+  drawRoundRect(ctx, px, py, pw, ph, 10 * scale, 'rgba(5,2,10,0.97)', '#2a8');
   ctx.lineWidth = 2;
-  ctx.fillStyle = '#2a8'; ctx.font = 'bold 20px Arial'; ctx.textAlign = 'center';
-  ctx.fillText('🛒 MARKET', px + pw/2, py + 30);
-  ctx.fillStyle = '#aaa'; ctx.font = '12px Arial';
-  ctx.fillText('Sell your materials or buy new items', px + pw/2, py + 48);
+  ctx.fillStyle = '#2a8'; 
+  ctx.font = `bold ${Math.floor(20 * scale)}px Arial`; 
+  ctx.textAlign = 'center';
+  ctx.fillText('🛒 MARKET', px + pw/2, py + 30 * scale);
+  ctx.fillStyle = '#aaa'; 
+  ctx.font = `${Math.floor(12 * scale)}px Arial`;
+  ctx.fillText('Sell your materials or buy new items', px + pw/2, py + 48 * scale);
 
   const p = G.player;
   const inv = p.inventory;
   const materialItems = [];
-  for(let i=0;i<inv.slots.length;i++){
+  for(let i = 0; i < inv.slots.length; i++){
     const it = inv.slots[i];
     if(it && it.type === 'material') materialItems.push({idx:i, item:it});
   }
 
-  const sellX = px + 20, sellY = py + 65;
-  ctx.fillStyle = '#fd0'; ctx.font = 'bold 14px Arial'; ctx.textAlign = 'left';
+  const sellX = px + 20 * scale;
+  const sellY = py + 65 * scale;
+  ctx.fillStyle = '#fd0'; 
+  ctx.font = `bold ${Math.floor(14 * scale)}px Arial`; 
+  ctx.textAlign = 'left';
   ctx.fillText('SELL MATERIALS', sellX, sellY);
-  ctx.fillStyle = '#ccc'; ctx.font = '11px Arial';
-  ctx.fillText('Click on an item to sell it for Noah', sellX, sellY + 18);
-  let sellListY = sellY + 32;
-  for(let i=0;i<materialItems.length;i++){
+  ctx.fillStyle = '#ccc'; 
+  ctx.font = `${Math.floor(11 * scale)}px Arial`;
+  ctx.fillText('Click on an item to sell it for Noah', sellX, sellY + 18 * scale);
+  
+  let sellListY = sellY + 32 * scale;
+  for(let i = 0; i < materialItems.length; i++){
     const mi = materialItems[i];
     const it = mi.item;
     const price = it.marketPrice || it.value || 10;
-    const y = sellListY + i * 38;
-    if(y + 30 > py + ph - 20) break;
-    drawRoundRect(ctx, sellX, y, 300, 34, 6, 'rgba(30,20,10,0.8)', '#555');
+    const y = sellListY + i * 38 * scale;
+    if(y + 30 * scale > py + ph - 20 * scale) break;
+    
+    drawRoundRect(ctx, sellX, y, 300 * scale, 34 * scale, 6 * scale, 'rgba(30,20,10,0.8)', '#555');
     ctx.fillStyle = it.color;
-    ctx.beginPath(); ctx.arc(sellX + 18, y + 17, 12, 0, Math.PI*2); ctx.fill();
-    ctx.fillStyle = '#fff'; ctx.font = 'bold 12px Arial'; ctx.textAlign = 'center';
-    ctx.fillText(it.symbol, sellX + 18, y + 21);
-    ctx.fillStyle = '#eee'; ctx.font = '12px Arial'; ctx.textAlign = 'left';
-    ctx.fillText(it.name, sellX + 38, y + 14);
-    ctx.fillStyle = '#fd0'; ctx.font = 'bold 12px Arial';
-    ctx.fillText(`${price} Noah`, sellX + 38, y + 28);
+    ctx.beginPath(); 
+    ctx.arc(sellX + 18 * scale, y + 17 * scale, 12 * scale, 0, Math.PI*2); 
+    ctx.fill();
+    ctx.fillStyle = '#fff'; 
+    ctx.font = `bold ${Math.floor(12 * scale)}px Arial`; 
+    ctx.textAlign = 'center';
+    ctx.fillText(it.symbol, sellX + 18 * scale, y + 21 * scale);
+    ctx.fillStyle = '#eee'; 
+    ctx.font = `${Math.floor(12 * scale)}px Arial`; 
+    ctx.textAlign = 'left';
+    ctx.fillText(it.name, sellX + 38 * scale, y + 14 * scale);
+    ctx.fillStyle = '#fd0'; 
+    ctx.font = `bold ${Math.floor(12 * scale)}px Arial`;
+    ctx.fillText(`${price} Noah`, sellX + 38 * scale, y + 28 * scale);
     ctx.fillStyle = '#4f4';
-    drawRoundRect(ctx, sellX + 230, y + 5, 60, 24, 4, '#4a4', '#6f6');
-    ctx.fillStyle = '#000'; ctx.font = 'bold 12px Arial'; ctx.textAlign = 'center';
-    ctx.fillText('SELL', sellX + 260, y + 22);
+    drawRoundRect(ctx, sellX + 230 * scale, y + 5 * scale, 60 * scale, 24 * scale, 4 * scale, '#4a4', '#6f6');
+    ctx.fillStyle = '#000'; 
+    ctx.font = `bold ${Math.floor(12 * scale)}px Arial`; 
+    ctx.textAlign = 'center';
+    ctx.fillText('SELL', sellX + 260 * scale, y + 22 * scale);
   }
   if(materialItems.length === 0){
-    ctx.fillStyle = '#555'; ctx.font = '12px Arial'; ctx.textAlign = 'center';
-    ctx.fillText('No materials in inventory', sellX + 150, sellY + 60);
+    ctx.fillStyle = '#555'; 
+    ctx.font = `${Math.floor(12 * scale)}px Arial`; 
+    ctx.textAlign = 'center';
+    ctx.fillText('No materials in inventory', sellX + 150 * scale, sellY + 60 * scale);
   }
 
   const shopItems = [
@@ -2672,61 +2962,91 @@ function drawMarketPanel(){
     { id: 'iron_plate', name: 'Iron Plate', price: 280 },
     { id: 'wing_boots', name: 'Wing Boots', price: 1000 },
   ];
-  const buyX = px + pw - 330, buyY = py + 65;
-  ctx.fillStyle = '#fd0'; ctx.font = 'bold 14px Arial'; ctx.textAlign = 'left';
+  const buyX = px + pw - 330 * scale;
+  const buyY = py + 65 * scale;
+  ctx.fillStyle = '#fd0'; 
+  ctx.font = `bold ${Math.floor(14 * scale)}px Arial`; 
+  ctx.textAlign = 'left';
   ctx.fillText('BUY ITEMS', buyX, buyY);
-  ctx.fillStyle = '#ccc'; ctx.font = '11px Arial';
-  ctx.fillText('Click to purchase (adds to inventory)', buyX, buyY + 18);
-  let buyListY = buyY + 32;
-  for(let i=0;i<shopItems.length;i++){
+  ctx.fillStyle = '#ccc'; 
+  ctx.font = `${Math.floor(11 * scale)}px Arial`;
+  ctx.fillText('Click to purchase (adds to inventory)', buyX, buyY + 18 * scale);
+  
+  let buyListY = buyY + 32 * scale;
+  for(let i = 0; i < shopItems.length; i++){
     const si = shopItems[i];
     const def = ITEM_DEFS[si.id];
     if(!def) continue;
-    const y = buyListY + i * 38;
-    if(y + 30 > py + ph - 20) break;
-    drawRoundRect(ctx, buyX, y, 300, 34, 6, 'rgba(30,20,10,0.8)', '#555');
+    const y = buyListY + i * 38 * scale;
+    if(y + 30 * scale > py + ph - 20 * scale) break;
+    
+    drawRoundRect(ctx, buyX, y, 300 * scale, 34 * scale, 6 * scale, 'rgba(30,20,10,0.8)', '#555');
     ctx.fillStyle = def.color;
-    ctx.beginPath(); ctx.arc(buyX + 18, y + 17, 12, 0, Math.PI*2); ctx.fill();
-    ctx.fillStyle = '#fff'; ctx.font = 'bold 12px Arial'; ctx.textAlign = 'center';
-    ctx.fillText(def.symbol, buyX + 18, y + 21);
-    ctx.fillStyle = '#eee'; ctx.font = '12px Arial'; ctx.textAlign = 'left';
-    ctx.fillText(si.name, buyX + 38, y + 14);
-    ctx.fillStyle = '#fd0'; ctx.font = 'bold 12px Arial';
-    ctx.fillText(`${si.price} Noah`, buyX + 38, y + 28);
+    ctx.beginPath(); 
+    ctx.arc(buyX + 18 * scale, y + 17 * scale, 12 * scale, 0, Math.PI*2); 
+    ctx.fill();
+    ctx.fillStyle = '#fff'; 
+    ctx.font = `bold ${Math.floor(12 * scale)}px Arial`; 
+    ctx.textAlign = 'center';
+    ctx.fillText(def.symbol, buyX + 18 * scale, y + 21 * scale);
+    ctx.fillStyle = '#eee'; 
+    ctx.font = `${Math.floor(12 * scale)}px Arial`; 
+    ctx.textAlign = 'left';
+    ctx.fillText(si.name, buyX + 38 * scale, y + 14 * scale);
+    ctx.fillStyle = '#fd0'; 
+    ctx.font = `bold ${Math.floor(12 * scale)}px Arial`;
+    ctx.fillText(`${si.price} Noah`, buyX + 38 * scale, y + 28 * scale);
     ctx.fillStyle = '#4f4';
-    drawRoundRect(ctx, buyX + 230, y + 5, 60, 24, 4, '#48f', '#8af');
-    ctx.fillStyle = '#fff'; ctx.font = 'bold 12px Arial'; ctx.textAlign = 'center';
-    ctx.fillText('BUY', buyX + 260, y + 22);
+    drawRoundRect(ctx, buyX + 230 * scale, y + 5 * scale, 60 * scale, 24 * scale, 4 * scale, '#48f', '#8af');
+    ctx.fillStyle = '#fff'; 
+    ctx.font = `bold ${Math.floor(12 * scale)}px Arial`; 
+    ctx.textAlign = 'center';
+    ctx.fillText('BUY', buyX + 260 * scale, y + 22 * scale);
   }
 
   ctx.fillStyle = 'rgba(0,0,0,0.5)';
-  drawRoundRect(ctx, px + pw/2 - 120, py + ph - 45, 240, 34, 8, 'rgba(0,0,0,0.6)', '#fd0');
-  ctx.fillStyle = '#fd0'; ctx.font = 'bold 16px Arial'; ctx.textAlign = 'center';
-  ctx.fillText(`💰 ${inv.noah} Noah`, px + pw/2, py + ph - 22);
+  drawRoundRect(ctx, px + pw/2 - 120 * scale, py + ph - 45 * scale, 240 * scale, 34 * scale, 8 * scale, 'rgba(0,0,0,0.6)', '#fd0');
+  ctx.fillStyle = '#fd0'; 
+  ctx.font = `bold ${Math.floor(16 * scale)}px Arial`; 
+  ctx.textAlign = 'center';
+  ctx.fillText(`💰 ${inv.noah} Noah`, px + pw/2, py + ph - 22 * scale);
 
   if(G.marketMsgTimer > 0){
     G.marketMsgTimer -= 1/60;
-    ctx.fillStyle = '#4f4'; ctx.font = 'bold 14px Arial'; ctx.textAlign = 'center';
-    ctx.fillText(G.marketMessage, px + pw/2, py + ph - 10);
+    ctx.fillStyle = '#4f4'; 
+    ctx.font = `bold ${Math.floor(14 * scale)}px Arial`; 
+    ctx.textAlign = 'center';
+    ctx.fillText(G.marketMessage, px + pw/2, py + ph - 10 * scale);
   }
 }
 
+// handleMarketClick de ölçeklenmiş koordinatları kullanmalı
 function handleMarketClick(mx, my){
-  const pw = 700, ph = 520;
-  const px = (W - pw) / 2, py = (H - ph) / 2;
+  const maxW = isMobile ? Math.min(W * 0.95, 700) : 700;
+  const maxH = isMobile ? Math.min(H * 0.85, 520) : 520;
+  const pw = maxW;
+  const ph = maxH;
+  const px = (W - pw) / 2;
+  const py = (H - ph) / 2;
+  const scale = isMobile ? Math.min(pw / 700, ph / 520) : 1;
+  
   const p = G.player;
   const inv = p.inventory;
 
-  const sellX = px + 20, sellStartY = py + 97;
+  const sellX = px + 20 * scale;
+  const sellStartY = py + 97 * scale;
   const materialItems = [];
-  for(let i=0;i<inv.slots.length;i++){
+  for(let i = 0; i < inv.slots.length; i++){
     const it = inv.slots[i];
     if(it && it.type === 'material') materialItems.push({idx:i, item:it});
   }
-  for(let i=0;i<materialItems.length;i++){
+  for(let i = 0; i < materialItems.length; i++){
     const mi = materialItems[i];
-    const y = sellStartY + i * 38;
-    const btnX = sellX + 230, btnY = y + 5, btnW = 60, btnH = 24;
+    const y = sellStartY + i * 38 * scale;
+    const btnX = sellX + 230 * scale;
+    const btnY = y + 5 * scale;
+    const btnW = 60 * scale;
+    const btnH = 24 * scale;
     if(mx >= btnX && mx <= btnX + btnW && my >= btnY && my <= btnY + btnH){
       const price = mi.item.marketPrice || mi.item.value || 10;
       inv.noah += price;
@@ -2752,11 +3072,15 @@ function handleMarketClick(mx, my){
     { id: 'iron_plate', price: 280 },
     { id: 'wing_boots', price: 1000 },
   ];
-  const buyX = px + pw - 330, buyStartY = py + 97;
-  for(let i=0;i<shopItems.length;i++){
+  const buyX = px + pw - 330 * scale;
+  const buyStartY = py + 97 * scale;
+  for(let i = 0; i < shopItems.length; i++){
     const si = shopItems[i];
-    const y = buyStartY + i * 38;
-    const btnX = buyX + 230, btnY = y + 5, btnW = 60, btnH = 24;
+    const y = buyStartY + i * 38 * scale;
+    const btnX = buyX + 230 * scale;
+    const btnY = y + 5 * scale;
+    const btnW = 60 * scale;
+    const btnH = 24 * scale;
     if(mx >= btnX && mx <= btnX + btnW && my >= btnY && my <= btnY + btnH){
       if(inv.noah >= si.price){
         const newItem = new Item(si.id);
