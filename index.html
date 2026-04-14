@@ -183,7 +183,14 @@ function isOnScreen(wx, wy, cam, margin = 100) {
 
 // === CAMERA ===
 class Camera {
-  constructor(){ this.x=500; this.y=500; }
+  constructor(){ 
+    this.x = 500; 
+    this.y = 500; 
+    this.zoom = 1.0;        // 🔁 Yeni: zoom seviyesi (1.0 = normal)
+    this.minZoom = 0.6;     // En fazla uzaklaşma
+    this.maxZoom = 1.8;     // En fazla yakınlaşma
+  }
+  
   follow(target, dt){
     const spd = 8;
     this.x += (target.x - this.x) * spd * dt;
@@ -191,13 +198,33 @@ class Camera {
     this.x = clamp(this.x, W/2, WORLD_W - W/2);
     this.y = clamp(this.y, H/2, WORLD_H - H/2);
   }
+  
+  // 🔁 Zoom değiştirme metodu
+  adjustZoom(delta){
+    this.zoom = clamp(this.zoom + delta, this.minZoom, this.maxZoom);
+  }
+}
+
+// === UTILITY FUNCTIONS ===
+// 🔁 worldToScreen zoom'u hesaba katacak şekilde güncellendi
+function worldToScreen(wx, wy, cam){
+  const screenX = (wx - cam.x) * cam.zoom + W/2;
+  const screenY = (wy - cam.y) * cam.zoom + H/2;
+  return { x: screenX, y: screenY };
+}
+
+// isOnScreen de zoom'a göre marjı ayarlayalım
+function isOnScreen(wx, wy, cam, margin = 100) {
+  const s = worldToScreen(wx, wy, cam);
+  return s.x > -margin && s.x < W + margin && s.y > -margin && s.y < H + margin;
 }
 
 // === ITEM ===
 class Item {
-  constructor(id, enhance=0, forcedRarity=null){
+  constructor(id, enhance=0, forcedRarity=null, count=1){
     this.id = id;
     this.enhance = enhance;
+    this.count = count || 1;
     const def = ITEM_DEFS[id];
     if(!def) { this.valid=false; return; }
     this.valid = true;
@@ -237,6 +264,7 @@ class Item {
     const rarityName = RARITIES[this.rarity].name;
     let name = `${rarityName} ${this.name}`;
     if(this.enhance>0) name += ' +'+this.enhance;
+    if(this.count > 1) name += ` (${this.count})`;
     return name;
   }
 
@@ -251,12 +279,15 @@ class Item {
   }
 
   serialize(){ 
-    return { id:this.id, enhance:this.enhance, rarity:this.rarity, extraStats:this.extraStats }; 
+    return { 
+      id:this.id, enhance:this.enhance, rarity:this.rarity, extraStats:this.extraStats,
+      count: this.count
+    }; 
   }
   
   static deserialize(d){ 
     if(!d) return null;
-    const it = new Item(d.id, d.enhance||0, d.rarity);
+    const it = new Item(d.id, d.enhance||0, d.rarity, d.count||1);
     if(d.extraStats) it.extraStats = d.extraStats;
     return it; 
   }
@@ -288,18 +319,44 @@ class Inventory {
 
   addItem(item){
     if(this.autoSellMaterials && item && item.type === 'material' && item.value){
-      this.noah += item.value;
+      this.noah += item.value * item.count;
       if(typeof G !== 'undefined' && G && G.particles && G.player){
-        G.particles.spawn('noah', G.player.x, G.player.y-20, `+${item.value} (auto-sell ${item.name})`);
+        G.particles.spawn('noah', G.player.x, G.player.y-20, `+${item.value * item.count} (auto-sell ${item.name})`);
       }
       return true;
     }
-    for(let i=0;i<this.slots.length;i++){
-      if(!this.slots[i]){ this.slots[i]=item; return true; }
+
+    const stackable = item.type === 'potion' || item.type === 'material' || item.type === 'currency';
+    
+    if(stackable){
+      for(let i=0; i<this.slots.length; i++){
+        const slot = this.slots[i];
+        if(slot && slot.id === item.id && slot.enhance === item.enhance){
+          slot.count += item.count;
+          return true;
+        }
+      }
+    }
+    
+    for(let i=0; i<this.slots.length; i++){
+      if(!this.slots[i]){ 
+        this.slots[i] = item; 
+        return true; 
+      }
     }
     return false;
   }
-  removeItem(idx){ this.slots[idx]=null; }
+
+  removeItem(idx){ 
+    const item = this.slots[idx];
+    if(item && item.count > 1){
+      item.count--;
+      if(item.count <= 0) this.slots[idx] = null;
+    } else {
+      this.slots[idx] = null;
+    }
+  }
+
   equip(idx, player){
     const item = this.slots[idx];
     if(!item) return;
@@ -311,28 +368,44 @@ class Inventory {
     this.slots[idx] = old;
     player.recalcStats();
   }
+
   unequip(slot, player){
     const item = this.equipment[slot];
     if(!item) return;
-    if(this.addItem(item)){ this.equipment[slot]=null; player.recalcStats(); }
+    if(this.addItem(item)){ 
+      this.equipment[slot] = null; 
+      player.recalcStats(); 
+    }
   }
+
   usePotion(idx, player){
     const item = this.slots[idx];
     if(!item) return false;
     if(item.type === 'potion'){
-      if(item.heal){ player.hp = Math.min(player.maxHp, player.hp + item.heal); G.particles.spawn('heal',player.x,player.y,'+'+item.heal); }
-      if(item.mp){ player.mp = Math.min(player.maxMp, player.mp + item.mp); G.particles.spawn('heal',player.x,player.y,'+'+item.mp+' MP'); }
-      if(item.atk_buff){ player.atkBuff = item.atk_buff; player.atkBuffTimer = 30; }
-      this.slots[idx] = null;
+      if(item.heal){ 
+        player.hp = Math.min(player.maxHp, player.hp + item.heal); 
+        G.particles.spawn('heal',player.x,player.y,'+'+item.heal); 
+      }
+      if(item.mp){ 
+        player.mp = Math.min(player.maxMp, player.mp + item.mp); 
+        G.particles.spawn('heal',player.x,player.y,'+'+item.mp+' MP'); 
+      }
+      if(item.atk_buff){ 
+        player.atkBuff = item.atk_buff; 
+        player.atkBuffTimer = 30; 
+      }
+      item.count--;
+      if(item.count <= 0) this.slots[idx] = null;
       return true;
     }
     if(item.type === 'currency'){
-      this.noah += item.value||0;
+      this.noah += (item.value||0) * item.count;
       this.slots[idx] = null;
       return true;
     }
     return false;
   }
+
   getEquipBonus(){
     let atk=0,def=0,hp=0;
     for(const slot in this.equipment){
@@ -341,6 +414,7 @@ class Inventory {
     }
     return {atk,def,hp};
   }
+
   serialize(){
     return {
       slots: this.slots.map(s=>s?s.serialize():null),
@@ -349,6 +423,7 @@ class Inventory {
       autoSellMaterials: this.autoSellMaterials
     };
   }
+
   static deserialize(d){
     const inv = new Inventory();
     if(!d) return inv;
@@ -371,8 +446,8 @@ class Player {
     this.atkBuff = 0; this.atkBuffTimer = 0;
     this.inventory = new Inventory();
     this.inventory.addItem(new Item('rusty_sword'));
-    this.inventory.addItem(new Item('hp_potion_s'));
-    this.inventory.addItem(new Item('hp_potion_s'));
+    this.inventory.addItem(new Item('hp_potion_s', 0, null, 5)); // 5 adet küçük can potu
+    this.inventory.addItem(new Item('mp_potion_s', 0, null, 3)); // 3 adet küçük mana potu
     this.recalcStats();
     this.hp = this.maxHp; this.mp = this.maxMp;
     this.moveTarget = null;
@@ -418,7 +493,8 @@ class Player {
       this.hp = Math.min(this.hp + 50, this.maxHp);
       this.mp = Math.min(this.mp + 30, this.maxMp);
       G.particles.spawn('levelup', this.x, this.y, 'LEVEL UP!');
-      if(G.state==='playing') G.pendingStatScreen = true;
+      // 🔁 OTOMATİK STAT EKRANI AÇILMASI İPTAL EDİLDİ
+      // if(G.state==='playing') G.pendingStatScreen = true;
     }
   }
   update(dt, keys, mobs){
@@ -479,6 +555,7 @@ class Player {
         this.facingAngle = angle(this, nearest);
         const dmg = this.calcDamage(nearest);
         nearest.takeDamage(dmg.dmg, dmg.crit);
+        G.particles.spawn('slash', this.x, this.y, '', this.facingAngle);
       }
     }
     if(this.swingAnim>0) this.swingAnim -= dt*3;
@@ -647,6 +724,7 @@ class Mob {
       G.player.gainExp(this.exp);
       G.quests.onKill(this.type);
       G.particles.spawn('blood',this.x,this.y,'');
+      G.particles.spawn('spark', this.x, this.y, '');
     }
     this.respawnTimer = 30;
   }
@@ -914,90 +992,199 @@ class Mob {
 // === PARTICLE SYSTEM ===
 class ParticleSystem {
   constructor(){ this.particles = []; }
-  spawn(type, x, y, text){
+  
+  spawn(type, x, y, text, angle = 0){
     switch(type){
       case 'hit':
-        for(let i=0;i<5;i++){
-          const ang=rnd(0,Math.PI*2), spd=rnd(60,140);
-          this.particles.push({type:'hit',x,y,vx:Math.cos(ang)*spd,vy:Math.sin(ang)*spd,life:0.4,maxLife:0.4,color:'#f80'});
+        for(let i=0;i<6;i++){
+          const ang = rnd(0, Math.PI*2);
+          const spd = rnd(50, 130);
+          this.particles.push({
+            type:'hit', x, y, 
+            vx: Math.cos(ang)*spd, vy: Math.sin(ang)*spd - 20,
+            life: 0.5, maxLife: 0.5, color: '#f80', size: 3
+          });
         }
         break;
+        
       case 'crit':
-        this.particles.push({type:'text',x,y,vy:-60,life:1.2,maxLife:1.2,text:text||'CRIT!',color:'#ff0',size:20});
-        break;
-      case 'damage':
-        this.particles.push({type:'text',x,y,vy:-50,life:1.0,maxLife:1.0,text:text,color:'#f44',size:16});
-        break;
-      case 'heal':
-        this.particles.push({type:'text',x,y,vy:-50,life:1.0,maxLife:1.0,text:text,color:'#4f4',size:16});
-        break;
-      case 'exp':
-        this.particles.push({type:'text',x,y,vy:-60,life:1.4,maxLife:1.4,text:text,color:'#fd0',size:14});
-        break;
-      case 'noah':
-        this.particles.push({type:'text',x,y,vy:-55,life:1.2,maxLife:1.2,text:text,color:'#ffa500',size:14});
-        break;
-      case 'levelup':
-        for(let i=0;i<40;i++){
-          const ang=rnd(0,Math.PI*2), spd=rnd(80,200);
-          const hue=rnd(0,360);
-          this.particles.push({type:'firework',x,y,vx:Math.cos(ang)*spd,vy:Math.sin(ang)*spd-50,life:1.2,maxLife:1.2,color:`hsl(${hue},100%,60%)`});
-        }
-        this.particles.push({type:'text',x,y:y-40,vy:-40,life:2.5,maxLife:2.5,text:'LEVEL UP!',color:'#fd0',size:28});
-        break;
-      case 'blood':
-        for(let i=0;i<8;i++){
-          const ang=rnd(0,Math.PI*2), spd=rnd(40,100);
-          this.particles.push({type:'blood',x,y,vx:Math.cos(ang)*spd,vy:Math.sin(ang)*spd-30,life:0.6,maxLife:0.6,color:'#a00',r:rnd(2,5)});
-        }
-        break;
-      case 'spark':
+        this.particles.push({type:'text', x, y: y-40, vy:-60, life:1.5, maxLife:1.5, text: text||'CRIT!', color:'#ff0', size:24});
         for(let i=0;i<12;i++){
-          const ang=rnd(0,Math.PI*2), spd=rnd(80,180);
-          const c=Math.random()<0.5?'#ff0':'#f80';
-          this.particles.push({type:'spark',x,y,vx:Math.cos(ang)*spd,vy:Math.sin(ang)*spd-60,life:0.8,maxLife:0.8,color:c});
+          const ang = rnd(0, Math.PI*2);
+          const spd = rnd(100, 200);
+          this.particles.push({
+            type:'spark', x, y,
+            vx: Math.cos(ang)*spd, vy: Math.sin(ang)*spd - 60,
+            life: 0.9, maxLife: 0.9, color: '#ff0', size: 4
+          });
         }
         break;
-      case 'burn':
+        
+      case 'slash':
+        for(let i=0;i<8;i++){
+          const offsetAng = angle + rnd(-0.4, 0.4);
+          const dist = rnd(30, 70);
+          const vx = Math.cos(angle)*rnd(80, 150);
+          const vy = Math.sin(angle)*rnd(80, 150);
+          this.particles.push({
+            type:'slash', 
+            x: x + Math.cos(offsetAng)*dist, 
+            y: y + Math.sin(offsetAng)*dist,
+            vx: vx, vy: vy,
+            life: 0.35, maxLife: 0.35,
+            color: `hsl(${rnd(40, 60)}, 100%, ${rnd(60, 80)}%)`,
+            size: rnd(4, 8)
+          });
+        }
+        break;
+        
+      case 'damage':
+        this.particles.push({type:'text', x, y: y-30, vy:-50, life:1.0, maxLife:1.0, text, color:'#f44', size: isMobile?16:18});
+        break;
+        
+      case 'heal':
+        this.particles.push({type:'text', x, y: y-30, vy:-50, life:1.2, maxLife:1.2, text, color:'#4f4', size: isMobile?16:18});
+        for(let i=0;i<5;i++){
+          const ang = rnd(0, Math.PI*2);
+          const spd = rnd(30, 80);
+          this.particles.push({
+            type:'healRing', x, y,
+            vx: Math.cos(ang)*spd, vy: Math.sin(ang)*spd - 30,
+            life: 0.8, maxLife: 0.8, color: '#8f8', size: 6
+          });
+        }
+        break;
+        
+      case 'exp':
+        this.particles.push({type:'text', x, y: y-40, vy:-60, life:1.4, maxLife:1.4, text, color:'#fd0', size: 14});
+        break;
+        
+      case 'noah':
+        this.particles.push({type:'text', x, y: y-40, vy:-55, life:1.2, maxLife:1.2, text, color:'#ffa500', size: 14});
+        break;
+        
+      case 'levelup':
+        for(let i=0;i<60;i++){
+          const ang = rnd(0, Math.PI*2);
+          const spd = rnd(80, 250);
+          const hue = rnd(0, 360);
+          this.particles.push({
+            type:'firework', x, y,
+            vx: Math.cos(ang)*spd, vy: Math.sin(ang)*spd - 80,
+            life: 1.5, maxLife: 1.5, color: `hsl(${hue},100%,60%)`, size: 5
+          });
+        }
+        this.particles.push({type:'text', x, y: y-60, vy:-40, life:3.0, maxLife:3.0, text:'LEVEL UP!', color:'#fd0', size: 32});
+        G.screenShake = 0.6;
+        break;
+        
+      case 'blood':
+        for(let i=0;i<12;i++){
+          const ang = rnd(0, Math.PI*2);
+          const spd = rnd(60, 140);
+          this.particles.push({
+            type:'blood', x, y,
+            vx: Math.cos(ang)*spd, vy: Math.sin(ang)*spd - 50,
+            life: 0.7, maxLife: 0.7, color: '#a00', r: rnd(3, 7)
+          });
+        }
+        break;
+        
+      case 'spark':
         for(let i=0;i<15;i++){
-          const ang=rnd(-Math.PI*0.8,-Math.PI*0.2), spd=rnd(40,120);
-          const c=Math.random()<0.5?'#f20':'#222';
-          this.particles.push({type:'burn',x,y,vx:Math.cos(ang)*spd,vy:Math.sin(ang)*spd,life:1.2,maxLife:1.2,color:c,r:rnd(4,10)});
+          const ang = rnd(0, Math.PI*2);
+          const spd = rnd(80, 200);
+          const c = Math.random()<0.5?'#ff0':'#f80';
+          this.particles.push({
+            type:'spark', x, y,
+            vx: Math.cos(ang)*spd, vy: Math.sin(ang)*spd - 70,
+            life: 0.9, maxLife: 0.9, color: c, size: 3
+          });
+        }
+        break;
+        
+      case 'burn':
+        for(let i=0;i<18;i++){
+          const ang = rnd(-Math.PI*0.8, -Math.PI*0.2);
+          const spd = rnd(50, 140);
+          const c = Math.random()<0.5?'#f60':'#222';
+          this.particles.push({
+            type:'burn', x, y,
+            vx: Math.cos(ang)*spd, vy: Math.sin(ang)*spd,
+            life: 1.2, maxLife: 1.2, color: c, r: rnd(4, 12)
+          });
+        }
+        break;
+        
+      case 'buff':
+        for(let i=0;i<20;i++){
+          const ang = rnd(0, Math.PI*2);
+          const spd = rnd(30, 100);
+          this.particles.push({
+            type:'buffStar', x, y,
+            vx: Math.cos(ang)*spd, vy: Math.sin(ang)*spd - 100,
+            life: 1.2, maxLife: 1.2, color: '#ffa', size: 6
+          });
         }
         break;
     }
   }
+  
   update(dt){
-    for(let i=this.particles.length-1;i>=0;i--){
-      const p=this.particles[i];
+    for(let i=this.particles.length-1; i>=0; i--){
+      const p = this.particles[i];
       p.life -= dt;
-      if(p.life<=0){ this.particles.splice(i,1); continue; }
-      if(p.vx!==undefined){ p.x+=p.vx*dt; p.y+=p.vy*dt; p.vy+=200*dt; }
-      if(p.type==='firework') p.vy+=120*dt;
-    }
-  }
-  draw(cam){
-    for(const p of this.particles){
-      const s = worldToScreen(p.x,p.y,cam);
-      const alpha = Math.min(1, p.life/p.maxLife * 1.5);
-      ctx.globalAlpha = alpha;
-      if(p.type==='text'||p.type==='crit'){
-        ctx.fillStyle = p.color;
-        ctx.font = `bold ${p.size||14}px Arial`;
-        ctx.textAlign='center';
-        ctx.fillText(p.text, s.x, s.y);
-      } else if(p.type==='hit'||p.type==='spark'){
-        ctx.fillStyle=p.color;
-        ctx.beginPath(); ctx.arc(s.x,s.y,3,0,Math.PI*2); ctx.fill();
-      } else if(p.type==='blood'||p.type==='burn'){
-        ctx.fillStyle=p.color;
-        ctx.beginPath(); ctx.arc(s.x,s.y,p.r||4,0,Math.PI*2); ctx.fill();
-      } else if(p.type==='firework'){
-        ctx.fillStyle=p.color;
-        ctx.beginPath(); ctx.arc(s.x,s.y,3,0,Math.PI*2); ctx.fill();
+      if(p.life <= 0){ this.particles.splice(i,1); continue; }
+      
+      if(p.vx !== undefined){
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+        if(p.type === 'blood' || p.type === 'burn' || p.type === 'spark') p.vy += 200 * dt;
+        if(p.type === 'firework') p.vy += 150 * dt;
+        if(p.type === 'buffStar') p.vy -= 20 * dt;
+      }
+      
+      if(p.type === 'slash'){
+        p.size *= (1 - dt*2);
       }
     }
-    ctx.globalAlpha=1;
+  }
+  
+  draw(cam){
+    for(const p of this.particles){
+      const s = worldToScreen(p.x, p.y, cam);
+      const alpha = Math.min(1, p.life / p.maxLife * 1.5);
+      ctx.globalAlpha = alpha;
+      
+      if(p.type === 'text' || p.type === 'crit'){
+        ctx.fillStyle = p.color;
+        ctx.font = `bold ${p.size || 14}px Arial`;
+        ctx.textAlign = 'center';
+        ctx.fillText(p.text, s.x, s.y);
+      } else if(p.type === 'hit' || p.type === 'spark'){
+        ctx.fillStyle = p.color;
+        ctx.beginPath(); ctx.arc(s.x, s.y, p.size || 3, 0, Math.PI*2); ctx.fill();
+      } else if(p.type === 'blood' || p.type === 'burn'){
+        ctx.fillStyle = p.color;
+        ctx.beginPath(); ctx.arc(s.x, s.y, p.r || 5, 0, Math.PI*2); ctx.fill();
+      } else if(p.type === 'firework' || p.type === 'buffStar' || p.type === 'healRing'){
+        ctx.fillStyle = p.color;
+        ctx.beginPath(); ctx.arc(s.x, s.y, p.size || 4, 0, Math.PI*2); ctx.fill();
+      } else if(p.type === 'slash'){
+        ctx.save();
+        ctx.translate(s.x, s.y);
+        ctx.rotate(Math.atan2(p.vy, p.vx));
+        ctx.fillStyle = p.color;
+        ctx.shadowColor = '#ff8';
+        ctx.shadowBlur = 12 * alpha;
+        ctx.beginPath();
+        ctx.ellipse(0, 0, p.size*2, p.size*0.5, 0, 0, Math.PI*2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+        ctx.restore();
+      }
+    }
+    ctx.globalAlpha = 1;
   }
 }
 
@@ -1064,6 +1251,7 @@ class SkillTree {
       }
     }
     G.particles.spawn('spark',player.x,player.y,'');
+    G.particles.spawn('slash', player.x, player.y, '', player.facingAngle);
   }
   doShieldBash(player,mobs,lv){
     const stunDur = 1 + (lv-1)*0.25;
@@ -1117,6 +1305,7 @@ class SkillTree {
     player.atkBuff = pct;
     player.atkBuffTimer = dur;
     G.particles.spawn('levelup',player.x,player.y,'WAR CRY!');
+    G.particles.spawn('buff', player.x, player.y-30, '');
   }
   doEarthquake(player,mobs,lv){
     const range = 150 + lv*10;
@@ -2044,7 +2233,14 @@ function drawInventoryPanel(){
         const gc = item.getGlowColor();
         if(gc){ ctx.shadowColor = gc; ctx.shadowBlur = 8; }
         else { ctx.shadowColor = `hsl(${(Date.now()*0.2)%360},100%,60%)`; ctx.shadowBlur = 10; }
-      }
+        if(item.count > 1){
+     ctx.fillStyle = '#fff';
+     ctx.font = `bold ${isMobile ? 10 : 12}px Arial`;
+     ctx.textAlign = 'right';
+     ctx.fillText(item.count, sx + slotSize - 4, sy + slotSize - 4);
+   }
+}
+      
       ctx.fillStyle = item.color || '#888';
       ctx.beginPath();
       ctx.arc(sx + slotSize/2, sy + slotSize/2, slotSize * 0.3, 0, Math.PI*2);
@@ -3132,6 +3328,7 @@ function getMobileBtns(){
   const btnR   = Math.min(28, H * 0.07);
   const atkR   = Math.min(42, H * 0.105);
   const panR   = Math.min(20, H * 0.05);
+  const zoomR  = Math.min(20, H * 0.05);  // 🔁 Zoom buton boyutu
   const pad    = 6;
 
   const atkX   = W - atkR - pad;
@@ -3163,6 +3360,21 @@ function getMobileBtns(){
     r: btnR,
   };
 
+  // 🔁 Zoom butonları (sol alt köşe)
+  const zoomMinus = {
+    x: zoomR + pad + 10,
+    y: H - zoomR * 2 - pad - 10,
+    r: zoomR,
+    delta: -0.2  // Uzaklaşma
+  };
+  
+  const zoomPlus = {
+    x: zoomMinus.x + zoomR * 2 + 15,
+    y: zoomMinus.y,
+    r: zoomR,
+    delta: 0.2   // Yakınlaşma
+  };
+
   const panelDefs = [
     { panel:'inventory', label:'INV', color:'#c80' },
     { panel:'skills',    label:'SKL', color:'#80f' },
@@ -3177,7 +3389,14 @@ function getMobileBtns(){
     r: panR,
   }));
 
-  return { atk:{ x: atkX, y: atkY, r: atkR }, skills, panels, potion };
+  return { 
+    atk: { x: atkX, y: atkY, r: atkR }, 
+    skills, 
+    panels, 
+    potion,
+    zoomMinus,   // 🔁 Yeni
+    zoomPlus     // 🔁 Yeni
+  };
 }
 
 // === MOBILE UI BUTTONS ===
@@ -3285,8 +3504,25 @@ function drawMobileUI(){
       ctx.font = `7px Arial`;
       ctx.fillText(def.name.slice(0, 4), sb.x, sb.y + 10);
     }
-    ctx.globalAlpha = 1;
-  }
+      // 🔁 Zoom butonlarını çiz
+     const zoomBtns = [btns.zoomMinus, btns.zoomPlus];
+     const zoomLabels = ['−', '+'];
+     zoomBtns.forEach((btn, i) => {
+     ctx.globalAlpha = 0.7;
+     ctx.fillStyle = 'rgba(40,40,50,0.9)';
+     ctx.beginPath();
+     ctx.arc(btn.x, btn.y, btn.r, 0, Math.PI * 2);
+     ctx.fill();
+     ctx.strokeStyle = '#aaa';
+     ctx.lineWidth = 2;
+     ctx.stroke();
+     ctx.fillStyle = '#fff';
+     ctx.font = `bold ${Math.floor(btn.r * 0.8)}px Arial`;
+     ctx.textAlign = 'center';
+     ctx.fillText(zoomLabels[i], btn.x, btn.y + btn.r/3);
+    });
+   ctx.globalAlpha = 1;
+ }
 
   const potBtn = btns.potion;
   const potSlot = p.inventory.slots.findIndex(s => s && s.type === 'potion' && s.heal);
@@ -3594,8 +3830,17 @@ function setupInput(){
           G.forceAttack = true;
           continue;
         }
-        let hitSkill = false;
-        for(const sb of btns.skills){
+           // 🔁 Zoom butonları kontrolü
+          if(Math.hypot(tx - btns.zoomMinus.x, ty - btns.zoomMinus.y) < btns.zoomMinus.r + 8){
+          G.camera.adjustZoom(btns.zoomMinus.delta);
+          continue;
+         }
+         if(Math.hypot(tx - btns.zoomPlus.x, ty - btns.zoomPlus.y) < btns.zoomPlus.r + 8){
+          G.camera.adjustZoom(btns.zoomPlus.delta);
+          continue;
+         }
+         let hitSkill = false;
+         for(const sb of btns.skills){
           if(Math.hypot(tx - sb.x, ty - sb.y) < sb.r + 6){
             G.skills.use(sb.id, G.player, G.mobs);
             hitSkill = true;
