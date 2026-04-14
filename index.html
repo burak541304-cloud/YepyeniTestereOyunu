@@ -3327,7 +3327,7 @@ function getMobileBtns(){
   const btnR   = Math.min(28, H * 0.07);
   const atkR   = Math.min(42, H * 0.105);
   const panR   = Math.min(20, H * 0.05);
-  const zoomR  = Math.min(20, H * 0.05);
+  const zoomR  = Math.min(22, H * 0.055);
   const pad    = 6;
 
   const atkX   = W - atkR - pad;
@@ -3982,6 +3982,7 @@ G.menuTimer = 0;
 G.rainbowAngle = 0;
 
 requestAnimationFrame(gameLoop);
+
 }; // end window.onload
 </script>
 </body>
