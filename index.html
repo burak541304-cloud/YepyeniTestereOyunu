@@ -2233,14 +2233,7 @@ function drawInventoryPanel(){
         const gc = item.getGlowColor();
         if(gc){ ctx.shadowColor = gc; ctx.shadowBlur = 8; }
         else { ctx.shadowColor = `hsl(${(Date.now()*0.2)%360},100%,60%)`; ctx.shadowBlur = 10; }
-        if(item.count > 1){
-     ctx.fillStyle = '#fff';
-     ctx.font = `bold ${isMobile ? 10 : 12}px Arial`;
-     ctx.textAlign = 'right';
-     ctx.fillText(item.count, sx + slotSize - 4, sy + slotSize - 4);
-   }
-}
-      
+      }
       ctx.fillStyle = item.color || '#888';
       ctx.beginPath();
       ctx.arc(sx + slotSize/2, sy + slotSize/2, slotSize * 0.3, 0, Math.PI*2);
@@ -2254,6 +2247,12 @@ function drawInventoryPanel(){
         ctx.fillStyle = '#fd0';
         ctx.font = 'bold 10px Arial';
         ctx.fillText('+' + item.enhance, sx + slotSize - 8, sy + 12);
+      }
+      if(item.count > 1){
+        ctx.fillStyle = '#fff';
+        ctx.font = `bold ${isMobile ? 10 : 12}px Arial`;
+        ctx.textAlign = 'right';
+        ctx.fillText(item.count, sx + slotSize - 4, sy + slotSize - 4);
       }
       ctx.fillStyle = 'rgba(0,0,0,0.5)';
       ctx.fillRect(sx, sy + slotSize - 10, slotSize, 10);
@@ -3328,7 +3327,7 @@ function getMobileBtns(){
   const btnR   = Math.min(28, H * 0.07);
   const atkR   = Math.min(42, H * 0.105);
   const panR   = Math.min(20, H * 0.05);
-  const zoomR  = Math.min(20, H * 0.05);  // 🔁 Zoom buton boyutu
+  const zoomR  = Math.min(20, H * 0.05);
   const pad    = 6;
 
   const atkX   = W - atkR - pad;
@@ -3360,19 +3359,18 @@ function getMobileBtns(){
     r: btnR,
   };
 
-  // 🔁 Zoom butonları (sol alt köşe)
   const zoomMinus = {
     x: zoomR + pad + 10,
     y: H - zoomR * 2 - pad - 10,
     r: zoomR,
-    delta: -0.2  // Uzaklaşma
+    delta: -0.2
   };
   
   const zoomPlus = {
     x: zoomMinus.x + zoomR * 2 + 15,
     y: zoomMinus.y,
     r: zoomR,
-    delta: 0.2   // Yakınlaşma
+    delta: 0.2
   };
 
   const panelDefs = [
@@ -3389,14 +3387,7 @@ function getMobileBtns(){
     r: panR,
   }));
 
-  return { 
-    atk: { x: atkX, y: atkY, r: atkR }, 
-    skills, 
-    panels, 
-    potion,
-    zoomMinus,   // 🔁 Yeni
-    zoomPlus     // 🔁 Yeni
-  };
+  return { atk:{ x: atkX, y: atkY, r: atkR }, skills, panels, potion, zoomMinus, zoomPlus };
 }
 
 // === MOBILE UI BUTTONS ===
@@ -3504,25 +3495,8 @@ function drawMobileUI(){
       ctx.font = `7px Arial`;
       ctx.fillText(def.name.slice(0, 4), sb.x, sb.y + 10);
     }
-      // 🔁 Zoom butonlarını çiz
-     const zoomBtns = [btns.zoomMinus, btns.zoomPlus];
-     const zoomLabels = ['−', '+'];
-     zoomBtns.forEach((btn, i) => {
-     ctx.globalAlpha = 0.7;
-     ctx.fillStyle = 'rgba(40,40,50,0.9)';
-     ctx.beginPath();
-     ctx.arc(btn.x, btn.y, btn.r, 0, Math.PI * 2);
-     ctx.fill();
-     ctx.strokeStyle = '#aaa';
-     ctx.lineWidth = 2;
-     ctx.stroke();
-     ctx.fillStyle = '#fff';
-     ctx.font = `bold ${Math.floor(btn.r * 0.8)}px Arial`;
-     ctx.textAlign = 'center';
-     ctx.fillText(zoomLabels[i], btn.x, btn.y + btn.r/3);
-    });
-   ctx.globalAlpha = 1;
- }
+    ctx.globalAlpha = 1;
+  }
 
   const potBtn = btns.potion;
   const potSlot = p.inventory.slots.findIndex(s => s && s.type === 'potion' && s.heal);
@@ -3540,6 +3514,25 @@ function drawMobileUI(){
   ctx.fillText('🧪', potBtn.x, potBtn.y + 2);
   ctx.font = `7px Arial`;
   ctx.fillText('POT', potBtn.x, potBtn.y + 12);
+  ctx.globalAlpha = 1;
+
+  // Zoom butonları
+  const zoomBtns = [btns.zoomMinus, btns.zoomPlus];
+  const zoomLabels = ['−', '+'];
+  zoomBtns.forEach((btn, i) => {
+    ctx.globalAlpha = 0.7;
+    ctx.fillStyle = 'rgba(40,40,50,0.9)';
+    ctx.beginPath();
+    ctx.arc(btn.x, btn.y, btn.r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#aaa';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.fillStyle = '#fff';
+    ctx.font = `bold ${Math.floor(btn.r * 0.8)}px Arial`;
+    ctx.textAlign = 'center';
+    ctx.fillText(zoomLabels[i], btn.x, btn.y + btn.r/3);
+  });
   ctx.globalAlpha = 1;
 }
 
@@ -3826,21 +3819,23 @@ function setupInput(){
       }
       if(G.state === 'playing'){
         const btns = getMobileBtns();
+        
+        // Zoom butonları
+        if(Math.hypot(tx - btns.zoomMinus.x, ty - btns.zoomMinus.y) < btns.zoomMinus.r + 8){
+          G.camera.adjustZoom(btns.zoomMinus.delta);
+          continue;
+        }
+        if(Math.hypot(tx - btns.zoomPlus.x, ty - btns.zoomPlus.y) < btns.zoomPlus.r + 8){
+          G.camera.adjustZoom(btns.zoomPlus.delta);
+          continue;
+        }
+        
         if(Math.hypot(tx - btns.atk.x, ty - btns.atk.y) < btns.atk.r + 8){
           G.forceAttack = true;
           continue;
         }
-           // 🔁 Zoom butonları kontrolü
-          if(Math.hypot(tx - btns.zoomMinus.x, ty - btns.zoomMinus.y) < btns.zoomMinus.r + 8){
-          G.camera.adjustZoom(btns.zoomMinus.delta);
-          continue;
-         }
-         if(Math.hypot(tx - btns.zoomPlus.x, ty - btns.zoomPlus.y) < btns.zoomPlus.r + 8){
-          G.camera.adjustZoom(btns.zoomPlus.delta);
-          continue;
-         }
-         let hitSkill = false;
-         for(const sb of btns.skills){
+        let hitSkill = false;
+        for(const sb of btns.skills){
           if(Math.hypot(tx - sb.x, ty - sb.y) < sb.r + 6){
             G.skills.use(sb.id, G.player, G.mobs);
             hitSkill = true;
