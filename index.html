@@ -5,31 +5,47 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>🌿 Dönen Testere • Devasa Dünya</title>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { background-color: #0a2f0a; overflow: hidden; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-        #gameCanvas { display: block; background-color: #3cb043; cursor: none; box-shadow: 0 0 30px rgba(0,0,0,0.7); border: 4px solid #1b5e20; }
+        /* ========== BÖLÜM 1 / 26 – CSS: Temel ve HUD Stilleri ========== */
+        * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; -webkit-tap-highlight-color: transparent; }
+body { background-color: #0a2f0a; overflow: hidden; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; touch-action: none; }
+#gameCanvas { display: block; background-color: #3cb043; cursor: none; box-shadow: 0 0 30px rgba(0,0,0,0.7); border: 4px solid #1b5e20; }
+
+.hud-panel { position: fixed; top: 16px; left: 16px; right: 16px; color: white; background: rgba(10, 20, 5, 0.85); backdrop-filter: blur(8px); padding: 12px 18px; border-radius: 24px; border: 1px solid rgba(120, 200, 100, 0.5); box-shadow: 0 4px 12px rgba(0,0,0,0.4); z-index: 999; pointer-events: none; min-width: auto; }
+@media (max-width: 600px) {
+    .hud-panel { padding: 8px 12px; top: 8px; left: 8px; right: 8px; }
+    .can-label, .exp-label { font-size: 12px; }
+    .bar-container { height: 12px; }
+    .bar-text { font-size: 8px; }
+    .seviye-label { font-size: 14px; }
+    .seviye-deger { font-size: 16px; }
+    .coord-label { font-size: 10px; }
+    .coord-value { font-size: 14px; }
+    .yetenek-puani-label { font-size: 12px; }
+    .yetenek-puani-deger { font-size: 14px; }
+    .yükseltme-ipucu { font-size: 8px; }
+}
+
+.can-row, .exp-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.can-label, .exp-label { font-weight: 600; font-size: 14px; letter-spacing: 0.5px; }
+.can-label { color: #ffb3b3; } .exp-label { color: #b3d9ff; }
+.bar-container { flex: 1; position: relative; height: 14px; }
+.bar-bg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #1e2e1e; border-radius: 10px; border: 1px solid #2a4a2a; overflow: hidden; }
+.can-bar-fill { width: 100%; height: 100%; background: linear-gradient(90deg, #6b8e23, #2e8b57); border-radius: 8px; transition: width 0.05s linear; }
+.exp-bar-fill { width: 0%; height: 100%; background: linear-gradient(90deg, #4169E1, #1E90FF); border-radius: 8px; transition: width 0.05s linear; }
+.bar-text { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 10px; font-weight: bold; color: white; text-shadow: 0 1px 3px black; z-index: 2; white-space: nowrap; }
+.seviye-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+.seviye-label { color: #ffd700; font-weight: bold; font-size: 16px; }
+.seviye-deger { color: #ffe082; font-size: 18px; font-weight: bold; }
+.coord-row { display: flex; align-items: center; justify-content: space-between; font-family: 'Courier New', monospace; font-size: 14px; font-weight: bold; border-top: 1px solid rgba(150, 200, 150, 0.3); padding-top: 6px; margin-top: 2px; }
+.coord-item { display: flex; align-items: baseline; gap: 4px; }
+.coord-label { color: #b9f6ca; font-size: 12px; opacity: 0.9; }
+.coord-value { color: #ffe082; font-size: 16px; min-width: 50px; text-align: right; text-shadow: 0 1px 3px black; }
+.yetenek-puani-row { display: flex; align-items: center; justify-content: space-between; border-top: 1px solid rgba(150, 200, 150, 0.3); padding-top: 6px; margin-top: 2px; }
+.yetenek-puani-label { color: #c0a0ff; font-size: 14px; font-weight: bold; }
+.yetenek-puani-deger { color: #d4b5ff; font-size: 16px; font-weight: bold; }
+.yükseltme-ipucu { font-size: 10px; color: #aaa; margin-top: 4px; text-align: center; }
         
-        .hud-panel { position: fixed; top: 16px; left: 16px; color: white; background: rgba(10, 20, 5, 0.7); backdrop-filter: blur(8px); padding: 12px 18px; border-radius: 24px; border: 1px solid rgba(120, 200, 100, 0.5); box-shadow: 0 4px 12px rgba(0,0,0,0.4); z-index: 999; pointer-events: none; min-width: 220px; }
-        .can-row, .exp-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
-        .can-label, .exp-label { font-weight: 600; font-size: 14px; letter-spacing: 0.5px; }
-        .can-label { color: #ffb3b3; } .exp-label { color: #b3d9ff; }
-        .bar-container { flex: 1; position: relative; height: 14px; }
-        .bar-bg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #1e2e1e; border-radius: 10px; border: 1px solid #2a4a2a; overflow: hidden; }
-        .can-bar-fill { width: 100%; height: 100%; background: linear-gradient(90deg, #6b8e23, #2e8b57); border-radius: 8px; transition: width 0.05s linear; }
-        .exp-bar-fill { width: 0%; height: 100%; background: linear-gradient(90deg, #4169E1, #1E90FF); border-radius: 8px; transition: width 0.05s linear; }
-        .bar-text { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 10px; font-weight: bold; color: white; text-shadow: 0 1px 3px black; z-index: 2; white-space: nowrap; }
-        .seviye-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
-        .seviye-label { color: #ffd700; font-weight: bold; font-size: 16px; }
-        .seviye-deger { color: #ffe082; font-size: 18px; font-weight: bold; }
-        .coord-row { display: flex; align-items: center; justify-content: space-between; font-family: 'Courier New', monospace; font-size: 14px; font-weight: bold; border-top: 1px solid rgba(150, 200, 150, 0.3); padding-top: 6px; margin-top: 2px; }
-        .coord-item { display: flex; align-items: baseline; gap: 4px; }
-        .coord-label { color: #b9f6ca; font-size: 12px; opacity: 0.9; }
-        .coord-value { color: #ffe082; font-size: 16px; min-width: 50px; text-align: right; text-shadow: 0 1px 3px black; }
-        .yetenek-puani-row { display: flex; align-items: center; justify-content: space-between; border-top: 1px solid rgba(150, 200, 150, 0.3); padding-top: 6px; margin-top: 2px; }
-        .yetenek-puani-label { color: #c0a0ff; font-size: 14px; font-weight: bold; }
-        .yetenek-puani-deger { color: #d4b5ff; font-size: 16px; font-weight: bold; }
-        .yükseltme-ipucu { font-size: 10px; color: #aaa; margin-top: 4px; text-align: center; }
-        
+        /* ========== BÖLÜM 2 / 26 – CSS: Mini Harita ve Paneller ========== */
         #miniHaritaCanvas { position: fixed; top: 16px; right: 16px; width: 150px; height: 150px; border-radius: 50%; background: rgba(0, 20, 0, 0.8); border: 3px solid #2e7d32; box-shadow: 0 0 20px rgba(0,0,0,0.7); z-index: 998; pointer-events: none; backdrop-filter: blur(2px); }
         
         .yetenek-paneli { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 600px; background: rgba(10, 20, 10, 0.95); backdrop-filter: blur(10px); border: 3px solid #ffd700; border-radius: 30px; padding: 25px; color: white; z-index: 2000; display: none; box-shadow: 0 0 50px rgba(0,0,0,0.9); }
@@ -49,7 +65,7 @@
         .yetenek-buton:hover { background: #1b5e20; transform: scale(1.05); }
         .yetenek-buton:disabled { background: #555; cursor: not-allowed; opacity: 0.5; }
         .panel-kapat { text-align: center; margin-top: 20px; font-size: 14px; color: #aaa; }
-
+        
         .market-paneli { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 650px; background: rgba(20, 15, 10, 0.95); backdrop-filter: blur(10px); border: 3px solid #f39c12; border-radius: 30px; padding: 25px; color: white; z-index: 2000; display: none; box-shadow: 0 0 50px rgba(0,0,0,0.9); }
         .market-paneli.acik { display: block; }
         .market-baslik { text-align: center; font-size: 28px; color: #f39c12; margin-bottom: 15px; text-shadow: 0 0 10px #e67e22; }
@@ -64,7 +80,7 @@
         .market-buton:hover { background: #d35400; transform: scale(1.05); }
         .market-buton:disabled { background: #555; cursor: not-allowed; opacity: 0.5; }
         .market-kapat { text-align: center; margin-top: 20px; font-size: 14px; color: #aaa; }
-
+        
         .envanter-paneli { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 500px; background: rgba(15, 10, 20, 0.95); backdrop-filter: blur(10px); border: 3px solid #9b59b6; border-radius: 30px; padding: 25px; color: white; z-index: 2000; display: none; box-shadow: 0 0 50px rgba(0,0,0,0.9); }
         .envanter-paneli.acik { display: block; }
         .envanter-baslik { text-align: center; font-size: 28px; color: #9b59b6; margin-bottom: 20px; text-shadow: 0 0 10px #8e44ad; }
@@ -74,7 +90,8 @@
         .envanter-slot .esya-miktar { font-size: 14px; font-weight: bold; color: white; text-shadow: 1px 1px 3px black; margin-top: 2px; }
         .envanter-slot.bos { opacity: 0.5; }
         .envanter-kapat { text-align: center; margin-top: 20px; font-size: 14px; color: #aaa; }
-
+        
+        /* ========== BÖLÜM 3 / 26 – CSS: Boost, Yetenek Göstergeleri ve Animasyonlar ========== */
         .boost-gosterge { position: fixed; bottom: 20px; right: 20px; display: flex; flex-direction: column; align-items: center; gap: 5px; z-index: 1000; pointer-events: none; }
         .boost-simge { width: 60px; height: 60px; border-radius: 50%; background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(4px); border: 3px solid #3498db; box-shadow: 0 0 20px #3498db; display: flex; justify-content: center; align-items: center; opacity: 0.4; transition: opacity 0.2s; }
         .boost-simge.aktif { opacity: 1; border-color: #00ffff; box-shadow: 0 0 30px #00ffff; }
@@ -110,6 +127,7 @@
     </style>
 </head>
 <body>
+    <!-- ========== BÖLÜM 4 / 26 – HTML: Canvas ve HUD Paneli ========== -->
     <canvas id="gameCanvas" width="8000" height="8000"></canvas>
     
     <div class="hud-panel">
@@ -121,6 +139,7 @@
         <div class="yükseltme-ipucu">🌟 [Y] Yetenek | 🛒 [M] Market | 🎒 [I] Envanter</div>
     </div>
     
+    <!-- ========== BÖLÜM 5 / 26 – HTML: Yetenek Paneli ========== -->
     <div class="yetenek-paneli" id="yetenekPaneli">
         <div class="yetenek-baslik">🌟 YETENEK AĞACI 🌟</div>
         <div class="yetenek-puan-gosterge">Kullanılabilir Puan: <span id="panelYetenekPuani">0</span></div>
@@ -130,6 +149,7 @@
         <div class="panel-kapat">[Y] tuşu ile kapat</div>
     </div>
     
+    <!-- ========== BÖLÜM 6 / 26 – HTML: Market Paneli ========== -->
     <div class="market-paneli" id="marketPaneli">
         <div class="market-baslik">🛒 GELİŞMİŞ MARKET 🛒</div>
         <div class="market-parca-gosterge">🔩 Mantar Özü: <span id="marketParca">0</span></div>
@@ -141,6 +161,7 @@
         <div class="market-kapat">[M] tuşu ile kapat</div>
     </div>
     
+    <!-- ========== BÖLÜM 7 / 26 – HTML: Envanter Paneli ve Mini Harita ========== -->
     <div class="envanter-paneli" id="envanterPaneli">
         <div class="envanter-baslik">🎒 ENVANTER</div>
         <div class="envanter-slotlar" id="envanterSlotlar"></div>
@@ -149,18 +170,95 @@
     
     <canvas id="miniHaritaCanvas" width="150" height="150"></canvas>
     
-    <div class="boost-gosterge"><div class="boost-simge" id="boostSimge"><span class="boost-ikon">⚡</span></div><span class="boost-sayac" id="boostSayac"></span></div>
-    <div class="yetenekler-gosterge">
-        <div class="yetenek-simge" id="kalkanSimge"><span class="yetenek-tus">Q</span><span class="yetenek-sayac" id="kalkanSayac"></span></div>
-        <div class="yetenek-simge" id="ofkeSimge"><span class="yetenek-tus">E</span><span class="yetenek-sayac" id="ofkeSayac"></span></div>
-    </div>
-    <div class="admin-mod" id="adminModGosterge">👑 ADMIN MOD</div>
-    <div class="boss-uyari" id="bossUyari">⚠️ DEV MANTAR ORTAYA ÇIKTI! ⚠️</div>
-    <div class="olum-ekrani" id="olumEkrani"><div class="olum-yazisi">💀 ÖLDÜN 💀</div><button class="dog-butonu" id="dogButonu">🛡️ Güvenli Bölgede Doğ 🛡️</button></div>
-    <div class="levelup-bildirim" id="levelupBildirim">⭐ SEVİYE ATLADIN! ⭐<br><span id="yeniSeviyeSpan"></span></div>
+    <!-- ========== BÖLÜM 8 / 26 – HTML: Boost, Yetenek Göstergeleri, Bildirimler ve Mobil Butonlar ========== -->
+<div class="boost-gosterge"><div class="boost-simge" id="boostSimge"><span class="boost-ikon">⚡</span></div><span class="boost-sayac" id="boostSayac"></span></div>
+<div class="yetenekler-gosterge">
+    <div class="yetenek-simge" id="kalkanSimge"><span class="yetenek-tus">Q</span><span class="yetenek-sayac" id="kalkanSayac"></span></div>
+    <div class="yetenek-simge" id="ofkeSimge"><span class="yetenek-tus">E</span><span class="yetenek-sayac" id="ofkeSayac"></span></div>
+</div>
+
+<!-- Mobil Kontrol Butonları -->
+<div class="mobil-kontrol-paneli">
+    <div class="mobil-yon-tusu" id="mobilYukari">▲</div>
+    <div class="mobil-yon-tusu" id="mobilSol">◀</div>
+    <div class="mobil-yon-tusu" id="mobilAsagi">▼</div>
+    <div class="mobil-yon-tusu" id="mobilSag">▶</div>
+    <div class="mobil-aksiyon" id="mobilBoost">⚡ BOOST</div>
+    <div class="mobil-aksiyon" id="mobilKalkan">🛡️ Q</div>
+    <div class="mobil-aksiyon" id="mobilOfke">💢 E</div>
+    <div class="mobil-aksiyon" id="mobilYetenek">🌟 Y</div>
+    <div class="mobil-aksiyon" id="mobilMarket">🛒 M</div>
+    <div class="mobil-aksiyon" id="mobilEnvanter">🎒 I</div>
+</div>
+
+<style>
+/* Mobil kontrol butonları stilleri */
+.mobil-kontrol-paneli {
+    position: fixed;
+    bottom: 20px;
+    left: 0;
+    right: 0;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 12px;
+    z-index: 1000;
+    pointer-events: auto;
+    background: rgba(0,0,0,0.5);
+    backdrop-filter: blur(8px);
+    padding: 10px;
+    border-radius: 60px;
+    margin: 0 auto;
+    width: fit-content;
+}
+.mobil-yon-tusu {
+    width: 60px;
+    height: 60px;
+    background: rgba(30,30,30,0.9);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    font-weight: bold;
+    color: white;
+    border: 2px solid #ffd700;
+    box-shadow: 0 0 10px rgba(0,0,0,0.5);
+    cursor: pointer;
+    user-select: none;
+    touch-action: manipulation;
+}
+.mobil-aksiyon {
+    padding: 10px 16px;
+    background: rgba(0,0,0,0.8);
+    border-radius: 40px;
+    color: white;
+    font-weight: bold;
+    font-size: 14px;
+    border: 1px solid #ffd700;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    cursor: pointer;
+    touch-action: manipulation;
+}
+@media (max-width: 700px) {
+    .mobil-yon-tusu { width: 50px; height: 50px; font-size: 24px; }
+    .mobil-aksiyon { padding: 8px 12px; font-size: 12px; }
+}
+@media (max-width: 550px) {
+    .mobil-yon-tusu { width: 45px; height: 45px; font-size: 20px; }
+    .mobil-aksiyon { padding: 6px 10px; font-size: 11px; }
+}
+</style>
+
+<div class="admin-mod" id="adminModGosterge">👑 ADMIN MOD</div>
+<div class="boss-uyari" id="bossUyari">⚠️ DEV MANTAR ORTAYA ÇIKTI! ⚠️</div>
+<div class="olum-ekrani" id="olumEkrani"><div class="olum-yazisi">💀 ÖLDÜN 💀</div><button class="dog-butonu" id="dogButonu">🛡️ Güvenli Bölgede Doğ 🛡️</button></div>
+<div class="levelup-bildirim" id="levelupBildirim">⭐ SEVİYE ATLADIN! ⭐<br><span id="yeniSeviyeSpan"></span></div>
 
     <script>
-        // ========== BÖLÜM 2 / 25 – TUVAAL, PERSPEKTİF, SABİTLER ==========
+        // ========== BÖLÜM 9 / 26 – JavaScript: Sabitler, Canvas, Perspektif ve Biyomlar ==========
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
         const miniHaritaCanvas = document.getElementById('miniHaritaCanvas');
@@ -189,8 +287,8 @@
         let bossSayac = 0;
         const BOSS_SPAWN_ARALIGI = 2700;
         let bossVar = false;
-
-        // ========== BÖLÜM 3 / 25 – TESTERE NESNESİ ==========
+        
+        // ========== BÖLÜM 10 / 26 – JavaScript: Testere Nesnesi (Temel Özellikler) ==========
         const testere = {
             x: merkezX, y: merkezY, yaricap: 40, hiz: 6, normalHiz: 6, adminHiz: 12,
             can: 100, maxCan: 100, height: 30, tilt: 0, tiltY: 0, targetTilt: 0, targetTiltY: 0, tiltHizi: 0.12,
@@ -202,6 +300,7 @@
             ofkeBekleme: 0, ofkeBeklemeMax: 600, yetenekPuani: 0, yetenekler: { saldiri: 0, savunma: 0, fayda: 0 },
             iksirHasar: 0, iksirHasarSuresi: 0, iksirHiz: 0, iksirHizSuresi: 0, bonusHasar: 0, bonusMaxCan: 0,
             
+            // ========== BÖLÜM 11 / 26 – JavaScript: Testere Metodları (Hasar, Hız, Can, EXP) ==========
             getHasar() {
                 let base = 1 + Math.floor(this.level / 3) + this.bonusHasar + (this.yetenekler.saldiri * 2);
                 if (this.iksirHasarSuresi > 0) base += this.iksirHasar;
@@ -228,6 +327,8 @@
                     this.maxCanGuncelle(); this.can = this.maxCan; this.levelUpFlag = true; this.yetenekPuani++;
                 }
             },
+            
+            // ========== BÖLÜM 12 / 26 – JavaScript: Testere Envanter ve İksir Metodları ==========
             iksirleriGuncelle() {
                 if (this.iksirHasarSuresi > 0) this.iksirHasarSuresi--; else this.iksirHasar = 0;
                 if (this.iksirHizSuresi > 0) this.iksirHizSuresi--; else this.iksirHiz = 0;
@@ -260,6 +361,8 @@
                 }
                 return false;
             },
+            
+            // ========== BÖLÜM 13 / 26 – JavaScript: Testere Görsel Stil ve Boost/Kalkan/Öfke ==========
             getStil() {
                 const lv = this.level; const rütbe = Math.floor((lv - 1) / 10);
                 const stiller = [
@@ -284,11 +387,206 @@
             kalkanDene() { if (this.kalkanBekleme > 0 || this.kalkanAktif || this.adminAktif) return false; this.kalkanAktif = true; this.kalkanSuresi = this.kalkanSuresiMax; return true; },
             ofkeDene() { if (this.ofkeBekleme > 0 || this.adminAktif) return false; this.ofkeBekleme = this.ofkeBeklemeMax; return true; }
         };
-
-        // ========== BÖLÜM 4 / 25 – TESTERE ÇİZİMİ (YARDIMCI FONKSİYON) ==========
-        function yildizCiz(cx, cy, disYaricap, icYaricap, koseSayisi) { let aci = Math.PI / koseSayisi; ctx.beginPath(); for (let i = 0; i < 2 * koseSayisi; i++) { let r = (i % 2 === 0) ? disYaricap : icYaricap; let x = cx + Math.cos(i * aci) * r; let y = cy + Math.sin(i * aci) * r; if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y); } ctx.closePath(); }
         
-        // ========== BÖLÜM 4.1 / 25 – TESTERE ÇİZİMİ (BAŞLANGIÇ) ==========
+        // ========== BÖLÜM 14 / 26 – JavaScript: Mantar Sınıfı ==========
+        class Mantar {
+            constructor(x, y, level, patlayici = false, boss = false, elitTipi = null) {
+                this.x = x; this.y = y; this.level = level;
+                this.patlayici = patlayici;
+                this.boss = boss;
+                this.elitTipi = elitTipi;
+                if (boss) {
+                    this.yaricap = 60;
+                    this.maxCan = 5000;
+                } else if (elitTipi) {
+                    this.yaricap = 30 + level * 2;
+                    this.maxCan = level * 50;
+                } else if (patlayici) {
+                    this.yaricap = 22;
+                    this.maxCan = level * 8;
+                } else {
+                    this.yaricap = 12 + level * 2;
+                    this.maxCan = level * 5;
+                }
+                this.can = this.maxCan;
+                this.carpismaSoguma = 0;
+                this.sogumaSuresi = 10;
+                this.durum = 'canli';
+                this.animasyonIlerme = 0;
+                this.animasyonHizi = 0.02;
+                this.talaslar = [];
+                this.gorunurluk = 1.0;
+                this.saldiriHazir = 0;
+                this.lavCikisSuresi = 0;
+            }
+            olumuBaslat() { if (this.durum === 'canli') { this.durum = 'olumAnimasyonu'; this.animasyonIlerme = 0; this.talaslar = []; } }
+            animasyonGuncelle() {
+                if (this.durum === 'olumAnimasyonu') {
+                    this.animasyonIlerme += this.animasyonHizi;
+                    if (this.animasyonIlerme >= 1) { this.durum = 'respawning'; this.animasyonIlerme = 1; this.talaslar = []; }
+                }
+            }
+            respawnYap(yeniX, yeniY, yeniLevel) {
+                this.x = yeniX; this.y = yeniY; this.level = yeniLevel;
+                if (this.boss) { this.yaricap = 60; this.maxCan = 5000; }
+                else if (this.elitTipi) { this.yaricap = 30 + yeniLevel * 2; this.maxCan = yeniLevel * 50; }
+                else if (this.patlayici) { this.yaricap = 22; this.maxCan = yeniLevel * 8; }
+                else { this.yaricap = 12 + yeniLevel * 2; this.maxCan = yeniLevel * 5; }
+                this.can = this.maxCan; this.carpismaSoguma = 0; this.durum = 'canli'; this.animasyonIlerme = 0; this.talaslar = [];
+                this.gorunurluk = 1.0; this.saldiriHazir = 0; this.lavCikisSuresi = 0;
+            }
+            talasEkle(hasarMiktari) {
+                const sayi = Math.min(20, 6 + hasarMiktari * 3);
+                for (let i = 0; i < sayi; i++) {
+                    const aci = Math.random() * Math.PI * 2, mesafe = 5 + Math.random() * this.yaricap * 1.2;
+                    const dx = Math.cos(aci) * mesafe, dy = Math.sin(aci) * mesafe;
+                    this.talaslar.push({ x: this.x + dx, y: this.y + dy, boyut: 1.5 + Math.random() * 3, renk: this.patlayici ? '#ff8c00' : `hsl(30, ${40+Math.random()*40}%, ${30+Math.random()*30}%)`, omur: 1.0, vx: Math.cos(aci) * (0.5 + Math.random()*2), vy: Math.sin(aci) * (0.5 + Math.random()*2) });
+                }
+            }
+            ciz() {
+                if (this.durum === 'respawning') return;
+                for (let t of this.talaslar) { if (t.vx) { t.x += t.vx; t.y += t.vy; t.vx *= 0.95; t.vy *= 0.95; t.omur *= 0.995; } }
+                const pos = worldToScreen(this.x, this.y), mantarY = pos.y - 5;
+                let scale = 1, alpha = 1;
+                if (this.durum === 'olumAnimasyonu') { scale = 1 - this.animasyonIlerme; alpha = 1 - this.animasyonIlerme; if (scale <= 0) return; }
+                ctx.save();
+                if (this.durum === 'olumAnimasyonu') { ctx.globalAlpha = alpha; ctx.translate(pos.x, pos.y); ctx.scale(scale, scale); ctx.translate(-pos.x, -pos.y); }
+                ctx.shadowBlur = 0;
+                for (let t of this.talaslar) { const tp = worldToScreen(t.x, t.y); ctx.fillStyle = t.renk; ctx.globalAlpha = alpha * t.omur; ctx.beginPath(); ctx.arc(tp.x, tp.y, t.boyut * scale, 0, 2*Math.PI); ctx.fill(); }
+                ctx.globalAlpha = (this.durum === 'olumAnimasyonu' ? alpha : 1.0);
+                if (this.patlayici && this.can < this.maxCan * 0.3 && this.durum === 'canli') if (Math.floor(Date.now() / 200) % 2 === 0) ctx.globalAlpha = 0.5;
+                ctx.fillStyle = '#1a3a1a'; ctx.globalAlpha = 0.4 * (this.durum === 'olumAnimasyonu' ? alpha : 1); ctx.beginPath(); ctx.ellipse(pos.x, pos.y + 6, this.yaricap * 1.1, this.yaricap * 0.6, 0, 0, 2*Math.PI); ctx.fill(); ctx.globalAlpha = (this.durum === 'olumAnimasyonu' ? alpha : 1.0);
+                let sapRenk = '#d4b070', sapUst = '#d4b070', sapkaRenk, benekRenk = '#ffffff';
+                if (this.boss) { sapRenk = '#4a2c2c'; sapUst = '#5e3a3a'; sapkaRenk = '#8b0000'; benekRenk = '#ffcc00'; }
+                else if (this.patlayici) { sapRenk = '#b87333'; sapUst = '#c48a4d'; sapkaRenk = '#e67e22'; benekRenk = '#ffff00'; }
+                else { const k = 180 + this.level * 10; sapkaRenk = `rgb(${k}, 40, 40)`; }
+                ctx.fillStyle = sapRenk; ctx.beginPath(); ctx.ellipse(pos.x, mantarY - 2, 7 + this.level * 0.5, 4 + this.level * 0.3, 0, 0, 2*Math.PI); ctx.fill();
+                ctx.fillStyle = sapUst; ctx.beginPath(); ctx.ellipse(pos.x, mantarY - 12, 8 + this.level * 0.5, 5 + this.level * 0.3, 0, 0, 2*Math.PI); ctx.fill();
+                ctx.fillStyle = sapkaRenk; ctx.strokeStyle = '#7b241c'; ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(pos.x, mantarY - 22, this.yaricap, this.yaricap * 0.5, 0, 0, 2*Math.PI); ctx.fill(); ctx.stroke();
+                ctx.fillStyle = benekRenk; const benekSayisi = this.boss ? 8 : (this.patlayici ? 4 : (2 + this.level));
+                for (let i = 0; i < benekSayisi; i++) { const angle = (i / benekSayisi) * Math.PI * 2, bx = pos.x + Math.cos(angle) * (8 + this.level), by = mantarY - 22 + Math.sin(angle) * 3; ctx.beginPath(); ctx.arc(bx, by, this.boss ? 6 : 2.5, 0, 2*Math.PI); ctx.fill(); }
+                if (this.boss) { ctx.fillStyle = '#ffd700'; ctx.font = 'bold 20px Arial'; ctx.textAlign = 'center'; ctx.fillText('👑', pos.x, mantarY - 50); }
+                if (this.durum === 'canli' && this.can > 0) { const barW = this.boss ? 100 : 60, barH = this.boss ? 10 : 7, barX = pos.x - barW/2, barY = mantarY - (this.boss ? 55 : 38); ctx.fillStyle = '#1a1a1a'; ctx.fillRect(barX, barY, barW, barH); const oran = this.can / this.maxCan; ctx.fillStyle = this.patlayici ? '#e67e22' : (this.boss ? '#c0392b' : `rgb(${255*(1-oran)}, ${255*oran}, 0)`); ctx.fillRect(barX, barY, barW * oran, barH); ctx.strokeStyle = '#000'; ctx.lineWidth = 1; ctx.strokeRect(barX, barY, barW, barH); ctx.font = `bold ${this.boss ? 14 : 11}px Arial`; ctx.fillStyle = '#fff'; ctx.shadowColor = '#000'; ctx.shadowBlur = 3; ctx.textAlign = 'center'; ctx.fillText(`${this.boss ? '👑 BOSS ' : ''}${this.can}/${this.maxCan}`, pos.x, barY - 4); ctx.shadowBlur = 0; }
+                ctx.restore();
+            }
+        }
+        
+        // ========== BÖLÜM 15 / 26 – JavaScript: Eşya Sistemi ve Elit Düşman Davranışları ==========
+        const yerdekiEsyalar = [];
+        function esyaDusur(x, y, level) { 
+            const rand = Math.random(); let esyaTipi = 'mantarOzu'; let miktar = 1 + Math.floor(level / 2); 
+            if (rand < 0.4) { esyaTipi = 'mantarOzu'; miktar = 2 + Math.floor(level / 1.5); } 
+            else if (rand < 0.55) { esyaTipi = 'canIksiri'; miktar = 1; } 
+            else if (rand < 0.68) { esyaTipi = 'hizIksiri'; miktar = 1; } 
+            else if (rand < 0.80) { esyaTipi = 'hasarIksiri'; miktar = 1; } 
+            else if (rand < 0.90) { esyaTipi = 'zirhParcasi'; miktar = 1; } 
+            else { esyaTipi = 'gelistirmeTasi'; miktar = 1; } 
+            yerdekiEsyalar.push({ x, y, tip: esyaTipi, miktar, omur: 600 }); 
+        }
+        function esyaCiz() { 
+            for (let e of yerdekiEsyalar) { const pos = worldToScreen(e.x, e.y); let renk = '#f1c40f'; let ikon = '🔩'; 
+                if (e.tip === 'canIksiri') { renk = '#e74c3c'; ikon = '❤️'; } else if (e.tip === 'hizIksiri') { renk = '#3498db'; ikon = '💨'; } else if (e.tip === 'hasarIksiri') { renk = '#e67e22'; ikon = '⚔️'; } else if (e.tip === 'zirhParcasi') { renk = '#95a5a6'; ikon = '🛡️'; } else if (e.tip === 'gelistirmeTasi') { renk = '#9b59b6'; ikon = '🔮'; } 
+                ctx.fillStyle = renk; ctx.shadowColor = '#000'; ctx.shadowBlur = 10; ctx.beginPath(); ctx.arc(pos.x, pos.y - 5, 10, 0, 2*Math.PI); ctx.fill(); ctx.fillStyle = '#fff'; ctx.font = 'bold 14px Arial'; ctx.shadowBlur = 0; ctx.textAlign = 'center'; ctx.fillText(ikon, pos.x, pos.y - 2); if (e.miktar > 1) { ctx.font = 'bold 10px Arial'; ctx.fillText(e.miktar, pos.x + 12, pos.y - 8); } 
+            } 
+        }
+        function esyaToplamaKontrol() { 
+            for (let i = yerdekiEsyalar.length - 1; i >= 0; i--) { const e = yerdekiEsyalar[i]; if (Math.hypot(testere.x - e.x, testere.y - e.y) < testere.yaricap + 20) { if (testere.envantereEkle(e.tip, e.miktar)) yerdekiEsyalar.splice(i, 1); } else { e.omur--; if (e.omur <= 0) yerdekiEsyalar.splice(i, 1); } } 
+        }
+        function elitDavranisGuncelle(m) {
+            if (!m.elitTipi || m.durum !== 'canli') return;
+            switch (m.elitTipi) {
+                case 'kristal':
+                    if (m.saldiriHazir <= 0) { const dx = testere.x - m.x, dy = testere.y - m.y; if (Math.hypot(dx, dy) < 200) { testere.iksirHiz = -2; testere.iksirHizSuresi = 60; m.saldiriHazir = 120; } } else { m.saldiriHazir--; } break;
+                case 'golge':
+                    const dx = testere.x - m.x, dy = testere.y - m.y; const mesafe = Math.hypot(dx, dy);
+                    if (mesafe > 150) { m.gorunurluk = 0.3; } else { m.gorunurluk = 1.0; if (mesafe < 80 && m.carpismaSoguma <= 0) { testere.can = Math.max(0, testere.can - 10); m.carpismaSoguma = 20; } } break;
+                case 'lav':
+                    m.lavCikisSuresi--; if (m.lavCikisSuresi <= 0) { const aci = Math.random() * Math.PI * 2; const mesafe = 100 + Math.random() * 150; m.x = testere.x + Math.cos(aci) * mesafe; m.y = testere.y + Math.sin(aci) * mesafe; m.lavCikisSuresi = 180; if (Math.hypot(testere.x - m.x, testere.y - m.y) < 100) { testere.can = Math.max(0, testere.can - 15); } } break;
+            }
+        }
+        
+        // ========== BÖLÜM 16 / 26 – JavaScript: Mantar Listesi ve Statik Engeller ==========
+        const mantarlar = [];
+        const MANTAR_SAYISI = 80;
+        function rastgeleKonumBul(minMesafe = 180) {
+            const minX = merkezX - 3500, maxX = merkezX + 3500, minY = merkezY - 3500, maxY = merkezY + 3500;
+            let deneme = 0, x, y;
+            while (deneme < 800) {
+                x = minX + Math.random() * (maxX - minX); y = minY + Math.random() * (maxY - minY);
+                if (Math.abs(x - merkezX) < KASABA_GENISLIK/2 + 200 && Math.abs(y - merkezY) < KASABA_GENISLIK/2 + 200) { deneme++; continue; }
+                let cakisma = false;
+                for (let m of mantarlar) { if (m.durum === 'respawning') continue; if (Math.hypot(x - m.x, y - m.y) < minMesafe) { cakisma = true; break; } }
+                if (!cakisma) return { x, y };
+                deneme++;
+            }
+            return { x, y };
+        }
+        for (let i = 0; i < MANTAR_SAYISI; i++) { const pos = rastgeleKonumBul(); const patlayici = Math.random() < 0.1; mantarlar.push(new Mantar(pos.x, pos.y, Math.floor(Math.random() * 5) + 1, patlayici)); }
+        const statikEngeller = []; function engelEkle(x, y, yaricap) { statikEngeller.push({ x, y, yaricap }); }
+        
+        // ========== BÖLÜM 17 / 26 – JavaScript: Kasaba Duvarları ve Binalar ==========
+        function kasabaDuvarlariCiz() { 
+            const yariCap = KASABA_GENISLIK / 2, duvarAralik = 80, sutunBoyut = 40; 
+            const kenarlar = [ 
+                { basX: merkezX - yariCap, basY: merkezY - yariCap, bitX: merkezX + yariCap, bitY: merkezY - yariCap },
+                { basX: merkezX + yariCap, basY: merkezY - yariCap, bitX: merkezX + yariCap, bitY: merkezY + yariCap },
+                { basX: merkezX - yariCap, basY: merkezY + yariCap, bitX: merkezX + yariCap, bitY: merkezY + yariCap },
+                { basX: merkezX - yariCap, basY: merkezY - yariCap, bitX: merkezX - yariCap, bitY: merkezY + yariCap }
+            ]; const kapiBasY = merkezY - 200, kapiBitY = merkezY + 200; 
+            ctx.save(); ctx.fillStyle = '#1a3a1a'; ctx.globalAlpha = 0.25; 
+            kenarlar.forEach(kenar => { const dx = kenar.bitX - kenar.basX, dy = kenar.bitY - kenar.basY, uzunluk = Math.hypot(dx, dy); const adimX = dx / (uzunluk / duvarAralik), adimY = dy / (uzunluk / duvarAralik); for (let t = 0; t <= uzunluk; t += duvarAralik) { const wx = kenar.basX + adimX * (t / duvarAralik), wy = kenar.basY + adimY * (t / duvarAralik); if (kenar.basX === merkezX + yariCap && wy >= kapiBasY && wy <= kapiBitY) continue; const pos = worldToScreen(wx, wy); ctx.beginPath(); ctx.ellipse(pos.x, pos.y + 30, 40, 20, 0, 0, 2*Math.PI); ctx.fill(); } }); ctx.restore(); 
+            kenarlar.forEach(kenar => { const dx = kenar.bitX - kenar.basX, dy = kenar.bitY - kenar.basY, uzunluk = Math.hypot(dx, dy); const adimX = dx / (uzunluk / duvarAralik), adimY = dy / (uzunluk / duvarAralik); for (let t = 0; t <= uzunluk; t += duvarAralik) { const wx = kenar.basX + adimX * (t / duvarAralik), wy = kenar.basY + adimY * (t / duvarAralik); const kapidaMi = (kenar.basX === merkezX + yariCap && wy >= kapiBasY && wy <= kapiBitY); const pos = worldToScreen(wx, wy); if (!kapidaMi) { ctx.fillStyle = '#7f8c8d'; ctx.strokeStyle = '#2c3e50'; ctx.lineWidth = 4; ctx.fillRect(pos.x - sutunBoyut/2, pos.y - 70, sutunBoyut, 80); ctx.strokeRect(pos.x - sutunBoyut/2, pos.y - 70, sutunBoyut, 80); ctx.fillStyle = '#95a5a6'; ctx.fillRect(pos.x - sutunBoyut/2 - 6, pos.y - 82, sutunBoyut + 12, 15); ctx.strokeRect(pos.x - sutunBoyut/2 - 6, pos.y - 82, sutunBoyut + 12, 15); engelEkle(wx, wy, sutunBoyut * 1.2); if (Math.floor(t / duvarAralik) % 4 === 0) { ctx.fillStyle = '#e67e22'; ctx.shadowColor = '#ffaa00'; ctx.shadowBlur = 20; ctx.beginPath(); ctx.arc(pos.x, pos.y - 95, 12, 0, 2*Math.PI); ctx.fill(); ctx.shadowBlur = 0; ctx.fillStyle = '#f1c40f'; ctx.beginPath(); ctx.arc(pos.x - 3, pos.y - 100, 6, 0, 2*Math.PI); ctx.fill(); } } } }); 
+            ctx.beginPath(); ctx.strokeStyle = '#5d4037'; ctx.lineWidth = 8; 
+            kenarlar.forEach(kenar => { const dx = kenar.bitX - kenar.basX, dy = kenar.bitY - kenar.basY, uzunluk = Math.hypot(dx, dy); const adimX = dx / (uzunluk / duvarAralik), adimY = dy / (uzunluk / duvarAralik); for (let t = 0; t < uzunluk; t += duvarAralik) { const wx1 = kenar.basX + adimX * (t / duvarAralik), wy1 = kenar.basY + adimY * (t / duvarAralik); const wx2 = kenar.basX + adimX * ((t + duvarAralik) / duvarAralik), wy2 = kenar.basY + adimY * ((t + duvarAralik) / duvarAralik); if (t + duvarAralik > uzunluk) break; const ortaX = (wx1 + wx2)/2, ortaY = (wy1 + wy2)/2, kapidaMi = (kenar.basX === merkezX + yariCap && ortaY >= kapiBasY && ortaY <= kapiBitY); const p1 = worldToScreen(wx1, wy1), p2 = worldToScreen(wx2, wy2); if (!kapidaMi) { ctx.beginPath(); ctx.moveTo(p1.x, p1.y - 50); ctx.lineTo(p2.x, p2.y - 50); ctx.stroke(); ctx.beginPath(); ctx.moveTo(p1.x, p1.y - 35); ctx.lineTo(p2.x, p2.y - 35); ctx.stroke(); engelEkle(ortaX, ortaY, duvarAralik * 0.7); } } }); 
+            const pSol = worldToScreen(merkezX + yariCap, kapiBasY), pSag = worldToScreen(merkezX + yariCap, kapiBitY); 
+            ctx.fillStyle = '#95a5a6'; ctx.strokeStyle = '#2c3e50'; ctx.lineWidth = 5; ctx.fillRect(pSol.x - 30, pSol.y - 100, 60, 110); ctx.strokeRect(pSol.x - 30, pSol.y - 100, 60, 110); ctx.fillRect(pSag.x - 30, pSag.y - 100, 60, 110); ctx.strokeRect(pSag.x - 30, pSag.y - 100, 60, 110); 
+            ctx.beginPath(); ctx.strokeStyle = '#7f8c8d'; ctx.lineWidth = 12; ctx.moveTo(pSol.x, pSol.y - 100); ctx.lineTo(pSol.x + 40, pSol.y - 150); ctx.lineTo(pSag.x - 40, pSag.y - 150); ctx.lineTo(pSag.x, pSag.y - 100); ctx.stroke(); 
+            ctx.font = 'bold 20px Arial'; ctx.fillStyle = '#ffd700'; ctx.shadowColor = '#000'; ctx.shadowBlur = 8; ctx.textAlign = 'center'; ctx.fillText('🚪 GİRİŞ 🚪', (pSol.x + pSag.x)/2, pSol.y - 160); ctx.shadowBlur = 0; 
+        }
+        function binaCiz(wx, wy, genislik, yukseklik, renk) { const pos = worldToScreen(wx, wy); ctx.fillStyle = '#1a3a1a'; ctx.globalAlpha = 0.3; ctx.beginPath(); ctx.ellipse(pos.x, pos.y + 15, genislik/2 + 15, genislik/4, 0, 0, 2*Math.PI); ctx.fill(); ctx.globalAlpha = 1.0; ctx.fillStyle = renk; ctx.strokeStyle = '#3e2723'; ctx.lineWidth = 4; ctx.fillRect(pos.x - genislik/2, pos.y - yukseklik, genislik, yukseklik); ctx.strokeRect(pos.x - genislik/2, pos.y - yukseklik, genislik, yukseklik); ctx.fillStyle = '#5d4037'; ctx.beginPath(); ctx.moveTo(pos.x - genislik/2 - 8, pos.y - yukseklik); ctx.lineTo(pos.x + genislik/2 + 8, pos.y - yukseklik); ctx.lineTo(pos.x, pos.y - yukseklik - 45); ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.fillStyle = '#ffecb3'; ctx.fillRect(pos.x - 22, pos.y - yukseklik + 30, 18, 18); ctx.fillRect(pos.x + 22, pos.y - yukseklik + 30, 18, 18); ctx.strokeStyle = '#3e2723'; ctx.lineWidth = 2; ctx.strokeRect(pos.x - 22, pos.y - yukseklik + 30, 18, 18); ctx.strokeRect(pos.x + 22, pos.y - yukseklik + 30, 18, 18); engelEkle(wx, wy, genislik * 0.75); }
+        function agacCiz(wx, wy, boyut) { const pos = worldToScreen(wx, wy); ctx.fillStyle = '#1a3a1a'; ctx.globalAlpha = 0.3; ctx.beginPath(); ctx.ellipse(pos.x, pos.y + 12, boyut, boyut/2, 0, 0, 2*Math.PI); ctx.fill(); ctx.globalAlpha = 1.0; ctx.fillStyle = '#5d4037'; ctx.fillRect(pos.x - 12, pos.y - 70, 24, 70); ctx.fillStyle = '#2e7d32'; ctx.beginPath(); ctx.arc(pos.x, pos.y - 85, boyut, 0, 2*Math.PI); ctx.fill(); ctx.fillStyle = '#1b5e20'; ctx.beginPath(); ctx.arc(pos.x - 12, pos.y - 100, boyut-12, 0, 2*Math.PI); ctx.fill(); engelEkle(wx, wy, boyut * 1.4); }
+        function kasabaBinalariCiz() { const binaBasX = merkezX - 750, binaY = merkezY - 250, binaAralik = 350; binaCiz(binaBasX, binaY, 280, 240, '#8d6e63'); binaCiz(binaBasX + binaAralik, binaY, 280, 240, '#a1887f'); binaCiz(binaBasX + binaAralik*2, binaY, 280, 240, '#795548'); binaCiz(binaBasX + binaAralik*3, binaY, 280, 240, '#6d4c41'); agacCiz(merkezX - 600, merkezY + 200, 70); agacCiz(merkezX, merkezY - 500, 65); agacCiz(merkezX - 800, merkezY, 60); }
+        function guvenliBolgeGostergesiCiz() { const yariCap = KASABA_GENISLIK / 2, kareKose = worldToScreen(merkezX - yariCap, merkezY - yariCap), kareBoyut = yariCap * 2 * PERSPECTIVE; ctx.strokeStyle = '#ffd700'; ctx.lineWidth = 5; ctx.setLineDash([30, 30]); ctx.strokeRect(kareKose.x, kareKose.y, kareBoyut, kareBoyut); ctx.setLineDash([]); const centerScreen = worldToScreen(merkezX, merkezY); ctx.font = 'bold 48px Arial'; ctx.fillStyle = '#fff'; ctx.shadowColor = '#000'; ctx.shadowBlur = 15; ctx.textAlign = 'center'; ctx.fillText('🛡️ GÜVENLİ BÖLGE 🛡️', centerScreen.x, kareKose.y - 40); ctx.shadowBlur = 0; ctx.beginPath(); ctx.strokeStyle = '#b0a090'; ctx.lineWidth = 50; ctx.globalAlpha = 0.3; const yolBas = worldToScreen(merkezX + 300, merkezY), yolBit = worldToScreen(merkezX + yariCap, merkezY); ctx.moveTo(yolBas.x, yolBas.y); ctx.lineTo(yolBit.x, yolBit.y); ctx.stroke(); ctx.globalAlpha = 1.0; }
+        function kasabaCiz() { statikEngeller.length = 0; kasabaDuvarlariCiz(); kasabaBinalariCiz(); guvenliBolgeGostergesiCiz(); }
+        
+        // ========== BÖLÜM 18 / 26 – JavaScript: Harita, Biyom Geçişi ve Mini Harita ==========
+        function haritaCiz() { 
+            const biyomRenkleri = { [BIYOMLAR.VADI]: '#87CEEB', [BIYOMLAR.KRISTAL]: '#d8bfd8', [BIYOMLAR.ORMAN]: '#2d4a1e', [BIYOMLAR.LAV]: '#4a1e1e' }; 
+            ctx.fillStyle = biyomRenkleri[mevcutBiyom]; ctx.fillRect(0, 0, canvas.width, canvas.height); 
+            const zeminRenkleri = { [BIYOMLAR.VADI]: '#4caf50', [BIYOMLAR.KRISTAL]: '#7b68ae', [BIYOMLAR.ORMAN]: '#1b4d1b', [BIYOMLAR.LAV]: '#8b4513' }; 
+            const tl = worldToScreen(0, 0), tr = worldToScreen(canvas.width, 0), br = worldToScreen(canvas.width, canvas.height), bl = worldToScreen(0, canvas.height); 
+            ctx.fillStyle = zeminRenkleri[mevcutBiyom]; ctx.beginPath(); ctx.moveTo(tl.x, tl.y); ctx.lineTo(tr.x, tr.y); ctx.lineTo(br.x, br.y); ctx.lineTo(bl.x, bl.y); ctx.closePath(); ctx.fill(); 
+            const izgaraRenkleri = { [BIYOMLAR.VADI]: '#2e7d32', [BIYOMLAR.KRISTAL]: '#4a306a', [BIYOMLAR.ORMAN]: '#0d2e0d', [BIYOMLAR.LAV]: '#6b2e0e' }; 
+            ctx.lineWidth = 1.5; ctx.strokeStyle = izgaraRenkleri[mevcutBiyom]; for (let y = 0; y <= canvas.height; y += 200) { const s = worldToScreen(0, y), e = worldToScreen(canvas.width, y); ctx.beginPath(); ctx.moveTo(s.x, s.y); ctx.lineTo(e.x, e.y); ctx.stroke(); } 
+            ctx.lineWidth = 1; for (let x = 0; x <= canvas.width; x += 200) { const s = worldToScreen(x, 0), e = worldToScreen(x, canvas.height); ctx.beginPath(); ctx.moveTo(s.x, s.y); ctx.lineTo(e.x, e.y); ctx.stroke(); } 
+            kasabaCiz(); 
+        }
+        function biyomGecisKontrol() { 
+            const testereX = testere.x, testereY = testere.y; let yeniBiyom = mevcutBiyom; 
+            const sinirUzaklik = 5500; 
+            if (testereX > merkezX + sinirUzaklik && mevcutBiyom === BIYOMLAR.VADI) yeniBiyom = BIYOMLAR.KRISTAL; 
+            else if (testereX < merkezX - sinirUzaklik && mevcutBiyom === BIYOMLAR.VADI) yeniBiyom = BIYOMLAR.ORMAN; 
+            else if (testereY > merkezY + sinirUzaklik && mevcutBiyom === BIYOMLAR.VADI) yeniBiyom = BIYOMLAR.LAV; 
+            else if (testereX < merkezX + 5500 && testereX > merkezX + 5400 && mevcutBiyom === BIYOMLAR.KRISTAL) yeniBiyom = BIYOMLAR.VADI; 
+            else if (testereX > merkezX - 5500 && testereX < merkezX - 5400 && mevcutBiyom === BIYOMLAR.ORMAN) yeniBiyom = BIYOMLAR.VADI; 
+            else if (testereY < merkezY + 5500 && testereY > merkezY + 5400 && mevcutBiyom === BIYOMLAR.LAV) yeniBiyom = BIYOMLAR.VADI; 
+            if (yeniBiyom !== mevcutBiyom) { 
+                mevcutBiyom = yeniBiyom; biyomMerkezGuncelle(); 
+                if (mevcutBiyom === BIYOMLAR.KRISTAL) { testere.x = merkezX - 5400; testere.y = merkezY; } 
+                else if (mevcutBiyom === BIYOMLAR.ORMAN) { testere.x = merkezX + 5400; testere.y = merkezY; } 
+                else if (mevcutBiyom === BIYOMLAR.LAV) { testere.x = merkezX; testere.y = merkezY - 5400; } 
+                else if (mevcutBiyom === BIYOMLAR.VADI) { if (testereX > 11000) testere.x = merkezX + 5400; else if (testereX < 1000) testere.x = merkezX - 5400; else if (testereY > 11000) testere.y = merkezY + 5400; } 
+                mantarlar.length = 0; const YENI_MANTAR_SAYISI = 100; for (let i = 0; i < YENI_MANTAR_SAYISI; i++) { const pos = rastgeleKonumBul(); const patlayici = Math.random() < 0.1; mantarlar.push(new Mantar(pos.x, pos.y, Math.floor(Math.random() * 5) + 1, patlayici)); } 
+                kameraGuncelle(); hudGuncelle(); 
+                const biyomIsimleri = { [BIYOMLAR.VADI]: '🌿 GÜVENLİ VADİ', [BIYOMLAR.KRISTAL]: '💎 KRİSTAL MAĞARALARI', [BIYOMLAR.ORMAN]: '🌲 FISILTILI ORMAN', [BIYOMLAR.LAV]: '🔥 KAVRULMUŞ TOPRAKLAR' }; 
+                const bossUyari = document.getElementById('bossUyari'); bossUyari.textContent = biyomIsimleri[mevcutBiyom]; bossUyari.classList.add('gorunur'); setTimeout(() => bossUyari.classList.remove('gorunur'), 2000); 
+            } 
+        }
+        function miniHaritaCiz() { miniCtx.clearRect(0, 0, 150, 150); miniCtx.fillStyle = '#0a2f0a'; miniCtx.fillRect(0, 0, 150, 150); const gbX = (merkezX - KASABA_GENISLIK/2) / canvas.width * 150, gbY = (merkezY - KASABA_GENISLIK/2) / canvas.height * 150; const gbW = KASABA_GENISLIK / canvas.width * 150, gbH = KASABA_GENISLIK / canvas.height * 150; miniCtx.fillStyle = '#2e7d3260'; miniCtx.fillRect(gbX, gbY, gbW, gbH); for (let m of mantarlar) { if (m.durum !== 'canli') continue; const mx = m.x / canvas.width * 150, my = m.y / canvas.height * 150; miniCtx.fillStyle = m.patlayici ? '#ff8c00' : (m.boss ? '#ff0000' : '#e74c3c'); miniCtx.beginPath(); miniCtx.arc(mx, my, m.boss ? 6 : 3, 0, 2*Math.PI); miniCtx.fill(); } const tx = testere.x / canvas.width * 150, ty = testere.y / canvas.height * 150; miniCtx.fillStyle = '#ffffff'; miniCtx.beginPath(); miniCtx.arc(tx, ty, 4, 0, 2*Math.PI); miniCtx.fill(); }
+        function bossSpawnKontrol() { if (bossVar) return; bossSayac++; if (bossSayac >= BOSS_SPAWN_ARALIGI) { bossSayac = 0; let deneme = 0, x, y; while (deneme < 500) { x = merkezX - 5500 + Math.random() * 11000; y = merkezY - 5500 + Math.random() * 11000; if (Math.abs(x - merkezX) > KASABA_GENISLIK/2 + 300 || Math.abs(y - merkezY) > KASABA_GENISLIK/2 + 300) { let cakisma = false; for (let m of mantarlar) { if (m.durum !== 'canli') continue; if (Math.hypot(x - m.x, y - m.y) < 200) { cakisma = true; break; } } if (!cakisma) break; } deneme++; } const boss = new Mantar(x, y, 10, false, true); mantarlar.push(boss); bossVar = true; document.getElementById('bossUyari').classList.add('gorunur'); setTimeout(() => document.getElementById('bossUyari').classList.remove('gorunur'), 2000); } }
+        
+        // ========== BÖLÜM 19 / 26 – JavaScript: Testere Çizim Metodu ==========
+        function yildizCiz(cx, cy, disYaricap, icYaricap, koseSayisi) { let aci = Math.PI / koseSayisi; ctx.beginPath(); for (let i = 0; i < 2 * koseSayisi; i++) { let r = (i % 2 === 0) ? disYaricap : icYaricap; let x = cx + Math.cos(i * aci) * r; let y = cy + Math.sin(i * aci) * r; if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y); } ctx.closePath(); }
         testere.ciz = function() {
             if (!ctrlToggle) this.donmeAcisi += this.donmeHizi;
             if (!ctrlToggle) { this.tilt += (this.targetTilt - this.tilt) * this.tiltHizi; this.tiltY += (this.targetTiltY - this.tiltY) * this.tiltHizi; } else { this.tilt = 0; this.tiltY = 0; }
@@ -306,15 +604,7 @@
             ctx.save(); ctx.translate(center.x, center.y - this.height * PERSPECTIVE);
             if (!ctrlToggle) { ctx.rotate(this.tilt); ctx.scale(1 - Math.abs(this.tiltY)*0.2, 1 + this.tiltY*0.4); }
             const stil = this.getStil(); const anaRenk = stil.ana; const karaDelikMod = stil.karaDelik;
-
-        // ========== BÖLÜM 4.2 / 25 – TESTERE ÇİZİMİ (DIŞ DİŞLER) ==========
-            if (this.disGoster() && !karaDelikMod) {
-                ctx.lineWidth = 3; ctx.strokeStyle = '#2B1408'; ctx.fillStyle = anaRenk;
-                const disKati = Math.floor(this.level / 5); const disSayisi = 12 + Math.min(disKati, 8) * 2; const disUzunluk = 6 + Math.floor(this.level / 15) * 2; const yCarpan = ctrlToggle ? 1 : 0.55;
-                for (let i = 0; i < disSayisi; i++) { const aci = (i / disSayisi) * Math.PI * 2; const icX = Math.cos(aci) * (this.yaricap + 2); const icY = Math.sin(aci) * (this.yaricap + 2) * yCarpan; const disX = Math.cos(aci) * (this.yaricap + disUzunluk); const disY = Math.sin(aci) * (this.yaricap + disUzunluk) * yCarpan; const yanX = Math.cos(aci + 0.15) * (this.yaricap + disUzunluk * 0.7); const yanY = Math.sin(aci + 0.15) * (this.yaricap + disUzunluk * 0.7) * yCarpan; ctx.beginPath(); ctx.moveTo(icX, icY); ctx.lineTo(disX, disY); ctx.lineTo(yanX, yanY); ctx.closePath(); ctx.fill(); ctx.stroke(); }
-            }
-
-        // ========== BÖLÜM 4.3 / 25 – TESTERE ÇİZİMİ (DIŞ ÇERÇEVE VE GÖVDE) ==========
+            if (this.disGoster() && !karaDelikMod) { ctx.lineWidth = 3; ctx.strokeStyle = '#2B1408'; ctx.fillStyle = anaRenk; const disKati = Math.floor(this.level / 5); const disSayisi = 12 + Math.min(disKati, 8) * 2; const disUzunluk = 6 + Math.floor(this.level / 15) * 2; const yCarpan = ctrlToggle ? 1 : 0.55; for (let i = 0; i < disSayisi; i++) { const aci = (i / disSayisi) * Math.PI * 2; const icX = Math.cos(aci) * (this.yaricap + 2); const icY = Math.sin(aci) * (this.yaricap + 2) * yCarpan; const disX = Math.cos(aci) * (this.yaricap + disUzunluk); const disY = Math.sin(aci) * (this.yaricap + disUzunluk) * yCarpan; const yanX = Math.cos(aci + 0.15) * (this.yaricap + disUzunluk * 0.7); const yanY = Math.sin(aci + 0.15) * (this.yaricap + disUzunluk * 0.7) * yCarpan; ctx.beginPath(); ctx.moveTo(icX, icY); ctx.lineTo(disX, disY); ctx.lineTo(yanX, yanY); ctx.closePath(); ctx.fill(); ctx.stroke(); } }
             const cerceveKalinlik = 3 + Math.floor(this.level / 15);
             ctx.beginPath(); if (ctrlToggle) ctx.arc(0, 0, this.yaricap + cerceveKalinlik, 0, 2*Math.PI); else ctx.ellipse(0, 0, this.yaricap + cerceveKalinlik, (this.yaricap + cerceveKalinlik) * 0.55, 0, 0, 2*Math.PI);
             if (!karaDelikMod) { ctx.shadowColor = '#00000080'; ctx.shadowBlur = 8 + this.level / 5; ctx.shadowOffsetY = 2; ctx.lineWidth = cerceveKalinlik; ctx.strokeStyle = stil.ikincil; ctx.stroke(); if (this.level >= 20) { ctx.shadowBlur = 6; ctx.lineWidth = 2; ctx.strokeStyle = '#FFFFFF'; ctx.globalAlpha = 0.3 + (this.level / 200); ctx.stroke(); ctx.globalAlpha = 1.0; } } else { ctx.lineWidth = 5; ctx.strokeStyle = '#333333'; ctx.stroke(); }
@@ -324,367 +614,155 @@
             else { const p = stil.parlaklik, ana = stil.ana, ikincil = stil.ikincil; const aydinlat = (renk, faktor) => { let r = parseInt(renk.slice(1,3), 16), g = parseInt(renk.slice(3,5), 16), b = parseInt(renk.slice(5,7), 16); r = Math.min(255, Math.floor(r * (1 + faktor * 0.3))); g = Math.min(255, Math.floor(g * (1 + faktor * 0.3))); b = Math.min(255, Math.floor(b * (1 + faktor * 0.3))); return `rgb(${r}, ${g}, ${b})`; }; const parlakAna = aydinlat(ana, p), parlakIkincil = aydinlat(ikincil, p); govdeGradyan.addColorStop(0, '#FFFFFF'); govdeGradyan.addColorStop(0.2, parlakAna); govdeGradyan.addColorStop(0.6, ikincil); govdeGradyan.addColorStop(1, '#1a1a1a'); ctx.fillStyle = govdeGradyan; }
             ctx.beginPath(); if (ctrlToggle) ctx.arc(0, 0, this.yaricap, 0, 2*Math.PI); else ctx.ellipse(0, 0, this.yaricap, this.yaricap * 0.55, 0, 0, 2*Math.PI); ctx.fill();
             if (!karaDelikMod) { ctx.shadowColor = '#00000060'; ctx.shadowBlur = 10; ctx.shadowOffsetX = 2; ctx.shadowOffsetY = 2; ctx.strokeStyle = '#2a2a2a'; ctx.lineWidth = 2.5; ctx.stroke(); ctx.shadowBlur = 0; ctx.shadowOffsetX = 0; ctx.shadowOffsetY = 0; }
-            
-            // YÜZEY DOKUSU
-            if (!karaDelikMod && stil.doku !== 'mat') { ctx.save(); ctx.rotate(this.donmeAcisi * 0.3); ctx.lineWidth = 1.5; ctx.globalAlpha = 0.15 + (this.level / 300);
-                if (stil.doku === 'hafif' || stil.doku === 'işlemeli') { ctx.strokeStyle = '#555'; for (let i = 1; i <= 3; i++) { ctx.beginPath(); if (ctrlToggle) ctx.arc(0, 0, this.yaricap * (0.3 * i), 0, 2*Math.PI); else ctx.ellipse(0, 0, this.yaricap * (0.3 * i), this.yaricap * (0.3 * i) * 0.55, 0, 0, 2*Math.PI); ctx.stroke(); } }
-                else if (stil.doku === 'parlak' || stil.doku === 'yansımalı') { ctx.strokeStyle = '#aaa'; for (let i = 0; i < 8; i++) { const aci = (i / 8) * Math.PI * 2, dx = Math.cos(aci) * 10, dy = Math.sin(aci) * 6; ctx.beginPath(); ctx.moveTo(dx, dy); ctx.lineTo(dx * 2.5, dy * 2.5); ctx.stroke(); } }
-                else if (stil.doku === 'ayna' || stil.doku === 'lüks') { ctx.strokeStyle = '#fff'; ctx.globalAlpha = 0.2; for (let i = 0; i < 6; i++) { const aci = (i / 6) * Math.PI * 2, dx = Math.cos(aci) * 15, dy = Math.sin(aci) * 10; ctx.beginPath(); ctx.moveTo(-dx, -dy); ctx.lineTo(dx, dy); ctx.stroke(); } }
-                else if (stil.doku === 'altın' || stil.doku === 'alev') { ctx.strokeStyle = '#FFD700'; ctx.globalAlpha = 0.25; for (let i = 0; i < 12; i++) { const aci = (i / 12) * Math.PI * 2, dx = Math.cos(aci) * 12, dy = Math.sin(aci) * 8; ctx.beginPath(); ctx.arc(dx, dy, 4, 0, 2*Math.PI); ctx.stroke(); } }
-                else if (stil.doku === 'obsidyen') { for (let i = 0; i < 5; i++) { const hue = (Date.now() / 50 + i * 60) % 360; ctx.strokeStyle = `hsl(${hue}, 80%, 60%)`; ctx.beginPath(); if (ctrlToggle) ctx.arc(0, 0, this.yaricap * (0.6 + i*0.1), 0, 2*Math.PI); else ctx.ellipse(0, 0, this.yaricap * (0.6 + i*0.1), this.yaricap * (0.6 + i*0.1) * 0.55, 0, 0, 2*Math.PI); ctx.stroke(); } }
-                ctx.restore(); }
-            
-            // BOOST EFEKTİ
+            if (!karaDelikMod && stil.doku !== 'mat') { ctx.save(); ctx.rotate(this.donmeAcisi * 0.3); ctx.lineWidth = 1.5; ctx.globalAlpha = 0.15 + (this.level / 300); if (stil.doku === 'hafif' || stil.doku === 'işlemeli') { ctx.strokeStyle = '#555'; for (let i = 1; i <= 3; i++) { ctx.beginPath(); if (ctrlToggle) ctx.arc(0, 0, this.yaricap * (0.3 * i), 0, 2*Math.PI); else ctx.ellipse(0, 0, this.yaricap * (0.3 * i), this.yaricap * (0.3 * i) * 0.55, 0, 0, 2*Math.PI); ctx.stroke(); } } else if (stil.doku === 'parlak' || stil.doku === 'yansımalı') { ctx.strokeStyle = '#aaa'; for (let i = 0; i < 8; i++) { const aci = (i / 8) * Math.PI * 2, dx = Math.cos(aci) * 10, dy = Math.sin(aci) * 6; ctx.beginPath(); ctx.moveTo(dx, dy); ctx.lineTo(dx * 2.5, dy * 2.5); ctx.stroke(); } } else if (stil.doku === 'ayna' || stil.doku === 'lüks') { ctx.strokeStyle = '#fff'; ctx.globalAlpha = 0.2; for (let i = 0; i < 6; i++) { const aci = (i / 6) * Math.PI * 2, dx = Math.cos(aci) * 15, dy = Math.sin(aci) * 10; ctx.beginPath(); ctx.moveTo(-dx, -dy); ctx.lineTo(dx, dy); ctx.stroke(); } } else if (stil.doku === 'altın' || stil.doku === 'alev') { ctx.strokeStyle = '#FFD700'; ctx.globalAlpha = 0.25; for (let i = 0; i < 12; i++) { const aci = (i / 12) * Math.PI * 2, dx = Math.cos(aci) * 12, dy = Math.sin(aci) * 8; ctx.beginPath(); ctx.arc(dx, dy, 4, 0, 2*Math.PI); ctx.stroke(); } } else if (stil.doku === 'obsidyen') { for (let i = 0; i < 5; i++) { const hue = (Date.now() / 50 + i * 60) % 360; ctx.strokeStyle = `hsl(${hue}, 80%, 60%)`; ctx.beginPath(); if (ctrlToggle) ctx.arc(0, 0, this.yaricap * (0.6 + i*0.1), 0, 2*Math.PI); else ctx.ellipse(0, 0, this.yaricap * (0.6 + i*0.1), this.yaricap * (0.6 + i*0.1) * 0.55, 0, 0, 2*Math.PI); ctx.stroke(); } } ctx.restore(); }
             if (this.boostAktif && !karaDelikMod) { ctx.save(); ctx.shadowColor = '#00ffff'; ctx.shadowBlur = 25; ctx.lineWidth = 5; ctx.strokeStyle = '#3498db'; ctx.beginPath(); if (ctrlToggle) ctx.arc(0, 0, this.yaricap + 8, 0, 2*Math.PI); else ctx.ellipse(0, 0, this.yaricap + 8, (this.yaricap + 8) * 0.55, 0, 0, 2*Math.PI); ctx.stroke(); ctx.restore(); }
-
-        // ========== BÖLÜM 4.4 / 25 – TESTERE ÇİZİMİ (MERKEZ SÜS) ==========
-            if (!karaDelikMod) { ctx.save(); ctx.rotate(this.donmeAcisi * 0.5); const lv = this.level; ctx.shadowColor = '#00000080'; ctx.shadowBlur = 8; ctx.shadowOffsetX = 1; ctx.shadowOffsetY = 1;
-                if (lv < 20) { ctx.fillStyle = '#555'; ctx.beginPath(); for (let i = 0; i < 6; i++) { const aci = (i / 6) * Math.PI * 2, x = Math.cos(aci) * 9, y = Math.sin(aci) * (ctrlToggle ? 9 : 5); if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y); } ctx.closePath(); ctx.fill(); ctx.strokeStyle = '#222'; ctx.lineWidth = 2; ctx.stroke(); ctx.beginPath(); ctx.strokeStyle = '#111'; ctx.lineWidth = 3; ctx.moveTo(-5, 0); ctx.lineTo(5, 0); ctx.stroke(); }
-                else if (lv < 40) { ctx.fillStyle = stil.ikincil; ctx.shadowBlur = 12; ctx.beginPath(); for (let i = 0; i < 5; i++) { const aci = (i / 5) * Math.PI * 2 - Math.PI/2, x = Math.cos(aci) * 10, y = Math.sin(aci) * (ctrlToggle ? 10 : 5.5); if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y); } ctx.closePath(); ctx.fill(); ctx.strokeStyle = '#000'; ctx.lineWidth = 2; ctx.stroke(); ctx.beginPath(); ctx.arc(0, 0, 3, 0, 2*Math.PI); ctx.fillStyle = '#FFD700'; ctx.fill(); }
-                else if (lv < 60) { ctx.fillStyle = stil.ikincil; ctx.shadowBlur = 15; ctx.beginPath(); if (ctrlToggle) ctx.arc(0, 0, 10, 0, 2*Math.PI); else ctx.ellipse(0, 0, 10, 5.5, 0, 0, 2*Math.PI); ctx.fill(); ctx.strokeStyle = '#FFF'; ctx.lineWidth = 2; ctx.stroke(); ctx.beginPath(); if (ctrlToggle) ctx.arc(0, 0, 5, 0, 2*Math.PI); else ctx.ellipse(0, 0, 5, 2.8, 0, 0, 2*Math.PI); ctx.fillStyle = '#222'; ctx.fill(); ctx.shadowColor = '#0ff'; ctx.beginPath(); ctx.arc(0, 0, 2, 0, 2*Math.PI); ctx.fillStyle = '#0ff'; ctx.fill(); }
-                else if (lv < 80) { ctx.fillStyle = '#FFD700'; ctx.shadowColor = '#FFA500'; ctx.shadowBlur = 20; ctx.beginPath(); for (let i = 0; i < 5; i++) { const aci = (i / 5) * Math.PI * 2, x = Math.cos(aci) * 8, y = Math.sin(aci) * (ctrlToggle ? 8 : 4.4); if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y); } ctx.closePath(); ctx.fill(); ctx.shadowColor = '#f00'; ctx.beginPath(); ctx.arc(0, 0, 4, 0, 2*Math.PI); ctx.fillStyle = '#ff0000'; ctx.fill(); }
-                else { ctx.shadowColor = '#fff'; ctx.shadowBlur = 25; ctx.lineWidth = 2; for (let i = 0; i < 3; i++) { ctx.beginPath(); const r = 6 + i*4; if (ctrlToggle) ctx.arc(0, 0, r, 0, 2*Math.PI); else ctx.ellipse(0, 0, r, r*0.55, 0, 0, 2*Math.PI); ctx.strokeStyle = i === 0 ? '#FFD700' : (i === 1 ? '#FFA500' : '#FF4500'); ctx.stroke(); } ctx.shadowColor = '#fff'; ctx.beginPath(); ctx.arc(0, 0, 3, 0, 2*Math.PI); ctx.fillStyle = '#FFF'; ctx.fill(); }
-                ctx.restore(); }
+            if (!karaDelikMod) { ctx.save(); ctx.rotate(this.donmeAcisi * 0.5); const lv = this.level; ctx.shadowColor = '#00000080'; ctx.shadowBlur = 8; ctx.shadowOffsetX = 1; ctx.shadowOffsetY = 1; if (lv < 20) { ctx.fillStyle = '#555'; ctx.beginPath(); for (let i = 0; i < 6; i++) { const aci = (i / 6) * Math.PI * 2, x = Math.cos(aci) * 9, y = Math.sin(aci) * (ctrlToggle ? 9 : 5); if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y); } ctx.closePath(); ctx.fill(); ctx.strokeStyle = '#222'; ctx.lineWidth = 2; ctx.stroke(); ctx.beginPath(); ctx.strokeStyle = '#111'; ctx.lineWidth = 3; ctx.moveTo(-5, 0); ctx.lineTo(5, 0); ctx.stroke(); } else if (lv < 40) { ctx.fillStyle = stil.ikincil; ctx.shadowBlur = 12; ctx.beginPath(); for (let i = 0; i < 5; i++) { const aci = (i / 5) * Math.PI * 2 - Math.PI/2, x = Math.cos(aci) * 10, y = Math.sin(aci) * (ctrlToggle ? 10 : 5.5); if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y); } ctx.closePath(); ctx.fill(); ctx.strokeStyle = '#000'; ctx.lineWidth = 2; ctx.stroke(); ctx.beginPath(); ctx.arc(0, 0, 3, 0, 2*Math.PI); ctx.fillStyle = '#FFD700'; ctx.fill(); } else if (lv < 60) { ctx.fillStyle = stil.ikincil; ctx.shadowBlur = 15; ctx.beginPath(); if (ctrlToggle) ctx.arc(0, 0, 10, 0, 2*Math.PI); else ctx.ellipse(0, 0, 10, 5.5, 0, 0, 2*Math.PI); ctx.fill(); ctx.strokeStyle = '#FFF'; ctx.lineWidth = 2; ctx.stroke(); ctx.beginPath(); if (ctrlToggle) ctx.arc(0, 0, 5, 0, 2*Math.PI); else ctx.ellipse(0, 0, 5, 2.8, 0, 0, 2*Math.PI); ctx.fillStyle = '#222'; ctx.fill(); ctx.shadowColor = '#0ff'; ctx.beginPath(); ctx.arc(0, 0, 2, 0, 2*Math.PI); ctx.fillStyle = '#0ff'; ctx.fill(); } else if (lv < 80) { ctx.fillStyle = '#FFD700'; ctx.shadowColor = '#FFA500'; ctx.shadowBlur = 20; ctx.beginPath(); for (let i = 0; i < 5; i++) { const aci = (i / 5) * Math.PI * 2, x = Math.cos(aci) * 8, y = Math.sin(aci) * (ctrlToggle ? 8 : 4.4); if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y); } ctx.closePath(); ctx.fill(); ctx.shadowColor = '#f00'; ctx.beginPath(); ctx.arc(0, 0, 4, 0, 2*Math.PI); ctx.fillStyle = '#ff0000'; ctx.fill(); } else { ctx.shadowColor = '#fff'; ctx.shadowBlur = 25; ctx.lineWidth = 2; for (let i = 0; i < 3; i++) { ctx.beginPath(); const r = 6 + i*4; if (ctrlToggle) ctx.arc(0, 0, r, 0, 2*Math.PI); else ctx.ellipse(0, 0, r, r*0.55, 0, 0, 2*Math.PI); ctx.strokeStyle = i === 0 ? '#FFD700' : (i === 1 ? '#FFA500' : '#FF4500'); ctx.stroke(); } ctx.shadowColor = '#fff'; ctx.beginPath(); ctx.arc(0, 0, 3, 0, 2*Math.PI); ctx.fillStyle = '#FFF'; ctx.fill(); } ctx.restore(); }
             else { ctx.save(); ctx.rotate(this.donmeAcisi * 2); ctx.lineWidth = 2; ctx.strokeStyle = '#8a2be2'; ctx.shadowColor = '#8a2be2'; ctx.shadowBlur = 15; ctx.beginPath(); if (ctrlToggle) ctx.arc(0, 0, this.yaricap * 0.5, 0, 2*Math.PI); else ctx.ellipse(0, 0, this.yaricap * 0.5, this.yaricap * 0.3, 0, 0, 2*Math.PI); ctx.stroke(); ctx.beginPath(); ctx.arc(0, 0, 6, 0, 2*Math.PI); ctx.fillStyle = '#ffffff'; ctx.shadowBlur = 20; ctx.fill(); ctx.restore(); }
             ctx.restore();
         };
+        
+        // ========== BÖLÜM 20 / 26 – JavaScript: Hareket Kontrolleri ve Tilt (Dokunmatik eklendi) ==========
+const hareket = { yukari: false, asagi: false, sol: false, sag: false }; 
+let ctrlToggle = false;
+const OTOMATIK_SALDIRI_MESAFESI = 110; 
+const TESTERE_GERI_TEPME_HASARI = 1;
 
-        // ========== BÖLÜM 5 / 25 – HAREKET KONTROLÜ ==========
-        const hareket = { yukari: false, asagi: false, sol: false, sag: false }; let ctrlToggle = false;
-        const OTOMATIK_SALDIRI_MESAFESI = 110; const TESTERE_GERI_TEPME_HASARI = 1;
-        function guvenliBolgedeMi() { return Math.abs(testere.x - merkezX) < KASABA_GENISLIK/2 && Math.abs(testere.y - merkezY) < KASABA_GENISLIK/2; }
-        window.addEventListener('keydown', (e) => {
-            const key = e.key; let changed = false;
-            if (key === 'Control') { ctrlToggle = !ctrlToggle; e.preventDefault(); return; }
-            if (key === 'Shift') { testere.boostDene(); e.preventDefault(); return; }
-            if (key === 'q' || key === 'Q') { testere.kalkanDene(); e.preventDefault(); return; }
-            if (key === 'e' || key === 'E') { testere.ofkeDene(); e.preventDefault(); return; }
-            if (key === 'y' || key === 'Y') { document.getElementById('yetenekPaneli').classList.toggle('acik'); if (document.getElementById('yetenekPaneli').classList.contains('acik')) yetenekPaneliniGuncelle(); e.preventDefault(); return; }
-            if (key === 'm' || key === 'M') { document.getElementById('marketPaneli').classList.toggle('acik'); if (document.getElementById('marketPaneli').classList.contains('acik')) marketPaneliniGuncelle(); e.preventDefault(); return; }
-            if (key === 'i' || key === 'I') { document.getElementById('envanterPaneli').classList.toggle('acik'); if (document.getElementById('envanterPaneli').classList.contains('acik')) envanterPaneliniGuncelle(); e.preventDefault(); return; }
-            if (key === 't' || key === 'T') { testere.adminAktif = !testere.adminAktif; document.getElementById('adminModGosterge').classList.toggle('gorunur', testere.adminAktif); e.preventDefault(); return; }
-            if (key === 'ArrowUp' || key === 'w' || key === 'W') { hareket.yukari = true; changed = true; }
-            if (key === 'ArrowDown' || key === 's' || key === 'S') { hareket.asagi = true; changed = true; }
-            if (key === 'ArrowLeft' || key === 'a' || key === 'A') { hareket.sol = true; changed = true; }
-            if (key === 'ArrowRight' || key === 'd' || key === 'D') { hareket.sag = true; changed = true; }
-            if (changed && typeof tiltHedefiGuncelle === 'function') tiltHedefiGuncelle();
-            if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','w','W','s','S','a','A','d','D'].includes(key)) e.preventDefault();
-        });
-        window.addEventListener('keyup', (e) => {
-            const key = e.key; let changed = false;
-            if (['Control','Shift','q','Q','e','E','y','Y','m','M','i','I','t','T'].includes(key)) { e.preventDefault(); return; }
-            if (key === 'ArrowUp' || key === 'w' || key === 'W') { hareket.yukari = false; changed = true; }
-            if (key === 'ArrowDown' || key === 's' || key === 'S') { hareket.asagi = false; changed = true; }
-            if (key === 'ArrowLeft' || key === 'a' || key === 'A') { hareket.sol = false; changed = true; }
-            if (key === 'ArrowRight' || key === 'd' || key === 'D') { hareket.sag = false; changed = true; }
-            if (changed && typeof tiltHedefiGuncelle === 'function') tiltHedefiGuncelle();
-            if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','w','W','s','S','a','A','d','D'].includes(key)) e.preventDefault();
-        });
+function guvenliBolgedeMi() { return Math.abs(testere.x - merkezX) < KASABA_GENISLIK/2 && Math.abs(testere.y - merkezY) < KASABA_GENISLIK/2; }
 
-        // ========== BÖLÜM 6 / 25 – TİLT HEDEFİ ==========
-        function tiltHedefiGuncelle() {
-            let hedefX = 0, hedefY = 0, enYakinMantar = null, minMesafe = Infinity;
-            if (typeof mantarlar !== 'undefined') for (let m of mantarlar) { if (m.durum !== 'canli') continue; const dx = m.x - testere.x, dy = m.y - testere.y; const mesafe = Math.hypot(dx, dy); if (mesafe < minMesafe) { minMesafe = mesafe; enYakinMantar = m; } }
-            if (enYakinMantar) { const dx = enYakinMantar.x - testere.x, dy = enYakinMantar.y - testere.y; if (minMesafe < 200) { const aci = Math.atan2(dy, dx), siddet = Math.max(0, 1 - minMesafe / 200) * 0.7; hedefX = Math.cos(aci) * siddet; hedefY = Math.sin(aci) * siddet * 0.6; } }
-            if (hareket.sag && !hareket.sol) hedefX += 0.2; else if (hareket.sol && !hareket.sag) hedefX -= 0.2;
-            if (hareket.asagi && !hareket.yukari) hedefY += 0.15; else if (hareket.yukari && !hareket.asagi) hedefY -= 0.15;
-            testere.targetTilt = Math.max(-0.8, Math.min(0.8, hedefX)); testere.targetTiltY = Math.max(-0.4, Math.min(0.4, hedefY));
-        }
+function tiltHedefiGuncelle() {
+    let hedefX = 0, hedefY = 0, enYakinMantar = null, minMesafe = Infinity;
+    if (typeof mantarlar !== 'undefined') for (let m of mantarlar) { if (m.durum !== 'canli') continue; const dx = m.x - testere.x, dy = m.y - testere.y; const mesafe = Math.hypot(dx, dy); if (mesafe < minMesafe) { minMesafe = mesafe; enYakinMantar = m; } }
+    if (enYakinMantar) { const dx = enYakinMantar.x - testere.x, dy = enYakinMantar.y - testere.y; if (minMesafe < 200) { const aci = Math.atan2(dy, dx), siddet = Math.max(0, 1 - minMesafe / 200) * 0.7; hedefX = Math.cos(aci) * siddet; hedefY = Math.sin(aci) * siddet * 0.6; } }
+    if (hareket.sag && !hareket.sol) hedefX += 0.2; else if (hareket.sol && !hareket.sag) hedefX -= 0.2;
+    if (hareket.asagi && !hareket.yukari) hedefY += 0.15; else if (hareket.yukari && !hareket.asagi) hedefY -= 0.15;
+    testere.targetTilt = Math.max(-0.8, Math.min(0.8, hedefX)); testere.targetTiltY = Math.max(-0.4, Math.min(0.4, hedefY));
+}
 
-        // ========== BÖLÜM 7 / 25 – TESTERE HAREKET ETTİR ==========
+// Klavye olayları (mevcut)
+window.addEventListener('keydown', (e) => {
+    const key = e.key; let changed = false;
+    if (key === 'Control') { ctrlToggle = !ctrlToggle; e.preventDefault(); return; }
+    if (key === 'Shift') { testere.boostDene(); e.preventDefault(); return; }
+    if (key === 'q' || key === 'Q') { testere.kalkanDene(); e.preventDefault(); return; }
+    if (key === 'e' || key === 'E') { testere.ofkeDene(); e.preventDefault(); return; }
+    if (key === 'y' || key === 'Y') { document.getElementById('yetenekPaneli').classList.toggle('acik'); if (document.getElementById('yetenekPaneli').classList.contains('acik')) yetenekPaneliniGuncelle(); e.preventDefault(); return; }
+    if (key === 'm' || key === 'M') { document.getElementById('marketPaneli').classList.toggle('acik'); if (document.getElementById('marketPaneli').classList.contains('acik')) marketPaneliniGuncelle(); e.preventDefault(); return; }
+    if (key === 'i' || key === 'I') { document.getElementById('envanterPaneli').classList.toggle('acik'); if (document.getElementById('envanterPaneli').classList.contains('acik')) envanterPaneliniGuncelle(); e.preventDefault(); return; }
+    if (key === 't' || key === 'T') { testere.adminAktif = !testere.adminAktif; document.getElementById('adminModGosterge').classList.toggle('gorunur', testere.adminAktif); e.preventDefault(); return; }
+    if (key === 'ArrowUp' || key === 'w' || key === 'W') { hareket.yukari = true; changed = true; }
+    if (key === 'ArrowDown' || key === 's' || key === 'S') { hareket.asagi = true; changed = true; }
+    if (key === 'ArrowLeft' || key === 'a' || key === 'A') { hareket.sol = true; changed = true; }
+    if (key === 'ArrowRight' || key === 'd' || key === 'D') { hareket.sag = true; changed = true; }
+    if (changed && typeof tiltHedefiGuncelle === 'function') tiltHedefiGuncelle();
+    if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','w','W','s','S','a','A','d','D'].includes(key)) e.preventDefault();
+});
+window.addEventListener('keyup', (e) => {
+    const key = e.key; let changed = false;
+    if (['Control','Shift','q','Q','e','E','y','Y','m','M','i','I','t','T'].includes(key)) { e.preventDefault(); return; }
+    if (key === 'ArrowUp' || key === 'w' || key === 'W') { hareket.yukari = false; changed = true; }
+    if (key === 'ArrowDown' || key === 's' || key === 'S') { hareket.asagi = false; changed = true; }
+    if (key === 'ArrowLeft' || key === 'a' || key === 'A') { hareket.sol = false; changed = true; }
+    if (key === 'ArrowRight' || key === 'd' || key === 'D') { hareket.sag = false; changed = true; }
+    if (changed && typeof tiltHedefiGuncelle === 'function') tiltHedefiGuncelle();
+    if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','w','W','s','S','a','A','d','D'].includes(key)) e.preventDefault();
+});
+
+// Mobil dokunmatik kontroller
+function mobilKontrolBaslat() {
+    const mobilYukari = document.getElementById('mobilYukari');
+    const mobilAsagi = document.getElementById('mobilAsagi');
+    const mobilSol = document.getElementById('mobilSol');
+    const mobilSag = document.getElementById('mobilSag');
+    const mobilBoost = document.getElementById('mobilBoost');
+    const mobilKalkan = document.getElementById('mobilKalkan');
+    const mobilOfke = document.getElementById('mobilOfke');
+    const mobilYetenek = document.getElementById('mobilYetenek');
+    const mobilMarket = document.getElementById('mobilMarket');
+    const mobilEnvanter = document.getElementById('mobilEnvanter');
+    
+    function setHareket(yon, durum) {
+        if (yon === 'yukari') hareket.yukari = durum;
+        if (yon === 'asagi') hareket.asagi = durum;
+        if (yon === 'sol') hareket.sol = durum;
+        if (yon === 'sag') hareket.sag = durum;
+        tiltHedefiGuncelle();
+    }
+    
+    mobilYukari.addEventListener('touchstart', (e) => { e.preventDefault(); setHareket('yukari', true); });
+    mobilYukari.addEventListener('touchend', (e) => { e.preventDefault(); setHareket('yukari', false); });
+    mobilYukari.addEventListener('mousedown', () => setHareket('yukari', true));
+    mobilYukari.addEventListener('mouseup', () => setHareket('yukari', false));
+    
+    mobilAsagi.addEventListener('touchstart', (e) => { e.preventDefault(); setHareket('asagi', true); });
+    mobilAsagi.addEventListener('touchend', (e) => { e.preventDefault(); setHareket('asagi', false); });
+    mobilAsagi.addEventListener('mousedown', () => setHareket('asagi', true));
+    mobilAsagi.addEventListener('mouseup', () => setHareket('asagi', false));
+    
+    mobilSol.addEventListener('touchstart', (e) => { e.preventDefault(); setHareket('sol', true); });
+    mobilSol.addEventListener('touchend', (e) => { e.preventDefault(); setHareket('sol', false); });
+    mobilSol.addEventListener('mousedown', () => setHareket('sol', true));
+    mobilSol.addEventListener('mouseup', () => setHareket('sol', false));
+    
+    mobilSag.addEventListener('touchstart', (e) => { e.preventDefault(); setHareket('sag', true); });
+    mobilSag.addEventListener('touchend', (e) => { e.preventDefault(); setHareket('sag', false); });
+    mobilSag.addEventListener('mousedown', () => setHareket('sag', true));
+    mobilSag.addEventListener('mouseup', () => setHareket('sag', false));
+    
+    mobilBoost.addEventListener('click', () => testere.boostDene());
+    mobilKalkan.addEventListener('click', () => testere.kalkanDene());
+    mobilOfke.addEventListener('click', () => testere.ofkeDene());
+    mobilYetenek.addEventListener('click', () => { document.getElementById('yetenekPaneli').classList.toggle('acik'); if (document.getElementById('yetenekPaneli').classList.contains('acik')) yetenekPaneliniGuncelle(); });
+    mobilMarket.addEventListener('click', () => { document.getElementById('marketPaneli').classList.toggle('acik'); if (document.getElementById('marketPaneli').classList.contains('acik')) marketPaneliniGuncelle(); });
+    mobilEnvanter.addEventListener('click', () => { document.getElementById('envanterPaneli').classList.toggle('acik'); if (document.getElementById('envanterPaneli').classList.contains('acik')) envanterPaneliniGuncelle(); });
+}
+
+// Sayfa yüklendiğinde mobil kontrolleri başlat
+window.addEventListener('load', mobilKontrolBaslat);
+        
+        // ========== BÖLÜM 21 / 26 – JavaScript: Testere Hareket ve Çarpışma ==========
         let oyunAktif = true;
         function testereHareketEttir() {
             if (!oyunAktif) return;
             testere.boostGuncelle(); testere.yetenekleriGuncelle(); testere.iksirleriGuncelle();
             if (testere.adminAktif) testere.can = testere.maxCan;
             if (guvenliBolgedeMi() && testere.can < testere.maxCan) testere.can = Math.min(testere.maxCan, testere.can + 0.2);
-            
-            if (typeof mantarlar !== 'undefined') for (let m of mantarlar) if (m.durum === 'canli' && m.elitTipi) elitDavranisGuncelle(m);
-            
-            if (testere.ofkeBekleme === testere.ofkeBeklemeMax - 1 && typeof mantarlar !== 'undefined') {
-                for (let m of mantarlar) {
-                    if (m.durum !== 'canli') continue;
-                    if (Math.hypot(m.x - testere.x, m.y - testere.y) < 150) {
-                        m.can = Math.max(0, m.can - 30);
-                        if (m.can <= 0) { m.olumuBaslat(); testere.expEkle(m.level * 5); }
-                        const aci = Math.atan2(m.y - testere.y, m.x - testere.x); m.x += Math.cos(aci) * 80; m.y += Math.sin(aci) * 80;
-                    }
+            if (testere.ofkeBekleme === testere.ofkeBeklemeMax - 1 && typeof mantarlar !== 'undefined') for (let m of mantarlar) { if (m.durum !== 'canli') continue; const dx = m.x - testere.x, dy = m.y - testere.y; if (Math.hypot(dx, dy) < 150) { m.can = Math.max(0, m.can - 30); if (m.can <= 0) { m.olumuBaslat(); testere.expEkle(m.level * 5); } const aci = Math.atan2(dy, dx); m.x += Math.cos(aci) * 80; m.y += Math.sin(aci) * 80; } }
+            if (!ctrlToggle && typeof mantarlar !== 'undefined') for (let m of mantarlar) {
+                if (m.durum !== 'canli') continue; const dx = testere.x - m.x, dy = testere.y - m.y; const mesafe = Math.hypot(dx, dy);
+                if (mesafe < OTOMATIK_SALDIRI_MESAFESI && m.carpismaSoguma <= 0) {
+                    const hasar = testere.getHasar(); m.can = Math.max(0, m.can - hasar); m.carpismaSoguma = m.sogumaSuresi; if (typeof m.talasEkle === 'function') m.talasEkle(hasar);
+                    if (!testere.adminAktif && !testere.kalkanAktif) testere.can = Math.max(0, testere.can - TESTERE_GERI_TEPME_HASARI);
+                    if (m.can <= 0) { m.olumuBaslat(); if (testere.adminAktif) { testere.level++; testere.maxCanGuncelle(); testere.can = testere.maxCan; testere.levelUpFlag = true; } else testere.expEkle(m.level * 5); esyaDusur(m.x, m.y, m.level); }
+                    if (typeof agacKesmeSesiCal === 'function') agacKesmeSesiCal(); const cx = (testere.x + m.x)/2, cy = (testere.y + m.y)/2, ekran = worldToScreen(cx, cy); if (typeof kivilcimEkle === 'function') kivilcimEkle(ekran.x, ekran.y - 20, 10);
                 }
             }
-            
-            if (!ctrlToggle && typeof mantarlar !== 'undefined') {
-                for (let m of mantarlar) {
-                    if (m.durum !== 'canli') continue;
-                    const dx = testere.x - m.x, dy = testere.y - m.y, mesafe = Math.hypot(dx, dy);
-                    if (mesafe < OTOMATIK_SALDIRI_MESAFESI && m.carpismaSoguma <= 0) {
-                        const hasar = testere.getHasar();
-                        m.can = Math.max(0, m.can - hasar); m.carpismaSoguma = m.sogumaSuresi;
-                        if (typeof m.talasEkle === 'function') m.talasEkle(hasar);
-                        if (!testere.adminAktif && !testere.kalkanAktif) testere.can = Math.max(0, testere.can - TESTERE_GERI_TEPME_HASARI);
-                        if (m.can <= 0) {
-                            m.olumuBaslat();
-                            if (testere.adminAktif) { testere.level++; testere.maxCanGuncelle(); testere.can = testere.maxCan; testere.levelUpFlag = true; }
-                            else { testere.expEkle(m.level * 5); }
-                            
-                            if (m.elitTipi) {
-                                if (m.elitTipi === 'kristal') esyaDusur(m.x, m.y, 'kristalTozu', 2);
-                                else if (m.elitTipi === 'golge') esyaDusur(m.x, m.y, 'golgeOzu', 2);
-                                else if (m.elitTipi === 'lav') esyaDusur(m.x, m.y, 'lavCekirdegi', 2);
-                                esyaDusur(m.x, m.y, 'mantarOzu', 10);
-                            } else { esyaDusur(m.x, m.y, m.level); }
-                        }
-                        if (typeof agacKesmeSesiCal === 'function') agacKesmeSesiCal();
-                        const cx = (testere.x + m.x)/2, cy = (testere.y + m.y)/2, ekran = worldToScreen(cx, cy);
-                        if (typeof kivilcimEkle === 'function') kivilcimEkle(ekran.x, ekran.y - 20, 10);
-                    }
-                }
-            }
-            
             if (!testere.adminAktif && testere.can <= 0) { oyunAktif = false; document.getElementById('olumEkrani').classList.add('gorunur'); return; }
-            
-            let dx = 0, dy = 0;
-            if (hareket.yukari) dy -= 1; if (hareket.asagi) dy += 1; if (hareket.sol) dx -= 1; if (hareket.sag) dx += 1;
-            if (dx !== 0 || dy !== 0) {
-                const len = Math.hypot(dx, dy), hiz = testere.getHiz();
-                dx = dx / len * hiz; dy = dy / len * hiz;
-                let yeniX = testere.x + dx, yeniY = testere.y + dy;
-                yeniX = Math.max(50, Math.min(canvas.width - 50, yeniX)); yeniY = Math.max(50, Math.min(canvas.height - 150, yeniY));
-                let carpismaVar = false;
-                if (typeof mantarlar !== 'undefined') for (let m of mantarlar) { if (m.durum !== 'canli') continue; if (Math.hypot(yeniX - m.x, yeniY - m.y) < testere.yaricap + m.yaricap) { carpismaVar = true; break; } }
-                if (!carpismaVar && typeof statikEngeller !== 'undefined') for (let e of statikEngeller) if (Math.hypot(yeniX - e.x, yeniY - e.y) < testere.yaricap + e.yaricap) { carpismaVar = true; break; }
-                if (!carpismaVar) { testere.x = yeniX; testere.y = yeniY; }
-            }
-            esyaToplamaKontrol(); tiltHedefiGuncelle();
-            if (typeof mantarlar !== 'undefined') for (let m of mantarlar) if (m.carpismaSoguma > 0) m.carpismaSoguma--;
+            let dx = 0, dy = 0; if (hareket.yukari) dy -= 1; if (hareket.asagi) dy += 1; if (hareket.sol) dx -= 1; if (hareket.sag) dx += 1;
+            if (dx !== 0 || dy !== 0) { const len = Math.hypot(dx, dy), hiz = testere.getHiz(); dx = dx / len * hiz; dy = dy / len * hiz; let yeniX = testere.x + dx, yeniY = testere.y + dy; yeniX = Math.max(50, Math.min(canvas.width - 50, yeniX)); yeniY = Math.max(50, Math.min(canvas.height - 150, yeniY)); let carpismaVar = false; if (typeof mantarlar !== 'undefined') for (let m of mantarlar) { if (m.durum !== 'canli') continue; if (Math.hypot(yeniX - m.x, yeniY - m.y) < testere.yaricap + m.yaricap) { carpismaVar = true; break; } } if (!carpismaVar && typeof statikEngeller !== 'undefined') for (let e of statikEngeller) if (Math.hypot(yeniX - e.x, yeniY - e.y) < testere.yaricap + e.yaricap) { carpismaVar = true; break; } if (!carpismaVar) { testere.x = yeniX; testere.y = yeniY; } }
+            esyaToplamaKontrol(); tiltHedefiGuncelle(); if (typeof mantarlar !== 'undefined') for (let m of mantarlar) if (m.carpismaSoguma > 0) m.carpismaSoguma--;
         }
-
-        // ========== BÖLÜM 8 / 25 – MANTAR SINIFI ==========
-        class Mantar {
-            constructor(x, y, level, patlayici = false, boss = false, elitTipi = null) {
-                this.x = x; this.y = y; this.level = level; this.patlayici = patlayici; this.boss = boss; this.elitTipi = elitTipi;
-                if (boss) { this.yaricap = 60; this.maxCan = 5000; }
-                else if (elitTipi) { this.yaricap = 30 + level * 2; this.maxCan = level * 50; }
-                else if (patlayici) { this.yaricap = 22; this.maxCan = level * 8; }
-                else { this.yaricap = 12 + level * 2; this.maxCan = level * 5; }
-                this.can = this.maxCan; this.carpismaSoguma = 0; this.sogumaSuresi = 10;
-                this.durum = 'canli'; this.animasyonIlerme = 0; this.animasyonHizi = 0.02; this.talaslar = [];
-                this.gorunurluk = 1.0; this.saldiriHazir = 0; this.lavCikisSuresi = 0;
-            }
-            olumuBaslat() { if (this.durum === 'canli') { this.durum = 'olumAnimasyonu'; this.animasyonIlerme = 0; this.talaslar = []; } }
-            animasyonGuncelle() { if (this.durum === 'olumAnimasyonu') { this.animasyonIlerme += this.animasyonHizi; if (this.animasyonIlerme >= 1) { this.durum = 'respawning'; this.animasyonIlerme = 1; this.talaslar = []; } } }
-            respawnYap(yeniX, yeniY, yeniLevel) {
-                this.x = yeniX; this.y = yeniY; this.level = yeniLevel;
-                if (this.boss) { this.yaricap = 60; this.maxCan = 5000; }
-                else if (this.elitTipi) { this.yaricap = 30 + yeniLevel * 2; this.maxCan = yeniLevel * 50; }
-                else if (this.patlayici) { this.yaricap = 22; this.maxCan = yeniLevel * 8; }
-                else { this.yaricap = 12 + yeniLevel * 2; this.maxCan = yeniLevel * 5; }
-                this.can = this.maxCan; this.carpismaSoguma = 0; this.durum = 'canli'; this.animasyonIlerme = 0; this.talaslar = [];
-                this.gorunurluk = 1.0; this.saldiriHazir = 0; this.lavCikisSuresi = 0;
-            }
-        }
-
-        // ========== BÖLÜM 8.5 / 25 – EŞYA SİSTEMİ ==========
-        const yerdekiEsyalar = [];
-        function esyaDusur(x, y, tipVeyaLevel, miktar = 1) {
-            let esyaTipi = tipVeyaLevel; let miktarFinal = miktar;
-            if (typeof tipVeyaLevel === 'number') {
-                const rand = Math.random();
-                if (rand < 0.4) { esyaTipi = 'mantarOzu'; miktarFinal = 2 + Math.floor(tipVeyaLevel / 1.5); }
-                else if (rand < 0.55) { esyaTipi = 'canIksiri'; miktarFinal = 1; }
-                else if (rand < 0.68) { esyaTipi = 'hizIksiri'; miktarFinal = 1; }
-                else if (rand < 0.80) { esyaTipi = 'hasarIksiri'; miktarFinal = 1; }
-                else if (rand < 0.90) { esyaTipi = 'zirhParcasi'; miktarFinal = 1; }
-                else { esyaTipi = 'gelistirmeTasi'; miktarFinal = 1; }
-            }
-            yerdekiEsyalar.push({ x, y, tip: esyaTipi, miktar: miktarFinal, omur: 600 });
-        }
-        function esyaCiz() {
-            for (let e of yerdekiEsyalar) {
-                const pos = worldToScreen(e.x, e.y);
-                let renk = '#f1c40f', ikon = '🔩';
-                if (e.tip === 'canIksiri') { renk = '#e74c3c'; ikon = '❤️'; }
-                else if (e.tip === 'hizIksiri') { renk = '#3498db'; ikon = '💨'; }
-                else if (e.tip === 'hasarIksiri') { renk = '#e67e22'; ikon = '⚔️'; }
-                else if (e.tip === 'zirhParcasi') { renk = '#95a5a6'; ikon = '🛡️'; }
-                else if (e.tip === 'gelistirmeTasi') { renk = '#9b59b6'; ikon = '🔮'; }
-                else if (e.tip === 'kristalTozu') { renk = '#00ffff'; ikon = '💎'; }
-                else if (e.tip === 'golgeOzu') { renk = '#7f8c8d'; ikon = '🌑'; }
-                else if (e.tip === 'lavCekirdegi') { renk = '#e67e22'; ikon = '🔥'; }
-                ctx.fillStyle = renk; ctx.shadowColor = '#000'; ctx.shadowBlur = 10;
-                ctx.beginPath(); ctx.arc(pos.x, pos.y - 5, 10, 0, 2*Math.PI); ctx.fill();
-                ctx.fillStyle = '#fff'; ctx.font = 'bold 14px Arial'; ctx.shadowBlur = 0; ctx.textAlign = 'center';
-                ctx.fillText(ikon, pos.x, pos.y - 2);
-                if (e.miktar > 1) { ctx.font = 'bold 10px Arial'; ctx.fillText(e.miktar, pos.x + 12, pos.y - 8); }
-            }
-        }
-        function esyaToplamaKontrol() {
-            for (let i = yerdekiEsyalar.length - 1; i >= 0; i--) {
-                const e = yerdekiEsyalar[i];
-                if (Math.hypot(testere.x - e.x, testere.y - e.y) < testere.yaricap + 20) {
-                    if (testere.envantereEkle(e.tip, e.miktar)) yerdekiEsyalar.splice(i, 1);
-                } else { e.omur--; if (e.omur <= 0) yerdekiEsyalar.splice(i, 1); }
-            }
-        }
-
-        // ========== BÖLÜM 8.6 / 25 – ELİT DAVRANIŞLARI ==========
-        function elitDavranisGuncelle(m) {
-            if (!m.elitTipi || m.durum !== 'canli') return;
-            switch (m.elitTipi) {
-                case 'kristal':
-                    if (m.saldiriHazir <= 0) { const dx = testere.x - m.x, dy = testere.y - m.y; if (Math.hypot(dx, dy) < 200) { testere.iksirHiz = -2; testere.iksirHizSuresi = 60; m.saldiriHazir = 120; } } else m.saldiriHazir--;
-                    break;
-                case 'golge':
-                    const dx = testere.x - m.x, dy = testere.y - m.y; const mesafe = Math.hypot(dx, dy);
-                    if (mesafe > 150) m.gorunurluk = 0.3; else { m.gorunurluk = 1.0; if (mesafe < 80 && m.carpismaSoguma <= 0) { testere.can = Math.max(0, testere.can - 10); m.carpismaSoguma = 20; } }
-                    break;
-                case 'lav':
-                    m.lavCikisSuresi--;
-                    if (m.lavCikisSuresi <= 0) {
-                        const aci = Math.random() * Math.PI * 2; const mesafe = 200 + Math.random() * 300;
-                        m.x = m.x + Math.cos(aci) * mesafe; m.y = m.y + Math.sin(aci) * mesafe;
-                        const sinir = 5500; m.x = Math.max(merkezX - sinir, Math.min(merkezX + sinir, m.x)); m.y = Math.max(merkezY - sinir, Math.min(merkezY + sinir, m.y));
-                        m.lavCikisSuresi = 180;
-                        if (Math.hypot(testere.x - m.x, testere.y - m.y) < 100) testere.can = Math.max(0, testere.can - 15);
-                    }
-                    break;
-            }
-        }
-
-        // ========== BÖLÜM 9 / 25 – PARÇA SİSTEMİ (ESKİ) ==========
-        const parcalar = []; function yeniParcaEkle(x, y, miktar) { parcalar.push({ x, y, miktar, omur: 600 }); } function parcaCiz() { for (let p of parcalar) { const pos = worldToScreen(p.x, p.y); ctx.fillStyle = '#f1c40f'; ctx.shadowColor = '#e67e22'; ctx.shadowBlur = 10; ctx.beginPath(); ctx.arc(pos.x, pos.y - 5, 8, 0, 2*Math.PI); ctx.fill(); ctx.fillStyle = '#000'; ctx.font = 'bold 12px Arial'; ctx.shadowBlur = 0; ctx.textAlign = 'center'; ctx.fillText(p.miktar, pos.x, pos.y - 2); } } function parcaToplamaKontrol() { for (let i = parcalar.length - 1; i >= 0; i--) { const p = parcalar[i]; if (Math.hypot(testere.x - p.x, testere.y - p.y) < testere.yaricap + 15) { testere.parca += p.miktar; parcalar.splice(i, 1); } else { p.omur--; if (p.omur <= 0) parcalar.splice(i, 1); } } }
-
-        // ========== BÖLÜM 10 / 25 – MANTAR TALAŞ ==========
-        Mantar.prototype.talasEkle = function(hasarMiktari) { const sayi = Math.min(20, 6 + hasarMiktari * 3); for (let i = 0; i < sayi; i++) { const aci = Math.random() * Math.PI * 2, mesafe = 5 + Math.random() * this.yaricap * 1.2; const dx = Math.cos(aci) * mesafe, dy = Math.sin(aci) * mesafe; this.talaslar.push({ x: this.x + dx, y: this.y + dy, boyut: 1.5 + Math.random() * 3, renk: this.patlayici ? '#ff8c00' : `hsl(30, ${40+Math.random()*40}%, ${30+Math.random()*30}%)`, omur: 1.0, vx: Math.cos(aci) * (0.5 + Math.random()*2), vy: Math.sin(aci) * (0.5 + Math.random()*2) }); } };
         
-        // ========== BÖLÜM 11 / 25 – MANTAR ÇİZİMİ ==========
-        Mantar.prototype.ciz = function() {
-            if (this.durum === 'respawning') return;
-            for (let t of this.talaslar) { if (t.vx) { t.x += t.vx; t.y += t.vy; t.vx *= 0.95; t.vy *= 0.95; t.omur *= 0.995; } }
-            const pos = worldToScreen(this.x, this.y), mantarY = pos.y - 5;
-            let scale = 1, alpha = 1;
-            if (this.durum === 'olumAnimasyonu') { scale = 1 - this.animasyonIlerme; alpha = 1 - this.animasyonIlerme; if (scale <= 0) return; }
-            ctx.save();
-            if (this.durum === 'olumAnimasyonu') { ctx.globalAlpha = alpha; ctx.translate(pos.x, pos.y); ctx.scale(scale, scale); ctx.translate(-pos.x, -pos.y); }
-            ctx.shadowBlur = 0;
-            for (let t of this.talaslar) { const tp = worldToScreen(t.x, t.y); ctx.fillStyle = t.renk; ctx.globalAlpha = alpha * t.omur; ctx.beginPath(); ctx.arc(tp.x, tp.y, t.boyut * scale, 0, 2*Math.PI); ctx.fill(); }
-            let efektAlpha = (this.durum === 'olumAnimasyonu' ? alpha : 1.0);
-            if (this.elitTipi === 'golge') efektAlpha *= this.gorunurluk;
-            ctx.globalAlpha = efektAlpha;
-            if (this.patlayici && this.can < this.maxCan * 0.3 && this.durum === 'canli') { if (Math.floor(Date.now() / 200) % 2 === 0) ctx.globalAlpha = 0.5; }
-            ctx.fillStyle = '#1a3a1a'; ctx.globalAlpha = 0.4 * efektAlpha;
-            ctx.beginPath(); ctx.ellipse(pos.x, pos.y + 6, this.yaricap * 1.1, this.yaricap * 0.6, 0, 0, 2*Math.PI); ctx.fill();
-            ctx.globalAlpha = efektAlpha;
-            let sapRenk = '#d4b070', sapUst = '#d4b070', sapkaRenk, benekRenk = '#ffffff';
-            if (this.boss) { sapRenk = '#4a2c2c'; sapUst = '#5e3a3a'; sapkaRenk = '#8b0000'; benekRenk = '#ffcc00'; }
-            else if (this.elitTipi === 'kristal') { sapRenk = '#b8a9d4'; sapUst = '#d4c4e8'; sapkaRenk = '#9b59b6'; benekRenk = '#00ffff'; }
-            else if (this.elitTipi === 'golge') { sapRenk = '#2c3e50'; sapUst = '#34495e'; sapkaRenk = '#1a252f'; benekRenk = '#7f8c8d'; }
-            else if (this.elitTipi === 'lav') { sapRenk = '#c0392b'; sapUst = '#e74c3c'; sapkaRenk = '#d35400'; benekRenk = '#f39c12'; }
-            else if (this.patlayici) { sapRenk = '#b87333'; sapUst = '#c48a4d'; sapkaRenk = '#e67e22'; benekRenk = '#ffff00'; }
-            else { const k = 180 + this.level * 10; sapkaRenk = `rgb(${k}, 40, 40)`; }
-            ctx.fillStyle = sapRenk; ctx.beginPath(); ctx.ellipse(pos.x, mantarY - 2, 7 + this.level * 0.5, 4 + this.level * 0.3, 0, 0, 2*Math.PI); ctx.fill();
-            ctx.fillStyle = sapUst; ctx.beginPath(); ctx.ellipse(pos.x, mantarY - 12, 8 + this.level * 0.5, 5 + this.level * 0.3, 0, 0, 2*Math.PI); ctx.fill();
-            ctx.fillStyle = sapkaRenk; ctx.strokeStyle = '#7b241c'; ctx.lineWidth = 2;
-            ctx.beginPath(); ctx.ellipse(pos.x, mantarY - 22, this.yaricap, this.yaricap * 0.5, 0, 0, 2*Math.PI); ctx.fill(); ctx.stroke();
-            ctx.fillStyle = benekRenk;
-            const benekSayisi = this.boss ? 8 : (this.elitTipi ? 5 : (this.patlayici ? 4 : (2 + this.level)));
-            for (let i = 0; i < benekSayisi; i++) {
-                const angle = (i / benekSayisi) * Math.PI * 2, bx = pos.x + Math.cos(angle) * (8 + this.level), by = mantarY - 22 + Math.sin(angle) * 3;
-                ctx.beginPath(); ctx.arc(bx, by, this.boss ? 6 : 2.5, 0, 2*Math.PI); ctx.fill();
-            }
-            if (this.elitTipi === 'kristal') { ctx.fillStyle = '#00ffff'; ctx.font = 'bold 16px Arial'; ctx.textAlign = 'center'; ctx.fillText('💎', pos.x, mantarY - 45); }
-            else if (this.elitTipi === 'golge') { ctx.fillStyle = '#7f8c8d'; ctx.font = 'bold 16px Arial'; ctx.textAlign = 'center'; ctx.fillText('👻', pos.x, mantarY - 45); }
-            else if (this.elitTipi === 'lav') { ctx.fillStyle = '#e67e22'; ctx.font = 'bold 16px Arial'; ctx.textAlign = 'center'; ctx.fillText('🔥', pos.x, mantarY - 45); }
-            else if (this.boss) { ctx.fillStyle = '#ffd700'; ctx.font = 'bold 20px Arial'; ctx.fillText('👑', pos.x, mantarY - 50); }
-            if (this.durum === 'canli' && this.can > 0) {
-                const barW = this.boss ? 100 : 60, barH = this.boss ? 10 : 7, barX = pos.x - barW/2, barY = mantarY - (this.boss ? 55 : 38);
-                ctx.fillStyle = '#1a1a1a'; ctx.fillRect(barX, barY, barW, barH);
-                const oran = this.can / this.maxCan;
-                ctx.fillStyle = this.patlayici ? '#e67e22' : (this.boss ? '#c0392b' : (this.elitTipi ? '#8e44ad' : `rgb(${255*(1-oran)}, ${255*oran}, 0)`));
-                ctx.fillRect(barX, barY, barW * oran, barH); ctx.strokeStyle = '#000'; ctx.lineWidth = 1; ctx.strokeRect(barX, barY, barW, barH);
-                ctx.font = `bold ${this.boss ? 14 : 11}px Arial`; ctx.fillStyle = '#fff'; ctx.shadowColor = '#000'; ctx.shadowBlur = 3; ctx.textAlign = 'center';
-                ctx.fillText(`${this.boss ? '👑 ' : (this.elitTipi ? '⚡ ' : '')}${this.can}/${this.maxCan}`, pos.x, barY - 4); ctx.shadowBlur = 0;
-            }
-            ctx.restore();
-        };
-
-        // ========== BÖLÜM 12 / 25 – MANTAR LİSTESİ ==========
-        const mantarlar = [];
-        const MANTAR_SAYISI = 100;
-        function rastgeleKonumBul(minMesafe = 150) {
-            const minX = merkezX - 5500, maxX = merkezX + 5500, minY = merkezY - 5500, maxY = merkezY + 5500;
-            let deneme = 0, x, y;
-            while (deneme < 800) {
-                x = minX + Math.random() * (maxX - minX); y = minY + Math.random() * (maxY - minY);
-                if (Math.abs(x - merkezX) < KASABA_GENISLIK/2 + 200 && Math.abs(y - merkezY) < KASABA_GENISLIK/2 + 200) { deneme++; continue; }
-                let cakisma = false;
-                for (let m of mantarlar) { if (m.durum === 'respawning') continue; if (Math.hypot(x - m.x, y - m.y) < minMesafe) { cakisma = true; break; } }
-                if (!cakisma) return { x, y };
-                deneme++;
-            }
-            return { x, y };
-        }
-        function mantarSpawn(ozelElit = null) {
-            const pos = rastgeleKonumBul();
-            let patlayici = false, boss = false, elitTipi = ozelElit;
-            if (!ozelElit) {
-                const rand = Math.random();
-                if (rand < 0.05) { elitTipi = 'kristal'; }
-                else if (rand < 0.10) { elitTipi = 'golge'; }
-                else if (rand < 0.15) { elitTipi = 'lav'; }
-                else if (rand < 0.20) { patlayici = true; }
-            }
-            const level = Math.floor(Math.random() * 5) + 1;
-            mantarlar.push(new Mantar(pos.x, pos.y, level, patlayici, boss, elitTipi));
-        }
-        for (let i = 0; i < MANTAR_SAYISI; i++) { mantarSpawn(); }
-
-        // ========== BÖLÜM 13 / 25 – STATİK ENGEL ==========
-        const statikEngeller = []; function engelEkle(x, y, yaricap) { statikEngeller.push({ x, y, yaricap }); }
-
-        // ========== BÖLÜM 14 / 25 – KASABA DUVARLARI ==========
-        function kasabaDuvarlariCiz() { const yariCap = KASABA_GENISLIK / 2, duvarAralik = 80, sutunBoyut = 40; const kenarlar = [ { basX: merkezX - yariCap, basY: merkezY - yariCap, bitX: merkezX + yariCap, bitY: merkezY - yariCap }, { basX: merkezX + yariCap, basY: merkezY - yariCap, bitX: merkezX + yariCap, bitY: merkezY + yariCap }, { basX: merkezX - yariCap, basY: merkezY + yariCap, bitX: merkezX + yariCap, bitY: merkezY + yariCap }, { basX: merkezX - yariCap, basY: merkezY - yariCap, bitX: merkezX - yariCap, bitY: merkezY + yariCap } ]; const kapiBasY = merkezY - 200, kapiBitY = merkezY + 200; ctx.save(); ctx.fillStyle = '#1a3a1a'; ctx.globalAlpha = 0.25; kenarlar.forEach(kenar => { const dx = kenar.bitX - kenar.basX, dy = kenar.bitY - kenar.basY, uzunluk = Math.hypot(dx, dy); const adimX = dx / (uzunluk / duvarAralik), adimY = dy / (uzunluk / duvarAralik); for (let t = 0; t <= uzunluk; t += duvarAralik) { const wx = kenar.basX + adimX * (t / duvarAralik), wy = kenar.basY + adimY * (t / duvarAralik); if (kenar.basX === merkezX + yariCap && wy >= kapiBasY && wy <= kapiBitY) continue; const pos = worldToScreen(wx, wy); ctx.beginPath(); ctx.ellipse(pos.x, pos.y + 30, 40, 20, 0, 0, 2*Math.PI); ctx.fill(); } }); ctx.restore(); kenarlar.forEach(kenar => { const dx = kenar.bitX - kenar.basX, dy = kenar.bitY - kenar.basY, uzunluk = Math.hypot(dx, dy); const adimX = dx / (uzunluk / duvarAralik), adimY = dy / (uzunluk / duvarAralik); for (let t = 0; t <= uzunluk; t += duvarAralik) { const wx = kenar.basX + adimX * (t / duvarAralik), wy = kenar.basY + adimY * (t / duvarAralik); const kapidaMi = (kenar.basX === merkezX + yariCap && wy >= kapiBasY && wy <= kapiBitY); const pos = worldToScreen(wx, wy); if (!kapidaMi) { ctx.fillStyle = '#7f8c8d'; ctx.strokeStyle = '#2c3e50'; ctx.lineWidth = 4; ctx.fillRect(pos.x - sutunBoyut/2, pos.y - 70, sutunBoyut, 80); ctx.strokeRect(pos.x - sutunBoyut/2, pos.y - 70, sutunBoyut, 80); ctx.fillStyle = '#95a5a6'; ctx.fillRect(pos.x - sutunBoyut/2 - 6, pos.y - 82, sutunBoyut + 12, 15); ctx.strokeRect(pos.x - sutunBoyut/2 - 6, pos.y - 82, sutunBoyut + 12, 15); engelEkle(wx, wy, sutunBoyut * 1.2); if (Math.floor(t / duvarAralik) % 4 === 0) { ctx.fillStyle = '#e67e22'; ctx.shadowColor = '#ffaa00'; ctx.shadowBlur = 20; ctx.beginPath(); ctx.arc(pos.x, pos.y - 95, 12, 0, 2*Math.PI); ctx.fill(); ctx.shadowBlur = 0; ctx.fillStyle = '#f1c40f'; ctx.beginPath(); ctx.arc(pos.x - 3, pos.y - 100, 6, 0, 2*Math.PI); ctx.fill(); } } } }); ctx.beginPath(); ctx.strokeStyle = '#5d4037'; ctx.lineWidth = 8; kenarlar.forEach(kenar => { const dx = kenar.bitX - kenar.basX, dy = kenar.bitY - kenar.basY, uzunluk = Math.hypot(dx, dy); const adimX = dx / (uzunluk / duvarAralik), adimY = dy / (uzunluk / duvarAralik); for (let t = 0; t < uzunluk; t += duvarAralik) { const wx1 = kenar.basX + adimX * (t / duvarAralik), wy1 = kenar.basY + adimY * (t / duvarAralik); const wx2 = kenar.basX + adimX * ((t + duvarAralik) / duvarAralik), wy2 = kenar.basY + adimY * ((t + duvarAralik) / duvarAralik); if (t + duvarAralik > uzunluk) break; const ortaX = (wx1 + wx2)/2, ortaY = (wy1 + wy2)/2, kapidaMi = (kenar.basX === merkezX + yariCap && ortaY >= kapiBasY && ortaY <= kapiBitY); const p1 = worldToScreen(wx1, wy1), p2 = worldToScreen(wx2, wy2); if (!kapidaMi) { ctx.beginPath(); ctx.moveTo(p1.x, p1.y - 50); ctx.lineTo(p2.x, p2.y - 50); ctx.stroke(); ctx.beginPath(); ctx.moveTo(p1.x, p1.y - 35); ctx.lineTo(p2.x, p2.y - 35); ctx.stroke(); engelEkle(ortaX, ortaY, duvarAralik * 0.7); } } }); const pSol = worldToScreen(merkezX + yariCap, kapiBasY), pSag = worldToScreen(merkezX + yariCap, kapiBitY); ctx.fillStyle = '#95a5a6'; ctx.strokeStyle = '#2c3e50'; ctx.lineWidth = 5; ctx.fillRect(pSol.x - 30, pSol.y - 100, 60, 110); ctx.strokeRect(pSol.x - 30, pSol.y - 100, 60, 110); ctx.fillRect(pSag.x - 30, pSag.y - 100, 60, 110); ctx.strokeRect(pSag.x - 30, pSag.y - 100, 60, 110); ctx.beginPath(); ctx.strokeStyle = '#7f8c8d'; ctx.lineWidth = 12; ctx.moveTo(pSol.x, pSol.y - 100); ctx.lineTo(pSol.x + 40, pSol.y - 150); ctx.lineTo(pSag.x - 40, pSag.y - 150); ctx.lineTo(pSag.x, pSag.y - 100); ctx.stroke(); ctx.font = 'bold 20px Arial'; ctx.fillStyle = '#ffd700'; ctx.shadowColor = '#000'; ctx.shadowBlur = 8; ctx.textAlign = 'center'; ctx.fillText('🚪 GİRİŞ 🚪', (pSol.x + pSag.x)/2, pSol.y - 160); ctx.shadowBlur = 0; }
-
-        // ========== BÖLÜM 15 / 25 – BİNALAR ==========
-        function binaCiz(wx, wy, genislik, yukseklik, renk) { const pos = worldToScreen(wx, wy); ctx.fillStyle = '#1a3a1a'; ctx.globalAlpha = 0.3; ctx.beginPath(); ctx.ellipse(pos.x, pos.y + 15, genislik/2 + 15, genislik/4, 0, 0, 2*Math.PI); ctx.fill(); ctx.globalAlpha = 1.0; ctx.fillStyle = renk; ctx.strokeStyle = '#3e2723'; ctx.lineWidth = 4; ctx.fillRect(pos.x - genislik/2, pos.y - yukseklik, genislik, yukseklik); ctx.strokeRect(pos.x - genislik/2, pos.y - yukseklik, genislik, yukseklik); ctx.fillStyle = '#5d4037'; ctx.beginPath(); ctx.moveTo(pos.x - genislik/2 - 8, pos.y - yukseklik); ctx.lineTo(pos.x + genislik/2 + 8, pos.y - yukseklik); ctx.lineTo(pos.x, pos.y - yukseklik - 45); ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.fillStyle = '#ffecb3'; ctx.fillRect(pos.x - 22, pos.y - yukseklik + 30, 18, 18); ctx.fillRect(pos.x + 22, pos.y - yukseklik + 30, 18, 18); ctx.strokeStyle = '#3e2723'; ctx.lineWidth = 2; ctx.strokeRect(pos.x - 22, pos.y - yukseklik + 30, 18, 18); ctx.strokeRect(pos.x + 22, pos.y - yukseklik + 30, 18, 18); engelEkle(wx, wy, genislik * 0.75); }
-        function agacCiz(wx, wy, boyut) { const pos = worldToScreen(wx, wy); ctx.fillStyle = '#1a3a1a'; ctx.globalAlpha = 0.3; ctx.beginPath(); ctx.ellipse(pos.x, pos.y + 12, boyut, boyut/2, 0, 0, 2*Math.PI); ctx.fill(); ctx.globalAlpha = 1.0; ctx.fillStyle = '#5d4037'; ctx.fillRect(pos.x - 12, pos.y - 70, 24, 70); ctx.fillStyle = '#2e7d32'; ctx.beginPath(); ctx.arc(pos.x, pos.y - 85, boyut, 0, 2*Math.PI); ctx.fill(); ctx.fillStyle = '#1b5e20'; ctx.beginPath(); ctx.arc(pos.x - 12, pos.y - 100, boyut-12, 0, 2*Math.PI); ctx.fill(); engelEkle(wx, wy, boyut * 1.4); }
-        function kasabaBinalariCiz() { const binaBasX = merkezX - 750, binaY = merkezY - 250, binaAralik = 350; binaCiz(binaBasX, binaY, 280, 240, '#8d6e63'); binaCiz(binaBasX + binaAralik, binaY, 280, 240, '#a1887f'); binaCiz(binaBasX + binaAralik*2, binaY, 280, 240, '#795548'); binaCiz(binaBasX + binaAralik*3, binaY, 280, 240, '#6d4c41'); agacCiz(merkezX - 600, merkezY + 200, 70); agacCiz(merkezX, merkezY - 500, 65); agacCiz(merkezX - 800, merkezY, 60); }
-
-        // ========== BÖLÜM 16 / 25 – GÜVENLİ BÖLGE ==========
-        function guvenliBolgeGostergesiCiz() { const yariCap = KASABA_GENISLIK / 2, kareKose = worldToScreen(merkezX - yariCap, merkezY - yariCap), kareBoyut = yariCap * 2 * PERSPECTIVE; ctx.strokeStyle = '#ffd700'; ctx.lineWidth = 5; ctx.setLineDash([30, 30]); ctx.strokeRect(kareKose.x, kareKose.y, kareBoyut, kareBoyut); ctx.setLineDash([]); const centerScreen = worldToScreen(merkezX, merkezY); ctx.font = 'bold 48px Arial'; ctx.fillStyle = '#fff'; ctx.shadowColor = '#000'; ctx.shadowBlur = 15; ctx.textAlign = 'center'; ctx.fillText('🛡️ GÜVENLİ BÖLGE 🛡️', centerScreen.x, kareKose.y - 40); ctx.shadowBlur = 0; ctx.beginPath(); ctx.strokeStyle = '#b0a090'; ctx.lineWidth = 50; ctx.globalAlpha = 0.3; const yolBas = worldToScreen(merkezX + 300, merkezY), yolBit = worldToScreen(merkezX + yariCap, merkezY); ctx.moveTo(yolBas.x, yolBas.y); ctx.lineTo(yolBit.x, yolBit.y); ctx.stroke(); ctx.globalAlpha = 1.0; }
-
-        // ========== BÖLÜM 17 / 25 – MİNİ HARİTA & BOSS ==========
-        function miniHaritaCiz() { miniCtx.clearRect(0, 0, 150, 150); miniCtx.fillStyle = '#0a2f0a'; miniCtx.fillRect(0, 0, 150, 150); const gbX = (merkezX - KASABA_GENISLIK/2) / canvas.width * 150, gbY = (merkezY - KASABA_GENISLIK/2) / canvas.height * 150; const gbW = KASABA_GENISLIK / canvas.width * 150, gbH = KASABA_GENISLIK / canvas.height * 150; miniCtx.fillStyle = '#2e7d3260'; miniCtx.fillRect(gbX, gbY, gbW, gbH); for (let m of mantarlar) { if (m.durum !== 'canli') continue; const mx = m.x / canvas.width * 150, my = m.y / canvas.height * 150; miniCtx.fillStyle = m.patlayici ? '#ff8c00' : (m.boss ? '#ff0000' : '#e74c3c'); miniCtx.beginPath(); miniCtx.arc(mx, my, m.boss ? 6 : 3, 0, 2*Math.PI); miniCtx.fill(); } for (let p of parcalar) { const px = p.x / canvas.width * 150, py = p.y / canvas.height * 150; miniCtx.fillStyle = '#f1c40f'; miniCtx.beginPath(); miniCtx.arc(px, py, 2, 0, 2*Math.PI); miniCtx.fill(); } const tx = testere.x / canvas.width * 150, ty = testere.y / canvas.height * 150; miniCtx.fillStyle = '#ffffff'; miniCtx.beginPath(); miniCtx.arc(tx, ty, 4, 0, 2*Math.PI); miniCtx.fill(); }
-        function bossSpawnKontrol() { if (bossVar) return; bossSayac++; if (bossSayac >= BOSS_SPAWN_ARALIGI) { bossSayac = 0; let deneme = 0, x, y; while (deneme < 500) { x = merkezX - 5500 + Math.random() * 11000; y = merkezY - 5500 + Math.random() * 11000; if (Math.abs(x - merkezX) > KASABA_GENISLIK/2 + 300 || Math.abs(y - merkezY) > KASABA_GENISLIK/2 + 300) { let cakisma = false; for (let m of mantarlar) { if (m.durum !== 'canli') continue; if (Math.hypot(x - m.x, y - m.y) < 200) { cakisma = true; break; } } if (!cakisma) break; } deneme++; } const boss = new Mantar(x, y, 10, false, true); mantarlar.push(boss); bossVar = true; document.getElementById('bossUyari').classList.add('gorunur'); setTimeout(() => document.getElementById('bossUyari').classList.remove('gorunur'), 2000); } }
-
-        // ========== BÖLÜM 18 / 25 – KASABA & BİYOM GEÇİŞ ==========
-        function kasabaCiz() { statikEngeller.length = 0; kasabaDuvarlariCiz(); kasabaBinalariCiz(); guvenliBolgeGostergesiCiz(); }
-        function haritaCiz() { const biyomRenkleri = { [BIYOMLAR.VADI]: '#87CEEB', [BIYOMLAR.KRISTAL]: '#d8bfd8', [BIYOMLAR.ORMAN]: '#2d4a1e', [BIYOMLAR.LAV]: '#4a1e1e' }; ctx.fillStyle = biyomRenkleri[mevcutBiyom]; ctx.fillRect(0, 0, canvas.width, canvas.height); const zeminRenkleri = { [BIYOMLAR.VADI]: '#4caf50', [BIYOMLAR.KRISTAL]: '#7b68ae', [BIYOMLAR.ORMAN]: '#1b4d1b', [BIYOMLAR.LAV]: '#8b4513' }; const tl = worldToScreen(0, 0), tr = worldToScreen(canvas.width, 0), br = worldToScreen(canvas.width, canvas.height), bl = worldToScreen(0, canvas.height); ctx.fillStyle = zeminRenkleri[mevcutBiyom]; ctx.beginPath(); ctx.moveTo(tl.x, tl.y); ctx.lineTo(tr.x, tr.y); ctx.lineTo(br.x, br.y); ctx.lineTo(bl.x, bl.y); ctx.closePath(); ctx.fill(); kasabaCiz(); }
-        function biyomGecisKontrol() { const testereX = testere.x, testereY = testere.y; let yeniBiyom = mevcutBiyom; const sinirUzaklik = 5500; if (testereX > merkezX + sinirUzaklik && mevcutBiyom === BIYOMLAR.VADI) yeniBiyom = BIYOMLAR.KRISTAL; else if (testereX < merkezX - sinirUzaklik && mevcutBiyom === BIYOMLAR.VADI) yeniBiyom = BIYOMLAR.ORMAN; else if (testereY > merkezY + sinirUzaklik && mevcutBiyom === BIYOMLAR.VADI) yeniBiyom = BIYOMLAR.LAV; else if (testereX < merkezX + 5500 && testereX > merkezX + 5400 && mevcutBiyom === BIYOMLAR.KRISTAL) yeniBiyom = BIYOMLAR.VADI; else if (testereX > merkezX - 5500 && testereX < merkezX - 5400 && mevcutBiyom === BIYOMLAR.ORMAN) yeniBiyom = BIYOMLAR.VADI; else if (testereY < merkezY + 5500 && testereY > merkezY + 5400 && mevcutBiyom === BIYOMLAR.LAV) yeniBiyom = BIYOMLAR.VADI; if (yeniBiyom !== mevcutBiyom) { mevcutBiyom = yeniBiyom; biyomMerkezGuncelle(); if (mevcutBiyom === BIYOMLAR.KRISTAL) { testere.x = merkezX - 5400; testere.y = merkezY; } else if (mevcutBiyom === BIYOMLAR.ORMAN) { testere.x = merkezX + 5400; testere.y = merkezY; } else if (mevcutBiyom === BIYOMLAR.LAV) { testere.x = merkezX; testere.y = merkezY - 5400; } else if (mevcutBiyom === BIYOMLAR.VADI) { if (testereX > 11000) testere.x = merkezX + 5400; else if (testereX < 1000) testere.x = merkezX - 5400; else if (testereY > 11000) testere.y = merkezY + 5400; } mantarlar.length = 0; for (let i = 0; i < MANTAR_SAYISI; i++) { mantarSpawn(); } kameraGuncelle(); hudGuncelle(); const biyomIsimleri = { [BIYOMLAR.VADI]: '🌿 GÜVENLİ VADİ', [BIYOMLAR.KRISTAL]: '💎 KRİSTAL MAĞARALARI', [BIYOMLAR.ORMAN]: '🌲 FISILTILI ORMAN', [BIYOMLAR.LAV]: '🔥 KAVRULMUŞ TOPRAKLAR' }; const bossUyari = document.getElementById('bossUyari'); bossUyari.textContent = biyomIsimleri[mevcutBiyom]; bossUyari.classList.add('gorunur'); setTimeout(() => bossUyari.classList.remove('gorunur'), 2000); } }
-
-        // ========== BÖLÜM 19 / 25 – HUD & KIVILCIM ==========
-        const canBarFill = document.getElementById('canBarFill'), canText = document.getElementById('canText'), expBarFill = document.getElementById('expBarFill'), expText = document.getElementById('expText'), seviyeText = document.getElementById('seviyeText'), coordX = document.getElementById('coordX'), coordY = document.getElementById('coordY'), boostSimge = document.getElementById('boostSimge'), boostSayac = document.getElementById('boostSayac'), yetenekPuaniText = document.getElementById('yetenekPuaniText'), kalkanSimge = document.getElementById('kalkanSimge'), kalkanSayac = document.getElementById('kalkanSayac'), ofkeSimge = document.getElementById('ofkeSimge'), ofkeSayac = document.getElementById('ofkeSayac');
+        // ========== BÖLÜM 22 / 26 – JavaScript: Kıvılcım Efektleri ve HUD Güncelleme ==========
         const kivilcimlar = [];
         function kivilcimEkle(x, y, sayi = 6) { for (let i = 0; i < sayi; i++) { const aci = Math.random() * Math.PI * 2, hiz = 2 + Math.random() * 4; kivilcimlar.push({ x, y, vx: Math.cos(aci) * hiz + testere.moveX * 2, vy: Math.sin(aci) * hiz - 1 + testere.moveY * 2, yas: 0, maxYas: 20 + Math.floor(Math.random() * 10), boyut: 2 + Math.random() * 3, renk: '#FFA500' }); } for (let i = 0; i < 3; i++) { const aci = Math.random() * Math.PI * 2, hiz = 1 + Math.random() * 3; kivilcimlar.push({ x, y, vx: Math.cos(aci) * hiz + testere.moveX * 2, vy: Math.sin(aci) * hiz - 1 + testere.moveY * 2, yas: 0, maxYas: 12 + Math.floor(Math.random() * 8), boyut: 1.5 + Math.random() * 2, renk: '#FFD700' }); } }
         function kivilcimGuncelleVeCiz() { for (let i = kivilcimlar.length - 1; i >= 0; i--) { const k = kivilcimlar[i]; k.x += k.vx; k.y += k.vy; k.vy += 0.15; k.vx *= 0.98; k.vy *= 0.98; k.yas++; if (k.yas >= k.maxYas) { kivilcimlar.splice(i, 1); continue; } const alpha = Math.max(0, 1 - k.yas / k.maxYas); ctx.save(); ctx.globalAlpha = alpha; ctx.fillStyle = k.renk; ctx.beginPath(); ctx.arc(k.x, k.y, k.boyut * (1 - k.yas/k.maxYas * 0.5), 0, 2*Math.PI); ctx.fill(); ctx.restore(); } }
-        function hudGuncelle() { const canYuzde = (testere.can / testere.maxCan) * 100; canBarFill.style.width = canYuzde + '%'; const k = Math.floor(255 * (1 - testere.can/testere.maxCan)), y = Math.floor(255 * (testere.can/testere.maxCan)); canBarFill.style.background = `linear-gradient(90deg, rgb(${k}, ${y}, 0), rgb(${k/2}, ${y/2}, 0))`; canText.textContent = `${Math.round(testere.can)}/${testere.maxCan}`; const expYuzde = (testere.exp / testere.nextLevelExp) * 100; expBarFill.style.width = expYuzde + '%'; expText.textContent = `${testere.exp}/${testere.nextLevelExp}`; seviyeText.textContent = testere.level; coordX.textContent = Math.round(testere.x); coordY.textContent = Math.round(testere.y); yetenekPuaniText.textContent = testere.yetenekPuani; if (testere.boostAktif) { boostSimge.className = 'boost-simge aktif'; boostSayac.textContent = `${(testere.boostSuresi / 60).toFixed(1)}s`; } else if (testere.boostBekleme > 0) { boostSimge.className = 'boost-simge beklemede'; boostSayac.textContent = `${(testere.boostBekleme / 60).toFixed(0)}s`; } else { boostSimge.className = 'boost-simge'; boostSayac.textContent = 'HAZIR'; } if (testere.kalkanAktif) { kalkanSimge.className = 'yetenek-simge aktif'; kalkanSayac.textContent = `${(testere.kalkanSuresi / 60).toFixed(1)}s`; } else if (testere.kalkanBekleme > 0) { kalkanSimge.className = 'yetenek-simge beklemede'; kalkanSayac.textContent = `${(testere.kalkanBekleme / 60).toFixed(0)}s`; } else { kalkanSimge.className = 'yetenek-simge'; kalkanSayac.textContent = 'HAZIR'; } if (testere.ofkeBekleme > 0) { ofkeSimge.className = 'yetenek-simge beklemede'; ofkeSayac.textContent = `${(testere.ofkeBekleme / 60).toFixed(0)}s`; } else { ofkeSimge.className = 'yetenek-simge'; ofkeSayac.textContent = 'HAZIR'; } }
+        function hudGuncelle() { const canYuzde = (testere.can / testere.maxCan) * 100; document.getElementById('canBarFill').style.width = canYuzde + '%'; document.getElementById('canText').textContent = `${Math.round(testere.can)}/${testere.maxCan}`; const expYuzde = (testere.exp / testere.nextLevelExp) * 100; document.getElementById('expBarFill').style.width = expYuzde + '%'; document.getElementById('expText').textContent = `${testere.exp}/${testere.nextLevelExp}`; document.getElementById('seviyeText').textContent = testere.level; document.getElementById('coordX').textContent = Math.round(testere.x); document.getElementById('coordY').textContent = Math.round(testere.y); document.getElementById('yetenekPuaniText').textContent = testere.yetenekPuani; const boostSimge = document.getElementById('boostSimge'), boostSayac = document.getElementById('boostSayac'); if (testere.boostAktif) { boostSimge.className = 'boost-simge aktif'; boostSayac.textContent = `${(testere.boostSuresi / 60).toFixed(1)}s`; } else if (testere.boostBekleme > 0) { boostSimge.className = 'boost-simge beklemede'; boostSayac.textContent = `${(testere.boostBekleme / 60).toFixed(0)}s`; } else { boostSimge.className = 'boost-simge'; boostSayac.textContent = 'HAZIR'; } const kalkanSimge = document.getElementById('kalkanSimge'), kalkanSayac = document.getElementById('kalkanSayac'); if (testere.kalkanAktif) { kalkanSimge.className = 'yetenek-simge aktif'; kalkanSayac.textContent = `${(testere.kalkanSuresi / 60).toFixed(1)}s`; } else if (testere.kalkanBekleme > 0) { kalkanSimge.className = 'yetenek-simge beklemede'; kalkanSayac.textContent = `${(testere.kalkanBekleme / 60).toFixed(0)}s`; } else { kalkanSimge.className = 'yetenek-simge'; kalkanSayac.textContent = 'HAZIR'; } const ofkeSimge = document.getElementById('ofkeSimge'), ofkeSayac = document.getElementById('ofkeSayac'); if (testere.ofkeBekleme > 0) { ofkeSimge.className = 'yetenek-simge beklemede'; ofkeSayac.textContent = `${(testere.ofkeBekleme / 60).toFixed(0)}s`; } else { ofkeSimge.className = 'yetenek-simge'; ofkeSayac.textContent = 'HAZIR'; } }
         function kameraGuncelle() { const c = worldToScreen(testere.x, testere.y), hx = c.x - window.innerWidth/2, hy = c.y - window.innerHeight/2; const maxX = canvas.width - window.innerWidth, maxY = canvas.height - window.innerHeight; window.scrollTo(Math.max(0, Math.min(hx, maxX)), Math.max(0, Math.min(hy, maxY))); }
         function seviyeAtlamaKontrol() { if (testere.levelUpFlag) { testere.levelUpFlag = false; document.getElementById('yeniSeviyeSpan').textContent = `SEVİYE ${testere.level}`; document.getElementById('levelupBildirim').classList.add('gorunur'); setTimeout(() => document.getElementById('levelupBildirim').classList.remove('gorunur'), 1500); } }
-
-        // ========== BÖLÜM 20 / 25 – SES ==========
+        
+        // ========== BÖLÜM 23 / 26 – JavaScript: Ses Sistemi ==========
         let audioCtx = null, motorOsc = null, motorGain = null, sesBaslatildi = false;
         function sesSisteminiBaslat() { if (sesBaslatildi) return; audioCtx = new (window.AudioContext || window.webkitAudioContext)(); motorOsc = audioCtx.createOscillator(); motorOsc.type = 'sawtooth'; motorOsc.frequency.value = 85; motorGain = audioCtx.createGain(); motorGain.gain.value = 0.06; motorOsc.connect(motorGain); motorGain.connect(audioCtx.destination); motorOsc.start(); sesBaslatildi = true; }
         function agacKesmeSesiCal() { if (!audioCtx) return; const now = audioCtx.currentTime; const o1 = audioCtx.createOscillator(), g1 = audioCtx.createGain(); o1.type = 'square'; o1.frequency.value = 120; g1.gain.setValueAtTime(0.2, now); g1.gain.exponentialRampToValueAtTime(0.01, now + 0.15); o1.connect(g1); g1.connect(audioCtx.destination); o1.start(); o1.stop(now + 0.15); const o2 = audioCtx.createOscillator(), g2 = audioCtx.createGain(); o2.type = 'triangle'; o2.frequency.value = 80; g2.gain.setValueAtTime(0.15, now); g2.gain.exponentialRampToValueAtTime(0.01, now + 0.2); o2.connect(g2); g2.connect(audioCtx.destination); o2.start(); o2.stop(now + 0.2); if (motorGain) { motorGain.gain.setValueAtTime(0.03, now); motorGain.gain.linearRampToValueAtTime(0.06, now + 0.3); } }
         function ilkEtkilesim() { sesSisteminiBaslat(); window.removeEventListener('keydown', ilkEtkilesim); window.removeEventListener('mousedown', ilkEtkilesim); }
         window.addEventListener('keydown', ilkEtkilesim); window.addEventListener('mousedown', ilkEtkilesim);
-
-        // ========== BÖLÜM 21 / 25 – YETENEK PANELİ ==========
+        
+        // ========== BÖLÜM 24 / 26 – JavaScript: Yetenek, Market ve Envanter Paneli Etkileşimleri ==========
         const panelYetenekPuani = document.getElementById('panelYetenekPuani'), saldiriKademeSpan = document.getElementById('saldiriKademe'), saldiriBonusSpan = document.getElementById('saldiriBonus'), savunmaKademeSpan = document.getElementById('savunmaKademe'), savunmaBonusSpan = document.getElementById('savunmaBonus'), faydaKademeSpan = document.getElementById('faydaKademe'), faydaBonusSpan = document.getElementById('faydaBonus'), saldiriBtn = document.getElementById('saldiriBtn'), savunmaBtn = document.getElementById('savunmaBtn'), faydaBtn = document.getElementById('faydaBtn');
         function yetenekPaneliniGuncelle() { panelYetenekPuani.textContent = testere.yetenekPuani; const sKademe = testere.yetenekler.saldiri; saldiriKademeSpan.textContent = sKademe; saldiriBonusSpan.textContent = sKademe * 2; saldiriBtn.disabled = (sKademe >= 5 || testere.yetenekPuani < 1); const vKademe = testere.yetenekler.savunma; savunmaKademeSpan.textContent = vKademe; savunmaBonusSpan.textContent = vKademe * 15; savunmaBtn.disabled = (vKademe >= 5 || testere.yetenekPuani < 1); const fKademe = testere.yetenekler.fayda; faydaKademeSpan.textContent = fKademe; faydaBonusSpan.textContent = (fKademe * 0.8).toFixed(1); faydaBtn.disabled = (fKademe >= 5 || testere.yetenekPuani < 1); }
         saldiriBtn.addEventListener('click', () => { if (testere.yetenekler.saldiri < 5 && testere.yetenekPuani > 0) { testere.yetenekler.saldiri++; testere.yetenekPuani--; yetenekPaneliniGuncelle(); hudGuncelle(); } });
         savunmaBtn.addEventListener('click', () => { if (testere.yetenekler.savunma < 5 && testere.yetenekPuani > 0) { testere.yetenekler.savunma++; testere.yetenekPuani--; testere.maxCanGuncelle(); yetenekPaneliniGuncelle(); hudGuncelle(); } });
         faydaBtn.addEventListener('click', () => { if (testere.yetenekler.fayda < 5 && testere.yetenekPuani > 0) { testere.yetenekler.fayda++; testere.yetenekPuani--; yetenekPaneliniGuncelle(); hudGuncelle(); } });
-
-        // ========== BÖLÜM 22 / 25 – MARKET PANELİ ==========
         const marketParcaSpan = document.getElementById('marketParca'), canIksiriBtn = document.getElementById('canIksiriBtn'), hizIksiriBtn = document.getElementById('hizIksiriBtn'), hasarIksiriBtn = document.getElementById('hasarIksiriBtn'), zirhBtn = document.getElementById('zirhBtn'), gelistirmeTasiBtn = document.getElementById('gelistirmeTasiBtn');
         function marketPaneliniGuncelle() { const ozMiktar = testere.getMantarOzu(); marketParcaSpan.textContent = ozMiktar; canIksiriBtn.disabled = (ozMiktar < 30 || testere.can >= testere.maxCan); hizIksiriBtn.disabled = (ozMiktar < 25); hasarIksiriBtn.disabled = (ozMiktar < 35); zirhBtn.disabled = (ozMiktar < 80); gelistirmeTasiBtn.disabled = (ozMiktar < 100); }
         canIksiriBtn.addEventListener('click', () => { if (testere.mantarOzuHarca(30)) { testere.can = testere.maxCan; marketPaneliniGuncelle(); hudGuncelle(); } });
@@ -692,142 +770,25 @@
         hasarIksiriBtn.addEventListener('click', () => { if (testere.mantarOzuHarca(35)) { testere.iksirHasar = 8; testere.iksirHasarSuresi = 3600; marketPaneliniGuncelle(); hudGuncelle(); } });
         zirhBtn.addEventListener('click', () => { if (testere.mantarOzuHarca(80)) { testere.bonusMaxCan += 15; testere.maxCanGuncelle(); testere.can = Math.min(testere.can + 15, testere.maxCan); marketPaneliniGuncelle(); hudGuncelle(); } });
         gelistirmeTasiBtn.addEventListener('click', () => { if (testere.mantarOzuHarca(100)) { testere.bonusHasar += 1; marketPaneliniGuncelle(); hudGuncelle(); } });
-
-        // ========== BÖLÜM 23 / 25 – ENVANTER PANELİ ==========
         const envanterSlotlarDiv = document.getElementById('envanterSlotlar'), esyaIkonlari = { mantarOzu: '🔩', canIksiri: '❤️', hizIksiri: '💨', hasarIksiri: '⚔️', zirhParcasi: '🛡️', gelistirmeTasi: '🔮' }, esyaIsimleri = { mantarOzu: 'Mantar Özü', canIksiri: 'Can İksiri', hizIksiri: 'Hız İksiri', hasarIksiri: 'Hasar İksiri', zirhParcasi: 'Zırh Parçası', gelistirmeTasi: 'Geliştirme Taşı' };
         function envanterPaneliniGuncelle() { envanterSlotlarDiv.innerHTML = ''; for (let i = 0; i < testere.maxEnvanterSlot; i++) { const slot = document.createElement('div'); slot.className = 'envanter-slot'; if (i < testere.envanter.length) { const esya = testere.envanter[i]; slot.innerHTML = `<div style="font-size:32px;">${esyaIkonlari[esya.tip]}</div><div class="esya-miktar">${esya.miktar}</div>`; slot.title = `${esyaIsimleri[esya.tip]} (Miktar: ${esya.miktar})`; slot.addEventListener('click', () => { if (testere.envanterdenKullan(i)) { envanterPaneliniGuncelle(); hudGuncelle(); } }); } else { slot.classList.add('bos'); slot.innerHTML = `<div style="font-size:24px; opacity:0.3;">⬜</div>`; } envanterSlotlarDiv.appendChild(slot); } }
-
-        // ========== BÖLÜM 24 / 25 – OYUN DÖNGÜSÜ ==========
+        
+        // ========== BÖLÜM 25 / 26 – JavaScript: Oyun Döngüsü ==========
         let animasyonIstegi = null;
         function oyunDongusu() {
-            if (oyunAktif) { testereHareketEttir(); biyomGecisKontrol(); bossSpawnKontrol(); for (let i = mantarlar.length - 1; i >= 0; i--) { const m = mantarlar[i]; m.animasyonGuncelle(); if (m.durum === 'respawning') { if (m.boss) { mantarlar.splice(i, 1); bossVar = false; } else { mantarlar.splice(i, 1); const yeniPos = rastgeleKonumBul(); mantarlar.push(new Mantar(yeniPos.x, yeniPos.y, Math.floor(Math.random()*5)+1, false, false, m.elitTipi)); } } if (m.durum === 'olumAnimasyonu' && m.animasyonIlerme === 0.02 && m.patlayici) { for (let mm of mantarlar) { if (mm.durum !== 'canli' || mm === m) continue; if (Math.hypot(mm.x - m.x, mm.y - m.y) < 80) mm.can = Math.max(0, mm.can - 30); } if (Math.hypot(testere.x - m.x, testere.y - m.y) < 80 && !testere.kalkanAktif && !testere.adminAktif) testere.can = Math.max(0, testere.can - 20); } if (m.durum === 'olumAnimasyonu' && m.animasyonIlerme === 0.02 && m.boss) { for (let j=0; j<20; j++) esyaDusur(m.x, m.y, 'mantarOzu', 10); testere.expEkle(500); testere.levelUpFlag = true; bossVar = false; mantarlar.splice(i, 1); } } }
+            if (oyunAktif) {
+                testereHareketEttir(); biyomGecisKontrol(); bossSpawnKontrol();
+                for (let i = mantarlar.length - 1; i >= 0; i--) { const m = mantarlar[i]; m.animasyonGuncelle(); if (m.durum === 'respawning') { if (m.boss) { mantarlar.splice(i, 1); bossVar = false; } else { const p = rastgeleKonumBul(); m.respawnYap(p.x, p.y, Math.floor(Math.random()*5)+1); } } if (m.durum === 'olumAnimasyonu' && m.animasyonIlerme === 0.02 && m.patlayici) { for (let mm of mantarlar) { if (mm.durum !== 'canli' || mm === m) continue; if (Math.hypot(mm.x - m.x, mm.y - m.y) < 80) mm.can = Math.max(0, mm.can - 30); } if (Math.hypot(testere.x - m.x, testere.y - m.y) < 80 && !testere.kalkanAktif && !testere.adminAktif) testere.can = Math.max(0, testere.can - 20); } if (m.durum === 'olumAnimasyonu' && m.animasyonIlerme === 0.02 && m.boss) { for (let j=0; j<20; j++) esyaDusur(m.x, m.y, 10); testere.expEkle(500); testere.levelUpFlag = true; bossVar = false; } }
+            }
             haritaCiz(); const nesneler = []; for (let m of mantarlar) if (m.durum !== 'respawning') nesneler.push({ y: m.y, ciz: () => m.ciz() }); nesneler.push({ y: testere.y, ciz: () => testere.ciz() }); nesneler.sort((a,b) => a.y - b.y); nesneler.forEach(n => n.ciz());
             esyaCiz(); kivilcimGuncelleVeCiz(); kameraGuncelle(); hudGuncelle(); seviyeAtlamaKontrol(); miniHaritaCiz();
             animasyonIstegi = requestAnimationFrame(oyunDongusu);
         }
         document.getElementById('dogButonu').addEventListener('click', () => { testere.x = merkezX; testere.y = merkezY; testere.can = testere.maxCan; document.getElementById('olumEkrani').classList.remove('gorunur'); oyunAktif = true; hudGuncelle(); kameraGuncelle(); });
+        
+        // ========== BÖLÜM 26 / 26 – JavaScript: Oyunu Başlat ==========
         oyunDongusu(); window.addEventListener('resize', kameraGuncelle); kameraGuncelle(); hudGuncelle();
-
-        // ========== BÖLÜM 25 / 25 – MOBİL KONTROLLER (JOYSTICK) ==========
-        (function(){
-            // Mobil kontrol elemanlarını HTML'den al
-            const joystickAlan = document.getElementById('joystickAlan');
-            const joystickKolu = document.getElementById('joystickKolu');
-            const mobilBoost = document.getElementById('mobilBoost');
-            const mobilKalkan = document.getElementById('mobilKalkan');
-            const mobilOfke = document.getElementById('mobilOfke');
-            const mobilYetenek = document.getElementById('mobilYetenek');
-            const mobilMarket = document.getElementById('mobilMarket');
-            const mobilEnvanter = document.getElementById('mobilEnvanter');
-            
-            // Joystick durum değişkenleri
-            let joystickAktif = false;
-            let joystickBaslangic = { x: 0, y: 0 };
-            let joystickMevcut = { x: 0, y: 0 };
-            const maxMesafe = 40; // Kolun maksimum uzaklığı (piksel)
-            
-            // Joystick konumuna göre klavye hareket değişkenlerini günceller
-            function joystickGuncelle() {
-                if (!joystickAktif) {
-                    // Parmak kalktıysa tüm yönleri sıfırla
-                    hareket.yukari = false; hareket.asagi = false; hareket.sol = false; hareket.sag = false;
-                    joystickKolu.style.transform = 'translate(0px, 0px)';
-                    return;
-                }
-                let dx = joystickMevcut.x - joystickBaslangic.x;
-                let dy = joystickMevcut.y - joystickBaslangic.y;
-                const mesafe = Math.sqrt(dx*dx + dy*dy);
-                
-                // Kolu sınırla
-                if (mesafe > maxMesafe) {
-                    dx = dx / mesafe * maxMesafe;
-                    dy = dy / mesafe * maxMesafe;
-                }
-                joystickKolu.style.transform = `translate(${dx}px, ${dy}px)`;
-                
-                // Belirli eşik değerini geçince yön tuşlarını aktif et
-                hareket.sag = dx > 15;
-                hareket.sol = dx < -15;
-                hareket.asagi = dy > 15;
-                hareket.yukari = dy < -15;
-                
-                // Tilt hedefini güncelle (varsa)
-                if (typeof tiltHedefiGuncelle === 'function') tiltHedefiGuncelle();
-            }
-            
-            // Dokunmatik olay dinleyicileri
-            function handleTouchStart(e) {
-                e.preventDefault();
-                const touch = e.touches[0];
-                const rect = joystickAlan.getBoundingClientRect();
-                joystickBaslangic.x = rect.left + rect.width / 2;
-                joystickBaslangic.y = rect.top + rect.height / 2;
-                joystickMevcut.x = touch.clientX;
-                joystickMevcut.y = touch.clientY;
-                joystickAktif = true;
-                joystickGuncelle();
-            }
-            
-            function handleTouchMove(e) {
-                e.preventDefault();
-                if (!joystickAktif) return;
-                const touch = e.touches[0];
-                joystickMevcut.x = touch.clientX;
-                joystickMevcut.y = touch.clientY;
-                joystickGuncelle();
-            }
-            
-            function handleTouchEnd(e) {
-                e.preventDefault();
-                joystickAktif = false;
-                joystickGuncelle();
-            }
-            
-            // Joystick alanına dokunma olaylarını bağla
-            joystickAlan.addEventListener('touchstart', handleTouchStart, { passive: false });
-            joystickAlan.addEventListener('touchmove', handleTouchMove, { passive: false });
-            joystickAlan.addEventListener('touchend', handleTouchEnd);
-            joystickAlan.addEventListener('touchcancel', handleTouchEnd);
-            
-            // Mobil butonlara dokunma olayları
-            mobilBoost.addEventListener('touchstart', (e) => {
-                e.preventDefault();
-                if (typeof testere.boostDene === 'function') testere.boostDene();
-            });
-            mobilKalkan.addEventListener('touchstart', (e) => {
-                e.preventDefault();
-                if (typeof testere.kalkanDene === 'function') testere.kalkanDene();
-            });
-            mobilOfke.addEventListener('touchstart', (e) => {
-                e.preventDefault();
-                if (typeof testere.ofkeDene === 'function') testere.ofkeDene();
-            });
-            
-            // Menü butonları (panelleri açar/kapatır)
-            mobilYetenek.addEventListener('touchstart', (e) => {
-                e.preventDefault();
-                document.getElementById('yetenekPaneli').classList.toggle('acik');
-                if (document.getElementById('yetenekPaneli').classList.contains('acik') && typeof yetenekPaneliniGuncelle === 'function') {
-                    yetenekPaneliniGuncelle();
-                }
-            });
-            mobilMarket.addEventListener('touchstart', (e) => {
-                e.preventDefault();
-                document.getElementById('marketPaneli').classList.toggle('acik');
-                if (document.getElementById('marketPaneli').classList.contains('acik') && typeof marketPaneliniGuncelle === 'function') {
-                    marketPaneliniGuncelle();
-                }
-            });
-            mobilEnvanter.addEventListener('touchstart', (e) => {
-                e.preventDefault();
-                document.getElementById('envanterPaneli').classList.toggle('acik');
-                if (document.getElementById('envanterPaneli').classList.contains('acik') && typeof envanterPaneliniGuncelle === 'function') {
-                    envanterPaneliniGuncelle();
-                }
-            });
-            
-            console.log('✅ Mobil kontroller aktif.');
-        })();
+        console.log('✅ DEVASA DÜNYA AKTİF! 4 Biyom, Envanter, Yetenekler, Market!');
     </script>
 </body>
 </html>
