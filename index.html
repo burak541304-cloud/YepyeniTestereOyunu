@@ -20,10 +20,39 @@ html{touch-action:none;overflow:hidden}
 .fuel-fill{background:linear-gradient(90deg,#d35400,#e67e22)}
 #biome-label{position:absolute;top:6px;right:6px;background:rgba(0,0,0,.7);border:1px solid #555;border-radius:6px;padding:4px 10px;font-size:12px;font-weight:bold}
 #minimap{position:absolute;bottom:80px;right:6px;border:2px solid #555;border-radius:4px;width:100px;height:100px}
-#inventory-btn,#skill-btn,#craft-btn{position:absolute;bottom:10px;left:10px;background:rgba(0,0,0,.8);border:1px solid #888;border-radius:8px;padding:6px 12px;font-size:11px;cursor:pointer;color:#fff}
-#skill-btn{left:90px}
-#craft-btn{left:170px}
-#inventory-btn:hover,#skill-btn:hover,#craft-btn:hover{border-color:#f1c40f;background:rgba(30,30,30,.9)}
+#inventory-btn,#skill-btn,#craft-btn{
+  position:absolute; 
+  bottom:15px;                /* 10px'den 15px'e */
+  left:15px;                  /* 10px'den 15px'e */
+  background:rgba(0,0,0,.8);
+  border:2px solid #888;      /* 1px'den 2px'e */
+  border-radius:12px;         /* 8px'den 12px'e */
+  padding:10px 18px;          /* 6px 12px'den 10px 18px'e */
+  font-size:15px;             /* 11px'den 15px'e */
+  font-weight:bold;
+  cursor:pointer;
+  color:#fff;
+  box-shadow:0 4px 6px rgba(0,0,0,0.3);
+  transition:all 0.2s;
+}
+#skill-btn{ left:110px; }      /* 90px'den 110px'e (aralık arttı) */
+#craft-btn{ left:205px; }      /* 170px'den 205px'e */
+#inventory-btn:hover,#skill-btn:hover,#craft-btn:hover{
+  border-color:#f1c40f;
+  background:rgba(40,40,40,.95);
+  transform:scale(1.05);
+}
+/* Mobil uyumluluk için */
+@media(max-width:600px){
+  #inventory-btn,#skill-btn,#craft-btn{
+    bottom:10px;
+    left:8px;
+    padding:8px 12px;
+    font-size:13px;
+  }
+  #skill-btn{ left:95px; }
+  #craft-btn{ left:182px; }
+}
 .panel{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(20,20,20,.95);border:2px solid #555;border-radius:12px;padding:20px;min-width:500px;max-width:90vw;max-height:80vh;overflow-y:auto;z-index:100;display:none}
 .panel h2{text-align:center;margin-bottom:12px;color:#f1c40f;font-size:20px}
 .panel-close{position:absolute;top:8px;right:14px;cursor:pointer;font-size:22px;color:#aaa}
@@ -150,7 +179,9 @@ Bitkileri kes → Eşya topla → Güçlen → Yeni biyomlar keşfet!
 // CHOP & GROW - Complete Game Engine
 // ============================================================
 
-// --- CONFIGURATION ---
+// <!-- ========== BÖLÜM 1: YAPILANDIRMA VE SABİTLER ========== -->
+
+// <!-- 1.1 Oyun Sabitleri -->
 const C = {
   W: 960, H: 640, TILE: 48,
   WORLD_W: 200, WORLD_H: 200,
@@ -165,49 +196,184 @@ const C = {
   FUEL_REGEN: 3,
   MAGNET_RANGE: 80,
   LOOT_LIFETIME: 15,
-  PLANT_DENSITY: 0.12,
+  PLANT_DENSITY: 0.25,        // Bitki yoğunluğu artırıldı (0.12'den 0.25'e)
   BOSS_INTERVAL: 50,
 };
 
-// --- BIOMES ---
+// <!-- 1.2 Biyom Tanımları -->
 const BIOMES = [
   { id:'meadow', name:'Yeşil Çayır', emoji:'🌿', color:'#4a7c3f', bg:'#2d5a1e', req:0,
-    plants:['grass','clover','flower'], drops:['oil','gear','seed'], difficulty:1 },
+    plants: [
+      'grass', 'clover', 'flower', 'daisy', 'sunflower', 'lavender', 'mint', 'thyme',
+      'basil', 'oregano', 'parsley', 'dill', 'chamomile', 'poppy', 'tulip', 'daffodil',
+      'bluebell', 'primrose', 'violet', 'marigold', 'zinnia', 'cosmos', 'lupine', 'yarrow'
+    ],
+    drops:['oil','gear','seed','herb_bundle','nectar'], difficulty:1 },
   { id:'mushroom', name:'Mantar Ormanı', emoji:'🍄', color:'#5c4a7c', bg:'#3a2d5a', req:5,
-    plants:['poison_mush','giant_mush','lichen'], drops:['antidote','mush_essence','lantern'], difficulty:2 },
+    plants: [
+      'poison_mush','giant_mush','lichen','glowcap','spore_puff','truffle','morel',
+      'chanterelle','porcini','shaggy_mane','oyster','enoki','reishi','cordyceps',
+      'amanita','mycelium','puffball','stinkhorn','jelly_fungus','coral_fungus'
+    ],
+    drops:['antidote','mush_essence','lantern','spore_sack','fungal_dust'], difficulty:2 },
   { id:'thorn', name:'Dikenli Bozkır', emoji:'🌵', color:'#8a7a3f', bg:'#5a4a1e', req:10,
-    plants:['cactus','dry_bush','camel_thorn'], drops:['thorn_armor','hard_blade','fuel'], difficulty:3 },
+    plants: [
+      'cactus','dry_bush','camel_thorn','prickly_pear','agave','yucca','barrel_cactus',
+      'saguaro','thornapple','devils_claw','cats_claw','mesquite','tumbleweed',
+      'joshua_tree','ocotillo','creosote','sagebrush','rabbitbrush','brittlebush'
+    ],
+    drops:['thorn_armor','hard_blade','fuel','cactus_fruit','resin'], difficulty:3 },
   { id:'swamp', name:'Bataklık', emoji:'🌊', color:'#3a5c4a', bg:'#1e3a2d', req:15,
-    plants:['reed','lily','carnivorous'], drops:['speed_potion','mud_resist','gem'], difficulty:4 },
+    plants: [
+      'reed','lily','carnivorous','cattail','papyrus','mangrove','cypress_knee',
+      'venus_flytrap','pitcher_plant','sundew','bladderwort','water_hyacinth',
+      'duckweed','lotus','arrowhead','pickerelweed','lizard_tail','bog_rosemary'
+    ],
+    drops:['speed_potion','mud_resist','gem','swamp_essence','mosquito_repellent'], difficulty:4 },
   { id:'ice', name:'Buzul Bahçesi', emoji:'❄️', color:'#4a6a8c', bg:'#2d3a5a', req:20,
-    plants:['ice_flower','frozen_moss','snow_bush'], drops:['frost_blade','crit_gear','legend_box'], difficulty:5 },
+    plants: [
+      'ice_flower','frozen_moss','snow_bush','glacier_lichen','frost_berry','ice_crystal',
+      'snow_drop','winter_rose','arctic_willow','tundra_cotton','reindeer_moss',
+      'ice_poppy','frozen_fern','snow_gentian','alpine_azalea','glacier_lily'
+    ],
+    drops:['frost_blade','crit_gear','legend_box','frozen_core','ever_ice'], difficulty:5 },
   { id:'volcano', name:'Volkanik Kır', emoji:'🌋', color:'#8c3a2a', bg:'#5a1e1e', req:25,
-    plants:['lava_pepper','ash_flower','fire_moss'], drops:['fire_blade','endurance_stone','phoenix_feather'], difficulty:6 },
+    plants: [
+      'lava_pepper','ash_flower','fire_moss','magma_cap','ember_root','scorch_thistle',
+      'inferno_bloom','cinder_vine','obsidian_lichen','pyre_weed','smolder_berry',
+      'volcanic_fern','basalt_bramble','sulfur_tuft','phoenix_tail'
+    ],
+    drops:['fire_blade','endurance_stone','phoenix_feather','magma_shard','embers'], difficulty:6 },
 ];
 
-// --- PLANT DEFINITIONS ---
+// <!-- 1.3 Bitki Tanımları -->
 const PLANTS = {
+  // --- Çayır Bitkileri (Mevcut + Yeni) ---
   grass:       {name:'Çimen',       hp:20,  xp:8,   color:'#5cb85c', size:14, shape:'grass', sound:'tss'},
   clover:      {name:'Yonca',       hp:25,  xp:10,  color:'#3da83d', size:12, shape:'clover', sound:'tss'},
   flower:      {name:'Çiçek',       hp:18,  xp:12,  color:'#e8d44d', size:10, shape:'flower', sound:'tss'},
+  daisy:       {name:'Papatya',     hp:15,  xp:9,   color:'#ffffff', size:10, shape:'flower', sound:'tss'},
+  sunflower:   {name:'Ayçiçeği',    hp:35,  xp:20,  color:'#f1c40f', size:20, shape:'flower', sound:'tss'},
+  lavender:    {name:'Lavanta',     hp:22,  xp:11,  color:'#9b59b6', size:12, shape:'flower', sound:'tss'},
+  mint:        {name:'Nane',        hp:18,  xp:10,  color:'#2ecc71', size:10, shape:'herb', sound:'tss'},
+  thyme:       {name:'Kekik',       hp:20,  xp:11,  color:'#6b8e23', size:10, shape:'herb', sound:'tss'},
+  basil:       {name:'Fesleğen',    hp:22,  xp:12,  color:'#27ae60', size:12, shape:'herb', sound:'tss'},
+  oregano:     {name:'Keklikotu',   hp:18,  xp:10,  color:'#556b2f', size:10, shape:'herb', sound:'tss'},
+  parsley:     {name:'Maydanoz',    hp:20,  xp:11,  color:'#32cd32', size:10, shape:'herb', sound:'tss'},
+  dill:        {name:'Dereotu',     hp:18,  xp:10,  color:'#3cb371', size:10, shape:'herb', sound:'tss'},
+  chamomile:   {name:'Papatya Çayı',hp:15,  xp:12,  color:'#fdf5e6', size:10, shape:'flower', sound:'tss'},
+  poppy:       {name:'Gelincik',    hp:20,  xp:13,  color:'#e74c3c', size:12, shape:'flower', sound:'tss'},
+  tulip:       {name:'Lale',        hp:25,  xp:14,  color:'#ff6347', size:12, shape:'flower', sound:'tss'},
+  daffodil:    {name:'Nergis',      hp:22,  xp:12,  color:'#ffd700', size:12, shape:'flower', sound:'tss'},
+  bluebell:    {name:'Çançiçeği',   hp:18,  xp:11,  color:'#4169e1', size:10, shape:'flower', sound:'tss'},
+  primrose:    {name:'Çuha',        hp:20,  xp:12,  color:'#ffb6c1', size:10, shape:'flower', sound:'tss'},
+  violet:      {name:'Menekşe',     hp:18,  xp:11,  color:'#8a2be2', size:10, shape:'flower', sound:'tss'},
+  marigold:    {name:'Kadife',      hp:25,  xp:14,  color:'#ff8c00', size:12, shape:'flower', sound:'tss'},
+  zinnia:      {name:'Zinya',       hp:24,  xp:13,  color:'#ff1493', size:12, shape:'flower', sound:'tss'},
+  cosmos:      {name:'Kozmos',      hp:20,  xp:11,  color:'#ff69b4', size:12, shape:'flower', sound:'tss'},
+  lupine:      {name:'Lupin',       hp:28,  xp:16,  color:'#9370db', size:14, shape:'flower', sound:'tss'},
+  yarrow:      {name:'Civanperçemi',hp:22,  xp:12,  color:'#f0f8ff', size:12, shape:'flower', sound:'tss'},
+
+  // --- Mantar Ormanı (Mevcut + Yeni) ---
   poison_mush: {name:'Zehirli Mantar',hp:40,xp:20, color:'#9b59b6', size:16, shape:'mushroom', sound:'shlap'},
   giant_mush:  {name:'Dev Mantar',  hp:80,  xp:35,  color:'#8e44ad', size:24, shape:'mushroom', sound:'shlap'},
   lichen:      {name:'Parlak Liken',hp:30,  xp:18,  color:'#1abc9c', size:12, shape:'lichen', sound:'tss'},
+  glowcap:     {name:'Işık Şapkası',hp:35,  xp:22,  color:'#f1c40f', size:14, shape:'mushroom', sound:'shlap'},
+  spore_puff:  {name:'Spor Pufu',   hp:25,  xp:15,  color:'#d2b4de', size:12, shape:'mushroom', sound:'shlap'},
+  truffle:     {name:'Trüf',        hp:50,  xp:30,  color:'#5d4037', size:10, shape:'tuber', sound:'shlap'},
+  morel:       {name:'Kuzugöbeği',  hp:45,  xp:28,  color:'#d7ccc8', size:14, shape:'mushroom', sound:'shlap'},
+  chanterelle: {name:'Horozmantarı',hp:40,  xp:25,  color:'#ffb300', size:14, shape:'mushroom', sound:'shlap'},
+  porcini:     {name:'Çörek Mantarı',hp:55, xp:32,  color:'#8d6e63', size:16, shape:'mushroom', sound:'shlap'},
+  shaggy_mane: {name:'Püsküllü Mantar',hp:35,xp:20, color:'#eeeeee', size:16, shape:'mushroom', sound:'shlap'},
+  oyster:      {name:'İstiridye Mantarı',hp:30,xp:18,color:'#bcaaa4', size:14, shape:'mushroom', sound:'shlap'},
+  enoki:       {name:'Enoki',       hp:25,  xp:16,  color:'#fff9c4', size:10, shape:'mushroom', sound:'shlap'},
+  reishi:      {name:'Reishi',      hp:60,  xp:40,  color:'#c62828', size:18, shape:'mushroom', sound:'shlap'},
+  cordyceps:   {name:'Kordiseps',   hp:45,  xp:35,  color:'#e67e22', size:12, shape:'fungus', sound:'shlap'},
+  amanita:     {name:'Amanita',     hp:70,  xp:45,  color:'#e53935', size:20, shape:'mushroom', sound:'shlap'},
+  mycelium:    {name:'Miselyum',    hp:20,  xp:12,  color:'#e0e0e0', size:10, shape:'lichen', sound:'tss'},
+  puffball:    {name:'Kurtmantarı', hp:50,  xp:30,  color:'#f5f5dc', size:18, shape:'mushroom', sound:'shlap'},
+  stinkhorn:   {name:'Kokarca Mantarı',hp:40,xp:25,color:'#ff7043',size:16,shape:'fungus',sound:'shlap'},
+  jelly_fungus:{name:'Jöle Mantar', hp:30,  xp:18,  color:'#ffb74d', size:10, shape:'fungus', sound:'shlap'},
+  coral_fungus:{name:'Mercan Mantarı',hp:35,xp:22, color:'#ff8a65', size:14, shape:'fungus', sound:'shlap'},
+
+  // --- Dikenli Bozkır (Mevcut + Yeni) ---
   cactus:      {name:'Kaktüs',      hp:60,  xp:30,  color:'#27ae60', size:18, shape:'cactus', sound:'crack'},
   dry_bush:    {name:'Kuru Çalı',   hp:45,  xp:22,  color:'#a0522d', size:16, shape:'bush', sound:'crackle'},
   camel_thorn: {name:'Deve Dikeni', hp:55,  xp:28,  color:'#6b8e23', size:14, shape:'thorn', sound:'crack'},
+  prickly_pear:{name:'Dikenli İncir',hp:50,xp:28, color:'#8fbc8f', size:18, shape:'cactus', sound:'crack'},
+  agave:       {name:'Agave',       hp:65,  xp:35,  color:'#2e8b57', size:22, shape:'succulent', sound:'crack'},
+  yucca:       {name:'Yuka',        hp:55,  xp:30,  color:'#556b2f', size:20, shape:'succulent', sound:'crack'},
+  barrel_cactus:{name:'Fıçı Kaktüs',hp:70, xp:40,  color:'#2e7d32', size:20, shape:'cactus', sound:'crack'},
+  saguaro:     {name:'Saguaro',     hp:90,  xp:50,  color:'#388e3c', size:28, shape:'cactus', sound:'crack'},
+  thornapple:  {name:'Şeytan Elması',hp:60,xp:38, color:'#d4e157', size:18, shape:'thorn', sound:'crack'},
+  devils_claw: {name:'Şeytan Pençesi',hp:55,xp:35,color:'#795548',size:16,shape:'thorn',sound:'crack'},
+  cats_claw:   {name:'Kedi Pençesi',hp:50,xp:30, color:'#8d6e63', size:14, shape:'thorn', sound:'crack'},
+  mesquite:    {name:'Mesquite',    hp:70,  xp:45,  color:'#6d4c41', size:22, shape:'bush', sound:'crackle'},
+  tumbleweed:  {name:'Tumbleweed',  hp:40,  xp:25,  color:'#d2b48c', size:18, shape:'bush', sound:'crackle'},
+  joshua_tree: {name:'Yuva Ağacı',  hp:100, xp:60,  color:'#8fbc8f', size:30, shape:'tree', sound:'crack'},
+  ocotillo:    {name:'Ocotillo',    hp:80,  xp:45,  color:'#cd853f', size:24, shape:'cactus', sound:'crack'},
+  creosote:    {name:'Kreozot',     hp:55,  xp:32,  color:'#8b7d6b', size:16, shape:'bush', sound:'crackle'},
+  sagebrush:   {name:'Adaçayı',     hp:45,  xp:28,  color:'#a9a9a9', size:14, shape:'bush', sound:'crackle'},
+  rabbitbrush: {name:'Tavşan Çalısı',hp:50,xp:30, color:'#ffd700', size:16, shape:'bush', sound:'crackle'},
+  brittlebush: {name:'Kırılgan Çalı',hp:40,xp:25, color:'#f4a460', size:14, shape:'bush', sound:'crackle'},
+
+  // --- Bataklık (Mevcut + Yeni) ---
   reed:        {name:'Sazlık',      hp:50,  xp:25,  color:'#7fc97f', size:16, shape:'reed', sound:'swish'},
   lily:        {name:'Nilüfer',     hp:35,  xp:20,  color:'#ff69b4', size:14, shape:'lily', sound:'plop'},
   carnivorous: {name:'Etçil Sarmaşık',hp:100,xp:50,color:'#c0392b',size:22,shape:'vine',sound:'rip'},
+  cattail:     {name:'Kedi Kuyruğu',hp:55, xp:28,  color:'#8b4513', size:20, shape:'reed', sound:'swish'},
+  papyrus:     {name:'Papirüs',     hp:60,  xp:32,  color:'#6b8e23', size:24, shape:'reed', sound:'swish'},
+  mangrove:    {name:'Mangrov',     hp:120, xp:70,  color:'#5d4037', size:30, shape:'tree', sound:'swish'},
+  cypress_knee:{name:'Selvi Dizi',  hp:80,  xp:45,  color:'#8d6e63', size:18, shape:'knee', sound:'swish'},
+  venus_flytrap:{name:'Venüs Sinekkapan',hp:65,xp:40,color:'#2e7d32',size:16,shape:'trap',sound:'rip'},
+  pitcher_plant:{name:'Su İbriği',  hp:70,  xp:45,  color:'#43a047', size:18, shape:'pitcher', sound:'rip'},
+  sundew:      {name:'Sundew',      hp:40,  xp:30,  color:'#e91e63', size:12, shape:'carnivorous', sound:'rip'},
+  bladderwort: {name:'Bladderwort', hp:35,  xp:25,  color:'#ffb300', size:10, shape:'aquatic', sound:'plop'},
+  water_hyacinth:{name:'Su Sümbülü',hp:45, xp:28,  color:'#9c27b0', size:14, shape:'lily', sound:'plop'},
+  duckweed:    {name:'Su Mercimeği',hp:20, xp:15,  color:'#8bc34a', size:8,  shape:'aquatic', sound:'plop'},
+  lotus:       {name:'Lotus',       hp:60,  xp:38,  color:'#ff80ab', size:18, shape:'lily', sound:'plop'},
+  arrowhead:   {name:'Okbaşı',      hp:50,  xp:30,  color:'#80cbc4', size:16, shape:'aquatic', sound:'swish'},
+  pickerelweed:{name:'Pickerel Otu',hp:55, xp:32,  color:'#4db6ac', size:16, shape:'reed', sound:'swish'},
+  lizard_tail: {name:'Kertenkele Kuyruğu',hp:45,xp:28,color:'#81c784',size:18,shape:'reed',sound:'swish'},
+  bog_rosemary:{name:'Bataklık Biberiyesi',hp:40,xp:25,color:'#ba68c8',size:14,shape:'bush',sound:'crackle'},
+
+  // --- Buzul Bahçesi (Mevcut + Yeni) ---
   ice_flower:  {name:'Buz Çiçeği',  hp:70,  xp:40,  color:'#85c1e9', size:14, shape:'flower', sound:'tink'},
   frozen_moss: {name:'Donmuş Yosun',hp:60,  xp:35,  color:'#5dade2', size:16, shape:'lichen', sound:'tink'},
   snow_bush:   {name:'Karlı Çalı',  hp:80,  xp:45,  color:'#d5d8dc', size:18, shape:'bush', sound:'crunch'},
+  glacier_lichen:{name:'Buzul Likeni',hp:50,xp:30,color:'#a9cce3', size:14, shape:'lichen', sound:'tink'},
+  frost_berry: {name:'Donmuş Böğürtlen',hp:45,xp:28,color:'#e0f7fa',size:12,shape:'berry',sound:'crunch'},
+  ice_crystal: {name:'Buz Kristali',hp:90, xp:55,  color:'#81d4fa', size:16, shape:'crystal', sound:'tink'},
+  snow_drop:   {name:'Kardelen',    hp:40,  xp:25,  color:'#e8f5e9', size:10, shape:'flower', sound:'tink'},
+  winter_rose: {name:'Kış Gülü',    hp:75,  xp:48,  color:'#f48fb1', size:14, shape:'flower', sound:'tink'},
+  arctic_willow:{name:'Kutup Söğüdü',hp:65,xp:42, color:'#c5e1a5', size:20, shape:'bush', sound:'crunch'},
+  tundra_cotton:{name:'Tundra Pamuğu',hp:50,xp:32,color:'#f5f5f5',size:14,shape:'grass',sound:'tink'},
+  reindeer_moss:{name:'Ren Geyiği Yosunu',hp:55,xp:35,color:'#b0bec5',size:12,shape:'lichen',sound:'tink'},
+  ice_poppy:   {name:'Buz Gelinciği',hp:60,xp:38, color:'#80deea', size:14, shape:'flower', sound:'tink'},
+  frozen_fern: {name:'Donmuş Eğrelti',hp:70,xp:45,color:'#4fc3f7',size:18,shape:'fern',sound:'tink'},
+  snow_gentian:{name:'Kar Gentiyanı',hp:55,xp:35,color:'#1e88e5',size:12,shape:'flower',sound:'tink'},
+  alpine_azalea:{name:'Alp Açelyası',hp:65,xp:40,color:'#ec407a',size:16,shape:'bush',sound:'crunch'},
+  glacier_lily:{name:'Buzul Zambağı',hp:60,xp:38,color:'#ffee58',size:14,shape:'flower',sound:'tink'},
+
+  // --- Volkanik Kır (Mevcut + Yeni) ---
   lava_pepper: {name:'Lav Biberi',  hp:90,  xp:55,  color:'#e74c3c', size:14, shape:'flower', sound:'sizzle'},
   ash_flower:  {name:'Küller Çiçeği',hp:75,xp:45,  color:'#bdc3c7', size:12, shape:'flower', sound:'sizzle'},
   fire_moss:   {name:'Ateş Yosunu', hp:100, xp:60,  color:'#f39c12', size:16, shape:'lichen', sound:'sizzle'},
+  magma_cap:   {name:'Magma Şapkası',hp:110,xp:65,color:'#d35400',size:18,shape:'mushroom',sound:'sizzle'},
+  ember_root:  {name:'Kor Kökü',    hp:95,  xp:58,  color:'#e67e22', size:14, shape:'root', sound:'sizzle'},
+  scorch_thistle:{name:'Kavruk Devedikeni',hp:85,xp:52,color:'#c0392b',size:16,shape:'thorn',sound:'sizzle'},
+  inferno_bloom:{name:'Cehennem Çiçeği',hp:120,xp:75,color:'#ff5733',size:18,shape:'flower',sound:'sizzle'},
+  cinder_vine: {name:'Kül Sarmaşığı',hp:105,xp:62,color:'#873600',size:22,shape:'vine',sound:'sizzle'},
+  obsidian_lichen:{name:'Obsidyen Liken',hp:80,xp:48,color:'#2c3e50',size:14,shape:'lichen',sound:'sizzle'},
+  pyre_weed:   {name:'Ateş Otu',    hp:90,  xp:55,  color:'#f1c40f', size:16, shape:'bush', sound:'sizzle'},
+  smolder_berry:{name:'Köz Böğürtlen',hp:70,xp:45,color:'#e74c3c',size:12,shape:'berry',sound:'sizzle'},
+  volcanic_fern:{name:'Volkanik Eğrelti',hp:100,xp:60,color:'#d35400',size:18,shape:'fern',sound:'sizzle'},
+  basalt_bramble:{name:'Bazalt Çalısı',hp:115,xp:68,color:'#34495e',size:20,shape:'bush',sound:'sizzle'},
+  sulfur_tuft: {name:'Kükürt Demeti',hp:85,xp:50,color:'#f39c12',size:12,shape:'lichen',sound:'sizzle'},
+  phoenix_tail:{name:'Anka Kuyruğu',hp:130,xp:80,color:'#e67e22',size:20,shape:'fern',sound:'sizzle'},
 };
 
-// --- BOSS PLANTS ---
+// <!-- 1.4 Boss Tanımları -->
 const BOSSES = [
   {name:'Dev Mantar Lordu', hp:500, xp:200, color:'#6c3483', size:48, biome:'mushroom', drop:'legendary_blade'},
   {name:'Ağlayan Söğüt',   hp:800, xp:350, color:'#1e8449', size:52, biome:'swamp', drop:'vine_hose'},
@@ -216,7 +382,7 @@ const BOSSES = [
   {name:'Volkan Tanrısı',  hp:1500,xp:800, color:'#c0392b', size:60, biome:'volcano', drop:'phoenix_core'},
 ];
 
-// --- RARITY ---
+// <!-- 1.5 Nadirlik Seviyeleri -->
 const RARITY = [
   {id:'common',   name:'Sıradan',  color:'#aaaaaa', mult:1},
   {id:'uncommon', name:'Nadir',    color:'#2ecc71', mult:1.3},
@@ -225,60 +391,76 @@ const RARITY = [
   {id:'legendary',name:'Efsanevi', color:'#e67e22', mult:3},
 ];
 
-// --- ITEM DEFINITIONS ---
+// <!-- 1.6 Eşya Tanımları -->
 const ITEMS = {
-  // Materials
-  wood:       {name:'Odun',      type:'material', rarity:0, icon:'🪵'},
-  fiber:      {name:'Lif',       type:'material', rarity:0, icon:'🧵'},
-  sap:        {name:'Özsu',      type:'material', rarity:0, icon:'💧'},
-  crystal:    {name:'Kristal',   type:'material', rarity:1, icon:'💎'},
-  essence:    {name:'Öz',        type:'material', rarity:2, icon:'✨'},
-  // Consumables
-  oil:        {name:'Testere Yağı',  type:'consumable', rarity:0, icon:'🛢️', effect:{fuel:30}},
-  antidote:   {name:'Zehir Panzehiri',type:'consumable',rarity:1,icon:'💊',effect:{poison_res:20}},
-  speed_potion:{name:'Hız İksiri',   type:'consumable', rarity:2, icon:'⚡', effect:{speed:15}},
-  seed:       {name:'Çim Tohumu',    type:'material', rarity:0, icon:'🌱'},
-  mush_essence:{name:'Mantar Özü',   type:'material', rarity:1, icon:'🍄'},
-  lantern:    {name:'Işıldak',       type:'material', rarity:1, icon:'🔦'},
-  thorn_armor:{name:'Diken Zırhı',   type:'material', rarity:1, icon:'🛡️'},
-  hard_blade: {name:'Sert Bıçak Parçası',type:'material',rarity:1,icon:'🔪'},
-  fuel:       {name:'Yakıt',         type:'material', rarity:1, icon:'⛽'},
-  mud_resist: {name:'Çamur Direnci', type:'material', rarity:1, icon:'🥾'},
-  gem:        {name:'Nadir Mücevher',type:'material', rarity:2, icon:'💎'},
-  frost_blade:{name:'Dondurucu Bıçak',type:'material',rarity:2,icon:'🧊'},
-  crit_gear:  {name:'Kritik Dişli',  type:'material', rarity:2, icon:'⚙️'},
-  legend_box: {name:'Efsanevi Kutu', type:'material', rarity:3, icon:'📦'},
-  fire_blade: {name:'Ateş Bıçağı',   type:'material', rarity:2, icon:'🔥'},
+  // --- Malzemeler (Yeni eklenenler) ---
+  wood:        {name:'Odun',        type:'material', rarity:0, icon:'🪵'},
+  fiber:       {name:'Lif',         type:'material', rarity:0, icon:'🧵'},
+  sap:         {name:'Özsu',        type:'material', rarity:0, icon:'💧'},
+  crystal:     {name:'Kristal',     type:'material', rarity:1, icon:'💎'},
+  essence:     {name:'Öz',          type:'material', rarity:2, icon:'✨'},
+  herb_bundle: {name:'Bitki Demeti',type:'material', rarity:0, icon:'🌿'},
+  nectar:      {name:'Nektar',      type:'material', rarity:1, icon:'🍯'},
+  spore_sack:  {name:'Spor Kesesi', type:'material', rarity:1, icon:'🟢'},
+  fungal_dust: {name:'Mantar Tozu', type:'material', rarity:2, icon:'🧂'},
+  cactus_fruit:{name:'Kaktüs Meyvesi',type:'material',rarity:1,icon:'🌵'},
+  resin:       {name:'Reçine',      type:'material', rarity:1, icon:'🍯'},
+  swamp_essence:{name:'Bataklık Özü',type:'material',rarity:2,icon:'💚'},
+  mosquito_repellent:{name:'Sivrisinek Kovucu',type:'consumable',rarity:1,icon:'🦟',effect:{swamp_speed:1}},
+  frozen_core: {name:'Donmuş Çekirdek',type:'material',rarity:2,icon:'❄️'},
+  ever_ice:    {name:'Sonsuz Buz',  type:'material', rarity:3, icon:'🧊'},
+  magma_shard: {name:'Magma Parçası',type:'material',rarity:2,icon:'🔥'},
+  embers:      {name:'Kor',         type:'material', rarity:1, icon:'✨'},
+  // Mevcut malzemeler korunuyor...
+
+  // --- Sarf Malzemeleri (Güncellenmiş) ---
+  oil:         {name:'Testere Yağı',type:'consumable', rarity:0, icon:'🛢️', effect:{fuel_restore:30}},
+  antidote:    {name:'Zehir Panzehiri',type:'consumable',rarity:1,icon:'💊',effect:{poison_res:20}},
+  speed_potion:{name:'Hız İksiri',  type:'consumable', rarity:2, icon:'⚡', effect:{speed_boost:15, duration:10}},
+  seed:        {name:'Çim Tohumu',  type:'material', rarity:0, icon:'🌱'},
+  mush_essence:{name:'Mantar Özü',  type:'material', rarity:1, icon:'🍄'},
+  lantern:     {name:'Işıldak',     type:'material', rarity:1, icon:'🔦'},
+  thorn_armor: {name:'Diken Zırhı', type:'material', rarity:1, icon:'🛡️'},
+  hard_blade:  {name:'Sert Bıçak Parçası',type:'material',rarity:1,icon:'🔪'},
+  fuel:        {name:'Yakıt',       type:'material', rarity:1, icon:'⛽'},
+  mud_resist:  {name:'Çamur Direnci',type:'material',rarity:1,icon:'🥾'},
+  gem:         {name:'Nadir Mücevher',type:'material',rarity:2,icon:'💎'},
+  frost_blade: {name:'Dondurucu Bıçak',type:'material',rarity:2,icon:'🧊'},
+  crit_gear:   {name:'Kritik Dişli',type:'material', rarity:2, icon:'⚙️'},
+  legend_box:  {name:'Efsanevi Kutu',type:'material',rarity:3,icon:'📦'},
+  fire_blade:  {name:'Ateş Bıçağı', type:'material', rarity:2, icon:'🔥'},
   endurance_stone:{name:'Dayanıklılık Taşı',type:'material',rarity:2,icon:'🪨'},
   phoenix_feather:{name:'Phoenix Tüyü',type:'material',rarity:3,icon:'🪶'},
-  // Saw Equipment
-  gear:       {name:'Basit Dişli',   type:'saw_motor', rarity:0, icon:'⚙️', stats:{speed:5}},
-  turbo_motor:{name:'Turbo Motor',   type:'saw_motor', rarity:2, icon:'🏎️', stats:{speed:15,fuel_eff:10}},
-  eco_motor:  {name:'Tasarruflu Motor',type:'saw_motor',rarity:1,icon:'🔋',stats:{fuel_eff:20}},
-  steel_blade:{name:'Çelik Bıçak',   type:'saw_blade', rarity:0, icon:'🗡️', stats:{power:5}},
-  poison_blade:{name:'Zehirli Bıçak',type:'saw_blade', rarity:2, icon:'🧪', stats:{power:8,poison:10}},
-  fire_blade_eq:{name:'Alev Bıçağı', type:'saw_blade', rarity:3, icon:'🔥', stats:{power:15,fire:15}},
-  long_hose:  {name:'Uzun Hortum',   type:'saw_hose',  rarity:1, icon:'〰️', stats:{range:15}},
-  mag_filter: {name:'Manyetik Filtre',type:'saw_hose', rarity:2, icon:'🧲', stats:{magnet:30}},
-  carbon_body:{name:'Karbon Gövde',  type:'saw_body',  rarity:1, icon:'🛡️', stats:{hp:30}},
-  spike_body: {name:'Dikenli Gövde', type:'saw_body',  rarity:2, icon:'💥', stats:{hp:20,thorns:8}},
-  legendary_blade:{name:'Efsanevi Bıçak',type:'saw_blade',rarity:4,icon:'⚔️',stats:{power:30,crit:15}},
-  vine_hose:  {name:'Sarmaşık Hortumu',type:'saw_hose',rarity:4,icon:'🌿',stats:{range:20,slow:15}},
-  thorn_crown:{name:'Diken Tacı',    type:'saw_body',  rarity:4, icon:'👑', stats:{hp:50,thorns:20}},
-  frost_heart:{name:'Buz Kalbi',     type:'saw_blade', rarity:4, icon:'❄️', stats:{power:25,frost:20}},
-  phoenix_core:{name:'Phoenix Çekirdeği',type:'saw_motor',rarity:4,icon:'🔆',stats:{speed:25,fuel_eff:30}},
-  // Character Equipment
-  suit_common:{name:'Basit Tulum',   type:'char_suit', rarity:0, icon:'👕', stats:{armor:3}},
-  mask_common:{name:'Basit Maske',   type:'char_mask', rarity:0, icon:'😷', stats:{poison_res:5}},
-  boot_common:{name:'Basit Bot',     type:'char_boot', rarity:0, icon:'👢', stats:{speed:3}},
-  glove_common:{name:'Basit Eldiven',type:'char_glove',rarity:0, icon:'🧤', stats:{power:3}},
-  suit_rare:  {name:'Avcı Tulumu',   type:'char_suit', rarity:2, icon:'👕', stats:{armor:8,luck:5}},
-  mask_rare:  {name:'Savaş Maske',   type:'char_mask', rarity:2, icon:'😷', stats:{fire_res:10,poison_res:10}},
-  boot_rare:  {name:'Hız Botu',      type:'char_boot', rarity:2, icon:'👢', stats:{speed:10,mud_imm:1}},
-  glove_rare: {name:'Güç Eldiveni',  type:'char_glove',rarity:2, icon:'🧤', stats:{power:8,lifesteal:5}},
+
+  // --- Testere Ekipmanları (Yüzdelik bonuslarla güncellenmiş) ---
+  gear:        {name:'Basit Dişli', type:'saw_motor', rarity:0, icon:'⚙️', stats:{speed_pct:5}},
+  turbo_motor: {name:'Turbo Motor', type:'saw_motor', rarity:2, icon:'🏎️', stats:{speed_pct:15, fuel_eff:10}},
+  eco_motor:   {name:'Tasarruflu Motor',type:'saw_motor',rarity:1,icon:'🔋',stats:{fuel_eff:20}},
+  steel_blade: {name:'Çelik Bıçak', type:'saw_blade', rarity:0, icon:'🗡️', stats:{power_pct:5}},
+  poison_blade:{name:'Zehirli Bıçak',type:'saw_blade', rarity:2, icon:'🧪', stats:{power_pct:8, poison_chance:10, poison_dmg:5}},
+  fire_blade_eq:{name:'Alev Bıçağı',type:'saw_blade', rarity:3, icon:'🔥', stats:{power_pct:15, fire_chance:15, fire_dmg:10}},
+  long_hose:   {name:'Uzun Hortum', type:'saw_hose',  rarity:1, icon:'〰️', stats:{range_pct:15}},
+  mag_filter:  {name:'Manyetik Filtre',type:'saw_hose',rarity:2,icon:'🧲',stats:{magnet_pct:30}},
+  carbon_body: {name:'Karbon Gövde',type:'saw_body',  rarity:1, icon:'🛡️', stats:{hp_pct:20, armor:5}},
+  spike_body:  {name:'Dikenli Gövde',type:'saw_body',rarity:2,icon:'💥',stats:{hp_pct:10, thorns_dmg:8}},
+  legendary_blade:{name:'Efsanevi Bıçak',type:'saw_blade',rarity:4,icon:'⚔️',stats:{power_pct:30, crit_chance:15, crit_dmg:25}},
+  vine_hose:   {name:'Sarmaşık Hortumu',type:'saw_hose',rarity:4,icon:'🌿',stats:{range_pct:20, slow_chance:15, slow_amount:30}},
+  thorn_crown: {name:'Diken Tacı',  type:'saw_body',  rarity:4, icon:'👑', stats:{hp_pct:30, thorns_dmg:20, reflect_chance:10}},
+  frost_heart: {name:'Buz Kalbi',   type:'saw_blade', rarity:4, icon:'❄️', stats:{power_pct:25, freeze_chance:10, frost_dmg:15}},
+  phoenix_core:{name:'Phoenix Çekirdeği',type:'saw_motor',rarity:4,icon:'🔆',stats:{speed_pct:25, fuel_eff:30, revive_chance:5}},
+
+  // --- Karakter Ekipmanları (Yüzdelik bonuslarla güncellenmiş) ---
+  suit_common: {name:'Basit Tulum', type:'char_suit', rarity:0, icon:'👕', stats:{armor:3, hp_pct:5}},
+  mask_common: {name:'Basit Maske', type:'char_mask', rarity:0, icon:'😷', stats:{poison_res:5, air_filter:10}},
+  boot_common: {name:'Basit Bot',   type:'char_boot', rarity:0, icon:'👢', stats:{speed_pct:3, dodge_chance:2}},
+  glove_common:{name:'Basit Eldiven',type:'char_glove',rarity:0,icon:'🧤',stats:{power_pct:3, attack_speed:2}},
+  suit_rare:   {name:'Avcı Tulumu', type:'char_suit', rarity:2, icon:'👕', stats:{armor:8, luck_pct:5, hp_pct:10}},
+  mask_rare:   {name:'Savaş Maskesi',type:'char_mask',rarity:2,icon:'😷',stats:{fire_res:10, poison_res:10, fear_immune:1}},
+  boot_rare:   {name:'Hız Botu',    type:'char_boot', rarity:2, icon:'👢', stats:{speed_pct:10, mud_immune:1, dodge_chance:5}},
+  glove_rare:  {name:'Güç Eldiveni',type:'char_glove',rarity:2,icon:'🧤',stats:{power_pct:8, lifesteal_pct:5, crit_dmg:10}},
 };
 
-// --- SKILLS ---
+// <!-- 1.7 Yetenek Tanımları -->
 const SKILLS = [
   {id:'double_strike', name:'Çift Vuruş',     desc:'Her 3. vuruşta çift hasar', icon:'⚔️', max:3, effect:{doubleChance:0.15}},
   {id:'magnetic',     name:'Manyetik Bıçak',  desc:'Eşyalar otomatik gelir',    icon:'🧲', max:3, effect:{magnet:25}},
@@ -288,7 +470,7 @@ const SKILLS = [
   {id:'minion',       name:'Canavar Tohumu',   desc:'Minyon çıkar',              icon:'🐾', max:3, effect:{minionChance:0.08}},
 ];
 
-// --- CRAFTING RECIPES ---
+// <!-- 1.8 Üretim Tarifleri -->
 const RECIPES = [
   {name:'Testere Yağı x3',  result:'oil',       count:3, mats:{wood:3}},
   {name:'Basit Dişli',      result:'gear',       count:1, mats:{fiber:5,sap:2}},
@@ -309,7 +491,7 @@ const RECIPES = [
   {name:'Güç Eldiveni',     result:'glove_rare', count:1, mats:{glove_common:1,hard_blade:2,crystal:2}},
 ];
 
-// --- SLOT TYPES ---
+// <!-- 1.9 Ekipman Yuva Tipleri -->
 const SAW_SLOTS = [
   {id:'saw_blade', name:'Bıçak'},
   {id:'saw_motor', name:'Motor'},
@@ -323,9 +505,9 @@ const CHAR_SLOTS = [
   {id:'char_glove', name:'Eldiven'},
 ];
 
-// ============================================================
-// GAME STATE
-// ============================================================
+// <!-- ========== BÖLÜM 2: OYUN DURUMU DEĞİŞKENLERİ ========== -->
+
+// <!-- 2.1 Oynanış Bayrakları ve Zamanlayıcılar -->
 let canvas, ctx, minimapCanvas, minimapCtx;
 let gameRunning = false;
 let lastTime = 0;
@@ -333,6 +515,7 @@ let keys = {};
 let mouse = {x:0, y:0, down:false, worldX:0, worldY:0};
 let camera = {x:0, y:0};
 
+// <!-- 2.2 Oyuncu Nesnesi -->
 const player = {
   x: C.WORLD_W * C.TILE / 2,
   y: C.WORLD_H * C.TILE / 2,
@@ -343,9 +526,9 @@ const player = {
   gold: 0, kills: 0,
   skillPoints: 0, skills: {},
   equipment: {saw_blade:null,saw_motor:null,saw_hose:null,saw_body:null,char_suit:null,char_mask:null,char_boot:null,char_glove:null},
-  inventory: [], // [{itemId, count}]
+  inventory: [],
   attackCd: 0, attackAnim: 0,
-  hitCount: 0, // for double strike
+  hitCount: 0,
   radius: 18,
   angle: 0,
   poisonRes: 0, fireRes: 0, frostRes: 0,
@@ -354,31 +537,47 @@ const player = {
   fuelEff: 0, aoe: 0, minionChance: 0,
   mudImmune: false,
   poisonDmg: 0, poisonTimer: 0,
+  // Yeni eklenen özel efekt değişkenleri
+  critDmg: 150,           // Kritik hasar çarpanı (%)
+  poisonChance: 0,        // Zehirleme şansı (%)
+  fireChance: 0,          // Ateşe verme şansı (%)
+  fireDmg: 0,             // Ateş hasarı
+  freezeChance: 0,        // Dondurma şansı (%)
+  slowChance: 0,          // Yavaşlatma şansı (%)
+  slowAmount: 0,          // Yavaşlatma miktarı (%)
+  reflectChance: 0,       // Hasar yansıtma şansı (%)
+  reviveChance: 0,        // Canlanma şansı (%)
+  dodgeChance: 0,         // Kaçınma şansı (%)
+  attackSpeed: 0,         // Saldırı hızı bonusu (%)
 };
 
+// <!-- 2.3 Dünya Varlıkları -->
 let plants = [];     // {x,y,type,hp,maxHp,isBoss,bossData,lootDropped}
 let loots = [];      // {x,y,itemId,count,rarity,lifetime,vy}
 let particles = [];  // {x,y,vx,vy,life,maxLife,color,size}
 let dmgNums = [];    // {x,y,text,color,life}
 let minions = [];    // {x,y,target,hp,attackCd}
+
+// <!-- 2.4 Bildirimler ve Görevler -->
 let notifications = [];
 let quests = {bushCut:0, mushCut:0, totalCut:0, targetBush:3, targetMush:2, targetTotal:10};
 
-// Joystick state
+// <!-- 2.5 Mobil Kontrol Durumu -->
 let joystick = {active:false, baseX:0, baseY:0, stickX:0, stickY:0, dx:0, dy:0, touchId:null};
 let isMobile = false;
 
-// World tile data for biome determination
+// Dünya döşeme verisi (biyom belirleme için)
 let worldTiles = null;
 
-// ============================================================
-// AUDIO ENGINE (Web Audio API)
-// ============================================================
+// <!-- ========== BÖLÜM 3: YARDIMCI FONKSİYONLAR VE SES MOTORU ========== -->
+
+// <!-- 3.1 Ses Motoru Başlatma -->
 let audioCtx = null;
 function initAudio() {
   audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 }
 
+// <!-- 3.2 Ses Çalma -->
 function playSound(type, vol=0.3) {
   if (!audioCtx) return;
   const osc = audioCtx.createOscillator();
@@ -388,71 +587,42 @@ function playSound(type, vol=0.3) {
   gain.gain.value = vol;
   const t = audioCtx.currentTime;
   switch(type) {
-    case 'tss': // grass
-      osc.type='sawtooth'; osc.frequency.setValueAtTime(800,t); osc.frequency.exponentialRampToValueAtTime(200,t+0.1);
-      gain.gain.exponentialRampToValueAtTime(0.01,t+0.1); osc.start(t); osc.stop(t+0.1); break;
-    case 'shlap': // mushroom
-      osc.type='sine'; osc.frequency.setValueAtTime(150,t); osc.frequency.exponentialRampToValueAtTime(60,t+0.15);
-      gain.gain.exponentialRampToValueAtTime(0.01,t+0.15); osc.start(t); osc.stop(t+0.15); break;
-    case 'crack': // cactus/thorn
-      osc.type='square'; osc.frequency.setValueAtTime(400,t); osc.frequency.exponentialRampToValueAtTime(100,t+0.08);
-      gain.gain.exponentialRampToValueAtTime(0.01,t+0.08); osc.start(t); osc.stop(t+0.08); break;
-    case 'crackle': // dry bush
-      osc.type='sawtooth'; osc.frequency.setValueAtTime(600,t); osc.frequency.exponentialRampToValueAtTime(150,t+0.12);
-      gain.gain.exponentialRampToValueAtTime(0.01,t+0.12); osc.start(t); osc.stop(t+0.12); break;
-    case 'swish': // reed
-      osc.type='triangle'; osc.frequency.setValueAtTime(500,t); osc.frequency.exponentialRampToValueAtTime(300,t+0.1);
-      gain.gain.exponentialRampToValueAtTime(0.01,t+0.1); osc.start(t); osc.stop(t+0.1); break;
-    case 'plop': // lily
-      osc.type='sine'; osc.frequency.setValueAtTime(250,t); osc.frequency.exponentialRampToValueAtTime(80,t+0.2);
-      gain.gain.exponentialRampToValueAtTime(0.01,t+0.2); osc.start(t); osc.stop(t+0.2); break;
-    case 'rip': // vine
-      osc.type='sawtooth'; osc.frequency.setValueAtTime(300,t); osc.frequency.exponentialRampToValueAtTime(50,t+0.2);
-      gain.gain.exponentialRampToValueAtTime(0.01,t+0.2); osc.start(t); osc.stop(t+0.2); break;
-    case 'tink': // ice
-      osc.type='sine'; osc.frequency.setValueAtTime(1200,t); osc.frequency.exponentialRampToValueAtTime(600,t+0.12);
-      gain.gain.exponentialRampToValueAtTime(0.01,t+0.12); osc.start(t); osc.stop(t+0.12); break;
-    case 'crunch': // snow
-      osc.type='square'; osc.frequency.setValueAtTime(200,t); osc.frequency.exponentialRampToValueAtTime(80,t+0.15);
-      gain.gain.exponentialRampToValueAtTime(0.01,t+0.15); osc.start(t); osc.stop(t+0.15); break;
-    case 'sizzle': // lava
-      osc.type='sawtooth'; osc.frequency.setValueAtTime(100,t); osc.frequency.exponentialRampToValueAtTime(400,t+0.15);
-      gain.gain.exponentialRampToValueAtTime(0.01,t+0.15); osc.start(t); osc.stop(t+0.15); break;
-    case 'hit':
-      osc.type='square'; osc.frequency.setValueAtTime(200,t); osc.frequency.exponentialRampToValueAtTime(80,t+0.05);
-      gain.gain.exponentialRampToValueAtTime(0.01,t+0.05); osc.start(t); osc.stop(t+0.05); break;
-    case 'levelup':
-      osc.type='sine'; osc.frequency.setValueAtTime(400,t); osc.frequency.exponentialRampToValueAtTime(800,t+0.3);
-      gain.gain.exponentialRampToValueAtTime(0.01,t+0.4); osc.start(t); osc.stop(t+0.4); break;
-    case 'drop':
-      osc.type='sine'; osc.frequency.setValueAtTime(600,t); osc.frequency.exponentialRampToValueAtTime(900,t+0.1);
-      gain.gain.exponentialRampToValueAtTime(0.01,t+0.15); osc.start(t); osc.stop(t+0.15); break;
-    case 'equip':
-      osc.type='triangle'; osc.frequency.setValueAtTime(500,t); osc.frequency.exponentialRampToValueAtTime(700,t+0.15);
-      gain.gain.exponentialRampToValueAtTime(0.01,t+0.2); osc.start(t); osc.stop(t+0.2); break;
-    default:
-      osc.type='sine'; osc.frequency.setValueAtTime(300,t);
-      gain.gain.exponentialRampToValueAtTime(0.01,t+0.1); osc.start(t); osc.stop(t+0.1);
+    case 'tss': osc.type='sawtooth'; osc.frequency.setValueAtTime(800,t); osc.frequency.exponentialRampToValueAtTime(200,t+0.1); gain.gain.exponentialRampToValueAtTime(0.01,t+0.1); osc.start(t); osc.stop(t+0.1); break;
+    case 'shlap': osc.type='sine'; osc.frequency.setValueAtTime(150,t); osc.frequency.exponentialRampToValueAtTime(60,t+0.15); gain.gain.exponentialRampToValueAtTime(0.01,t+0.15); osc.start(t); osc.stop(t+0.15); break;
+    case 'crack': osc.type='square'; osc.frequency.setValueAtTime(400,t); osc.frequency.exponentialRampToValueAtTime(100,t+0.08); gain.gain.exponentialRampToValueAtTime(0.01,t+0.08); osc.start(t); osc.stop(t+0.08); break;
+    case 'crackle': osc.type='sawtooth'; osc.frequency.setValueAtTime(600,t); osc.frequency.exponentialRampToValueAtTime(150,t+0.12); gain.gain.exponentialRampToValueAtTime(0.01,t+0.12); osc.start(t); osc.stop(t+0.12); break;
+    case 'swish': osc.type='triangle'; osc.frequency.setValueAtTime(500,t); osc.frequency.exponentialRampToValueAtTime(300,t+0.1); gain.gain.exponentialRampToValueAtTime(0.01,t+0.1); osc.start(t); osc.stop(t+0.1); break;
+    case 'plop': osc.type='sine'; osc.frequency.setValueAtTime(250,t); osc.frequency.exponentialRampToValueAtTime(80,t+0.2); gain.gain.exponentialRampToValueAtTime(0.01,t+0.2); osc.start(t); osc.stop(t+0.2); break;
+    case 'rip': osc.type='sawtooth'; osc.frequency.setValueAtTime(300,t); osc.frequency.exponentialRampToValueAtTime(50,t+0.2); gain.gain.exponentialRampToValueAtTime(0.01,t+0.2); osc.start(t); osc.stop(t+0.2); break;
+    case 'tink': osc.type='sine'; osc.frequency.setValueAtTime(1200,t); osc.frequency.exponentialRampToValueAtTime(600,t+0.12); gain.gain.exponentialRampToValueAtTime(0.01,t+0.12); osc.start(t); osc.stop(t+0.12); break;
+    case 'crunch': osc.type='square'; osc.frequency.setValueAtTime(200,t); osc.frequency.exponentialRampToValueAtTime(80,t+0.15); gain.gain.exponentialRampToValueAtTime(0.01,t+0.15); osc.start(t); osc.stop(t+0.15); break;
+    case 'sizzle': osc.type='sawtooth'; osc.frequency.setValueAtTime(100,t); osc.frequency.exponentialRampToValueAtTime(400,t+0.15); gain.gain.exponentialRampToValueAtTime(0.01,t+0.15); osc.start(t); osc.stop(t+0.15); break;
+    case 'hit': osc.type='square'; osc.frequency.setValueAtTime(200,t); osc.frequency.exponentialRampToValueAtTime(80,t+0.05); gain.gain.exponentialRampToValueAtTime(0.01,t+0.05); osc.start(t); osc.stop(t+0.05); break;
+    case 'levelup': osc.type='sine'; osc.frequency.setValueAtTime(400,t); osc.frequency.exponentialRampToValueAtTime(800,t+0.3); gain.gain.exponentialRampToValueAtTime(0.01,t+0.4); osc.start(t); osc.stop(t+0.4); break;
+    case 'drop': osc.type='sine'; osc.frequency.setValueAtTime(600,t); osc.frequency.exponentialRampToValueAtTime(900,t+0.1); gain.gain.exponentialRampToValueAtTime(0.01,t+0.15); osc.start(t); osc.stop(t+0.15); break;
+    case 'equip': osc.type='triangle'; osc.frequency.setValueAtTime(500,t); osc.frequency.exponentialRampToValueAtTime(700,t+0.15); gain.gain.exponentialRampToValueAtTime(0.01,t+0.2); osc.start(t); osc.stop(t+0.2); break;
+    default: osc.type='sine'; osc.frequency.setValueAtTime(300,t); gain.gain.exponentialRampToValueAtTime(0.01,t+0.1); osc.start(t); osc.stop(t+0.1);
   }
 }
 
-// ============================================================
-// WORLD GENERATION
-// ============================================================
-function getBiome(tx, ty) {
-  // Biome zones: concentric from center
-  const cx = C.WORLD_W / 2, cy = C.WORLD_H / 2;
-  const dist = Math.sqrt((tx-cx)**2 + (ty-cy)**2);
-  const maxDist = Math.sqrt(cx**2 + cy**2);
-  const norm = dist / maxDist;
-  const levelFactor = Math.min(norm * 6, 5.99);
-  const biomeIdx = Math.floor(levelFactor);
-  // Add some noise
-  const noise = (simpleHash(tx*7+ty*13) % 100) / 100;
-  const idx = Math.min(Math.max(biomeIdx + (noise > 0.85 ? 1 : noise < 0.15 ? -1 : 0), 0), BIOMES.length-1);
-  return BIOMES[idx];
+// <!-- 3.3 Mesafe Hesaplama -->
+function dist(x1,y1,x2,y2) { return Math.sqrt((x2-x1)**2+(y2-y1)**2); }
+
+// <!-- 3.4 Hasar Sayısı Oluşturma -->
+function spawnDmgNum(x, y, text, color) {
+  dmgNums.push({x, y, text: String(text), color, life: 1});
 }
 
+// <!-- 3.5 Bildirim Gösterme -->
+function showNotification(text) {
+  const el = document.getElementById('notification');
+  el.textContent = text;
+  el.style.display = 'block';
+  clearTimeout(el._timer);
+  el._timer = setTimeout(() => el.style.display = 'none', 2500);
+}
+
+// <!-- 3.6 Basit Hash Fonksiyonu -->
 function simpleHash(n) {
   n = ((n >> 16) ^ n) * 0x45d9f3b;
   n = ((n >> 16) ^ n) * 0x45d9f3b;
@@ -460,6 +630,22 @@ function simpleHash(n) {
   return Math.abs(n);
 }
 
+// <!-- ========== BÖLÜM 4: DÜNYA VE İÇERİK ÜRETİMİ ========== -->
+
+// <!-- 4.1 Biyom Belirleme -->
+function getBiome(tx, ty) {
+  const cx = C.WORLD_W / 2, cy = C.WORLD_H / 2;
+  const dist = Math.sqrt((tx-cx)**2 + (ty-cy)**2);
+  const maxDist = Math.sqrt(cx**2 + cy**2);
+  const norm = dist / maxDist;
+  const levelFactor = Math.min(norm * 6, 5.99);
+  const biomeIdx = Math.floor(levelFactor);
+  const noise = (simpleHash(tx*7+ty*13) % 100) / 100;
+  const idx = Math.min(Math.max(biomeIdx + (noise > 0.85 ? 1 : noise < 0.15 ? -1 : 0), 0), BIOMES.length-1);
+  return BIOMES[idx];
+}
+
+// <!-- 4.2 Bitkileri Oluşturma -->
 function generatePlants() {
   plants = [];
   const seed = Date.now();
@@ -483,11 +669,10 @@ function generatePlants() {
       }
     }
   }
-  // Add bosses
+  // Boss'ları ekle
   for (const boss of BOSSES) {
     const biome = BIOMES.find(b => b.id === boss.biome);
     if (player.level < biome.req) continue;
-    // Place boss in its biome area
     const cx = C.WORLD_W/2, cy = C.WORLD_H/2;
     let bx, by, attempts = 0;
     do {
@@ -505,6 +690,7 @@ function generatePlants() {
   }
 }
 
+// <!-- 4.3 Yakına Bitki Ekleme -->
 function spawnPlantNear(px, py, radius) {
   const biome = getBiome(Math.floor(px/C.TILE), Math.floor(py/C.TILE));
   if (player.level < biome.req) return;
@@ -520,68 +706,93 @@ function spawnPlantNear(px, py, radius) {
   });
 }
 
-// ============================================================
-// STATS CALCULATION
-// ============================================================
-function recalcStats() {
-  let power = C.BASE_POWER + (player.level - 1) * 2;
-  let speed = 1.0 + (player.level - 1) * 0.05;
-  let luck = 0;
-  let hp = C.PLAYER_HP;
-  let armor = 0, crit = 5, lifesteal = 0, thorns = 0;
-  let atkRange = C.ATK_RANGE, magnetRange = C.MAGNET_RANGE;
-  let fuelEff = 0, aoe = 0, minionChance = 0;
-  let poisonRes = 0, fireRes = 0, frostRes = 0;
-  let mudImmune = false;
+// <!-- ========== BÖLÜM 5: İSTATİSTİK VE ENVANTER YÖNETİMİ ========== -->
 
-  // Equipment stats
+// <!-- 5.1 İstatistikleri Yeniden Hesapla -->
+function recalcStats() {
+  // Temel istatistikler (sabit değerler)
+  let basePower = C.BASE_POWER + (player.level - 1) * 2;
+  let baseSpeed = 1.0 + (player.level - 1) * 0.05;
+  let baseHp = C.PLAYER_HP;
+  let baseAtkRange = C.ATK_RANGE;
+  let baseMagnetRange = C.MAGNET_RANGE;
+
+  // Yüzdelik ve sabit bonuslar için toplayıcılar
+  let powerPct = 0, speedPct = 0, hpPct = 0, luckPct = 0, critChance = 5, critDmg = 150;
+  let armor = 0, lifesteal = 0, thorns = 0, poisonRes = 0, fireRes = 0, frostRes = 0;
+  let fuelEff = 0, aoe = 0, minionChance = 0, mudImmune = false;
+  let poisonChance = 0, poisonDmg = 0, fireChance = 0, fireDmg = 0;
+  let freezeChance = 0, slowChance = 0, slowAmount = 0, reflectChance = 0, reviveChance = 0;
+  let dodgeChance = 0, attackSpeed = 0;
+
+  // Ekipman istatistiklerini topla
   for (const slot of [...SAW_SLOTS, ...CHAR_SLOTS]) {
     const eq = player.equipment[slot.id];
     if (eq && ITEMS[eq]) {
       const s = ITEMS[eq].stats || {};
-      power += s.power || 0;
-      speed += (s.speed || 0) / 100;
-      luck += s.luck || 0;
-      hp += s.hp || 0;
+      // Sabit bonuslar
       armor += s.armor || 0;
-      crit += s.crit || 0;
       lifesteal += s.lifesteal || 0;
-      thorns += s.thorns || 0;
-      atkRange += s.range || 0;
-      magnetRange += s.magnet || 0;
-      fuelEff += s.fuel_eff || 0;
+      thorns += s.thorns_dmg || 0;
       poisonRes += s.poison_res || 0;
       fireRes += s.fire_res || 0;
-      frostRes += s.frost || 0;
-      if (s.mud_imm) mudImmune = true;
-      if (s.slow) aoe += 0; // slow on hit
+      frostRes += s.frost_res || 0;
+      fuelEff += s.fuel_eff || 0;
+      aoe += s.aoe || 0;
+      minionChance += s.minionChance || 0;
+      if (s.mud_immune) mudImmune = true;
+      // Yüzdelik bonuslar
+      powerPct += s.power_pct || 0;
+      speedPct += s.speed_pct || 0;
+      hpPct += s.hp_pct || 0;
+      luckPct += s.luck_pct || 0;
+      critChance += s.crit_chance || 0;
+      critDmg += s.crit_dmg || 0;
+      // Özel efektler
+      poisonChance += s.poison_chance || 0;
+      poisonDmg += s.poison_dmg || 0;
+      fireChance += s.fire_chance || 0;
+      fireDmg += s.fire_dmg || 0;
+      freezeChance += s.freeze_chance || 0;
+      slowChance += s.slow_chance || 0;
+      slowAmount += s.slow_amount || 0;
+      reflectChance += s.reflect_chance || 0;
+      reviveChance += s.revive_chance || 0;
+      dodgeChance += s.dodge_chance || 0;
+      attackSpeed += s.attack_speed || 0;
+      // Menzil bonusları
+      baseAtkRange += s.range || 0;
+      baseAtkRange *= (1 + (s.range_pct || 0) / 100);
+      baseMagnetRange += s.magnet || 0;
+      baseMagnetRange *= (1 + (s.magnet_pct || 0) / 100);
     }
   }
 
-  // Skill stats
+  // Yeteneklerden gelen bonuslar
   for (const [sid, lvl] of Object.entries(player.skills)) {
     const sk = SKILLS.find(s => s.id === sid);
     if (sk && lvl > 0) {
       const e = sk.effect;
-      if (e.doubleChance) { /* handled in combat */ }
-      if (e.magnet) magnetRange += e.magnet * lvl;
-      if (e.luck) luck += e.luck * lvl;
+      if (e.magnet) baseMagnetRange += e.magnet * lvl;
+      if (e.luck) luckPct += e.luck * lvl;
       if (e.fuel_eff) fuelEff += e.fuel_eff * lvl;
       if (e.aoe) aoe += e.aoe * lvl;
       if (e.minionChance) minionChance += e.minionChance * lvl;
     }
   }
 
-  player.power = power;
-  player.speed = speed;
-  player.luck = luck;
-  player.maxHp = hp;
+  // Nihai istatistikleri hesapla
+  player.power = Math.floor(basePower * (1 + powerPct / 100));
+  player.speed = baseSpeed * (1 + speedPct / 100);
+  player.maxHp = Math.floor(baseHp * (1 + hpPct / 100));
+  player.luck = Math.floor(luckPct);
   player.armor = armor;
-  player.crit = crit;
+  player.crit = critChance;
+  player.critDmg = critDmg;
   player.lifesteal = lifesteal;
   player.thorns = thorns;
-  player.atkRange = atkRange;
-  player.magnetRange = magnetRange;
+  player.atkRange = Math.floor(baseAtkRange);
+  player.magnetRange = Math.floor(baseMagnetRange);
   player.fuelEff = fuelEff;
   player.aoe = aoe;
   player.minionChance = minionChance;
@@ -589,18 +800,27 @@ function recalcStats() {
   player.fireRes = fireRes;
   player.frostRes = frostRes;
   player.mudImmune = mudImmune;
+  player.poisonChance = poisonChance;
+  player.poisonDmg = poisonDmg;
+  player.fireChance = fireChance;
+  player.fireDmg = fireDmg;
+  player.freezeChance = freezeChance;
+  player.slowChance = slowChance;
+  player.slowAmount = slowAmount;
+  player.reflectChance = reflectChance;
+  player.reviveChance = reviveChance;
+  player.dodgeChance = dodgeChance;
+  player.attackSpeed = attackSpeed;
+
   if (player.hp > player.maxHp) player.hp = player.maxHp;
 }
 
-// ============================================================
-// INVENTORY HELPERS
-// ============================================================
+// <!-- 5.2 Envanter İşlemleri -->
 function addItem(itemId, count=1) {
   const existing = player.inventory.find(i => i.itemId === itemId);
   if (existing) existing.count += count;
   else player.inventory.push({itemId, count});
 }
-
 function removeItem(itemId, count=1) {
   const idx = player.inventory.findIndex(i => i.itemId === itemId);
   if (idx === -1) return false;
@@ -608,29 +828,21 @@ function removeItem(itemId, count=1) {
   else player.inventory[idx].count -= count;
   return true;
 }
-
 function hasItem(itemId, count=1) {
   const item = player.inventory.find(i => i.itemId === itemId);
   return item && item.count >= count;
 }
-
 function itemCount(itemId) {
   const item = player.inventory.find(i => i.itemId === itemId);
   return item ? item.count : 0;
 }
 
-// ============================================================
-// LOOT DROP
-// ============================================================
+// <!-- 5.3 Loot Yönetimi -->
 function dropLoot(x, y, plantType, isBoss, bossData) {
   const biome = getBiome(Math.floor(x/C.TILE), Math.floor(y/C.TILE));
   const luckBonus = player.luck / 100;
-
   if (isBoss && bossData) {
-    // Boss always drops legendary
-    const dropId = bossData.drop;
-    spawnLoot(x, y, dropId, 1, 4);
-    // Plus materials
+    spawnLoot(x, y, bossData.drop, 1, 4);
     for (let i = 0; i < 5; i++) {
       const mats = ['wood','fiber','sap','crystal','essence'];
       spawnLoot(x + (Math.random()-0.5)*40, y + (Math.random()-0.5)*40, mats[i%5], 3+i, Math.min(i,4));
@@ -638,100 +850,62 @@ function dropLoot(x, y, plantType, isBoss, bossData) {
     spawnLoot(x, y, 'gem', 5, 3);
     return;
   }
-
-  // 100% material
   const mats = ['wood','fiber','sap'];
   const matRarity = Math.random() < 0.1 + luckBonus ? 1 : 0;
   const mat = mats[Math.floor(Math.random()*mats.length)];
   spawnLoot(x, y, mat, 1 + Math.floor(Math.random()*3), matRarity);
-
-  // 70% extra material
   if (Math.random() < 0.7 + luckBonus * 0.1) {
     const biomeMat = biome.drops[Math.floor(Math.random()*biome.drops.length)];
     if (ITEMS[biomeMat]) spawnLoot(x+(Math.random()-0.5)*20, y+(Math.random()-0.5)*20, biomeMat, 1, ITEMS[biomeMat].rarity);
   }
-
-  // 25% equipment part
   if (Math.random() < 0.25 + luckBonus * 0.05) {
     const eqTypes = ['saw_blade','saw_motor','saw_hose','saw_body','char_suit','char_mask','char_boot','char_glove'];
     const eqItems = Object.entries(ITEMS).filter(([k,v]) => eqTypes.includes(v.type) && v.rarity <= Math.min(Math.floor(Math.random()*3)+Math.floor(luckBonus*2),4));
-    if (eqItems.length > 0) {
-      const [id, def] = eqItems[Math.floor(Math.random()*eqItems.length)];
-      spawnLoot(x+(Math.random()-0.5)*30, y+(Math.random()-0.5)*30, id, 1, def.rarity);
-    }
+    if (eqItems.length) { const [id, def] = eqItems[Math.floor(Math.random()*eqItems.length)]; spawnLoot(x+(Math.random()-0.5)*30, y+(Math.random()-0.5)*30, id, 1, def.rarity); }
   }
-
-  // 4% wearable
   if (Math.random() < 0.04 + luckBonus * 0.02) {
     const wearables = Object.entries(ITEMS).filter(([k,v]) => v.type.startsWith('char_') && v.rarity >= 1);
-    if (wearables.length > 0) {
-      const [id, def] = wearables[Math.floor(Math.random()*wearables.length)];
-      spawnLoot(x+(Math.random()-0.5)*30, y+(Math.random()-0.5)*30, id, 1, def.rarity);
-    }
+    if (wearables.length) { const [id, def] = wearables[Math.floor(Math.random()*wearables.length)]; spawnLoot(x+(Math.random()-0.5)*30, y+(Math.random()-0.5)*30, id, 1, def.rarity); }
   }
-
-  // 1% legendary
   if (Math.random() < 0.01 + luckBonus * 0.01) {
     const legendaries = Object.entries(ITEMS).filter(([k,v]) => v.rarity === 4);
-    if (legendaries.length > 0) {
-      const [id, def] = legendaries[Math.floor(Math.random()*legendaries.length)];
-      spawnLoot(x, y, id, 1, 4);
-    }
+    if (legendaries.length) { const [id, def] = legendaries[Math.floor(Math.random()*legendaries.length)]; spawnLoot(x, y, id, 1, 4); }
   }
-
-  // Gold
-  const goldAmt = Math.floor(1 + Math.random() * biome.difficulty * 3);
-  player.gold += goldAmt;
+  player.gold += Math.floor(1 + Math.random() * biome.difficulty * 3);
 }
-
 function spawnLoot(x, y, itemId, count, rarity) {
   loots.push({x, y, itemId, count, rarity, lifetime: C.LOOT_LIFETIME, vy: -2 - Math.random()*2, grounded: false});
   playSound('drop', 0.15);
 }
 
-// ============================================================
-// COMBAT
-// ============================================================
+// <!-- ========== BÖLÜM 6: SAVAŞ VE HASAR SİSTEMİ ========== -->
+
+// <!-- 6.1 Doğrudan Saldırı -->
 function attackPlantDirect(plant) {
   let dmg = player.power;
   let isCrit = Math.random() * 100 < player.crit;
   if (isCrit) dmg = Math.floor(dmg * 1.5);
-
-  // Double strike
   player.hitCount++;
   const doubleLvl = player.skills.double_strike || 0;
   if (doubleLvl > 0 && player.hitCount % 3 === 0) {
     const chance = SKILLS.find(s=>s.id==='double_strike').effect.doubleChance * doubleLvl;
-    if (Math.random() < chance) {
-      dmg *= 2;
-      spawnDmgNum(plant.x, plant.y - 20, 'ÇİFT!', '#f1c40f');
-    }
+    if (Math.random() < chance) { dmg *= 2; spawnDmgNum(plant.x, plant.y - 20, 'ÇİFT!', '#f1c40f'); }
   }
-
   plant.hp -= dmg;
-
-  // Damage number
   const color = isCrit ? '#f1c40f' : '#fff';
   spawnDmgNum(plant.x + (Math.random()-0.5)*20, plant.y - 10, (isCrit?'⚡':'') + dmg, color);
-
-  // Lifesteal
   if (player.lifesteal > 0) {
     const heal = Math.floor(dmg * player.lifesteal / 100);
     if (heal > 0) player.hp = Math.min(player.maxHp, player.hp + heal);
   }
-
-  // Minion chance
   if (player.minionChance > 0 && Math.random() < player.minionChance) {
     minions.push({x: plant.x, y: plant.y, hp: 30, attackCd: 0, life: 20});
     spawnDmgNum(plant.x, plant.y + 10, '🐾 Minyon!', '#2ecc71');
   }
-
-  // Plant killed
-  if (plant.hp <= 0) {
-    killPlant(plant);
-  }
+  if (plant.hp <= 0) killPlant(plant);
 }
 
+// <!-- 6.2 Saldırı Tetikleyici -->
 function attackPlant(plant) {
   if (player.attackCd > 0) return;
   player.attackCd = C.ATK_CD / player.speed;
@@ -740,18 +914,15 @@ function attackPlant(plant) {
   attackPlantDirect(plant);
 }
 
+// <!-- 6.3 Bitki Öldürme -->
 function killPlant(plant) {
   const pDef = plant.isBoss ? plant.bossData : PLANTS[plant.type];
   const xpGain = plant.isBoss ? plant.bossData.xp : pDef.xp;
   player.xp += xpGain;
   player.kills++;
   quests.totalCut++;
-
-  // Sound
   if (!plant.isBoss && pDef.sound) playSound(pDef.sound, 0.25);
   else playSound('levelup', 0.3);
-
-  // Particles
   const color = plant.isBoss ? plant.bossData.color : pDef.color;
   for (let i = 0; i < (plant.isBoss ? 30 : 12); i++) {
     particles.push({
@@ -761,15 +932,9 @@ function killPlant(plant) {
       color: color, size: 2 + Math.random()*4,
     });
   }
-
-  // Drop loot
   dropLoot(plant.x, plant.y, plant.type, plant.isBoss, plant.bossData);
-
-  // Quest tracking
   if (plant.type === 'dry_bush' || plant.type === 'snow_bush') quests.bushCut++;
   if (pDef.shape === 'mushroom') quests.mushCut++;
-
-  // Level up check
   while (player.xp >= player.xpNext) {
     player.xp -= player.xpNext;
     player.level++;
@@ -780,662 +945,89 @@ function killPlant(plant) {
     recalcStats();
     playSound('levelup', 0.4);
     showNotification(`🎉 Seviye ${player.level}! Yetenek puanı kazandın!`);
-    // Spawn new plants for new biome access
-    if (BIOMES.some(b => b.req === player.level)) {
-      showNotification(`🗺️ Yeni biyom açıldı!`);
-      generatePlants();
-    }
+    if (BIOMES.some(b => b.req === player.level)) { showNotification(`🗺️ Yeni biyom açıldı!`); generatePlants(); }
   }
-
   plant.lootDropped = true;
 }
 
-// ============================================================
-// HELPERS
-// ============================================================
-function dist(x1,y1,x2,y2) { return Math.sqrt((x2-x1)**2+(y2-y1)**2); }
+// <!-- ========== BÖLÜM 7: OYUN GÜNCELLEME DÖNGÜSÜ ========== -->
 
-function spawnDmgNum(x, y, text, color) {
-  dmgNums.push({x, y, text: String(text), color, life: 1});
-}
-
-function showNotification(text) {
-  const el = document.getElementById('notification');
-  el.textContent = text;
-  el.style.display = 'block';
-  clearTimeout(el._timer);
-  el._timer = setTimeout(() => el.style.display = 'none', 2500);
-}
-
-// ============================================================
-// UPDATE LOOP
-// ============================================================
 function update(dt) {
-  // Player movement (keyboard + joystick)
+  // <!-- 7.1 Oyuncu Hareketi -->
   let dx = 0, dy = 0;
   if (keys['KeyW'] || keys['ArrowUp']) dy = -1;
   if (keys['KeyS'] || keys['ArrowDown']) dy = 1;
   if (keys['KeyA'] || keys['ArrowLeft']) dx = -1;
   if (keys['KeyD'] || keys['ArrowRight']) dx = 1;
-  // Joystick input
-  if (joystick.active) {
-    dx += joystick.dx;
-    dy += joystick.dy;
-  }
+  if (joystick.active) { dx += joystick.dx; dy += joystick.dy; }
   if (dx || dy) {
-    const len = Math.sqrt(dx*dx+dy*dy);
-    dx /= len; dy /= len;
+    const len = Math.sqrt(dx*dx+dy*dy); dx /= len; dy /= len;
     let spd = C.PLAYER_SPEED * player.speed;
-    // Mud slowdown
     const biome = getBiome(Math.floor(player.x/C.TILE), Math.floor(player.y/C.TILE));
     if (biome.id === 'swamp' && !player.mudImmune) spd *= 0.7;
-    player.x += dx * spd * dt;
-    player.y += dy * spd * dt;
-    // Clamp to world
+    player.x += dx * spd * dt; player.y += dy * spd * dt;
     player.x = Math.max(20, Math.min(C.WORLD_W * C.TILE - 20, player.x));
     player.y = Math.max(20, Math.min(C.WORLD_H * C.TILE - 20, player.y));
   }
-
-  // Player angle: toward nearest plant if in range, else toward mouse
   const sx = player.x - camera.x, sy = player.y - camera.y;
-  let nearestPlantAngle = null;
-  let nearestPlantDist = Infinity;
+  let nearestPlantAngle = null, nearestPlantDist = Infinity;
   for (const p of plants) {
     if (p.hp <= 0) continue;
     const d = dist(player.x, player.y, p.x, p.y);
-    if (d < player.atkRange + 20 && d < nearestPlantDist) {
-      nearestPlantDist = d;
-      nearestPlantAngle = Math.atan2(p.y - player.y, p.x - player.x);
-    }
+    if (d < player.atkRange + 20 && d < nearestPlantDist) { nearestPlantDist = d; nearestPlantAngle = Math.atan2(p.y - player.y, p.x - player.x); }
   }
   player.angle = nearestPlantAngle !== null ? nearestPlantAngle : Math.atan2(mouse.y - sy, mouse.x - sx);
 
-  // Attack cooldown
+  // <!-- 7.2 Durum Güncellemeleri -->
   if (player.attackCd > 0) player.attackCd -= dt;
   if (player.attackAnim > 0) player.attackAnim -= dt;
-
-  // Fuel regen
   player.fuel = Math.min(player.maxFuel, player.fuel + C.FUEL_REGEN * dt);
-
-  // Poison damage
-  if (player.poisonTimer > 0) {
-    player.poisonTimer -= dt;
-    player.hp -= player.poisonDmg * dt;
-  }
-
-  // Auto-attack: ALL plants within range (multi-hit)
+  if (player.poisonTimer > 0) { player.poisonTimer -= dt; player.hp -= player.poisonDmg * dt; }
   if (player.attackCd <= 0) {
-    const targets = [];
-    for (const p of plants) {
-      if (p.hp <= 0) continue;
-      const d = dist(player.x, player.y, p.x, p.y);
-      if (d < player.atkRange + 20) targets.push(p);
-    }
-    if (targets.length > 0) {
-      // Face nearest target
-      targets.sort((a, b) => dist(player.x, player.y, a.x, a.y) - dist(player.x, player.y, b.x, b.y));
+    const targets = plants.filter(p => p.hp > 0 && dist(player.x, player.y, p.x, p.y) < player.atkRange + 20);
+    if (targets.length) {
+      targets.sort((a,b)=> dist(player.x,player.y,a.x,a.y) - dist(player.x,player.y,b.x,b.y));
       player.angle = Math.atan2(targets[0].y - player.y, targets[0].x - player.x);
-      player.attackCd = C.ATK_CD / player.speed;
-      player.attackAnim = 0.2;
-      for (const t of targets) {
-        attackPlantDirect(t);
-      }
+      player.attackCd = C.ATK_CD / player.speed; player.attackAnim = 0.2;
+      targets.forEach(t => attackPlantDirect(t));
     }
   }
-
-  // Loot magnet & pickup
-  for (let i = loots.length - 1; i >= 0; i--) {
+  for (let i=loots.length-1; i>=0; i--) {
     const l = loots[i];
-    l.lifetime -= dt;
-    if (l.lifetime <= 0) { loots.splice(i, 1); continue; }
-    if (!l.grounded) {
-      l.vy += 200 * dt;
-      l.y += l.vy * dt;
-      if (l.vy > 0 && l.y > l._origY + 5) { l.y = l._origY; l.grounded = true; }
-    }
-    // Magnet
+    l.lifetime -= dt; if (l.lifetime <= 0) { loots.splice(i,1); continue; }
+    if (!l.grounded) { l.vy += 200*dt; l.y += l.vy*dt; if (l.vy>0 && l.y > l._origY+5) { l.y = l._origY; l.grounded = true; } }
     const d = dist(player.x, player.y, l.x, l.y);
-    if (d < player.magnetRange) {
-      const pull = Math.min(300, player.magnetRange * 3) * dt;
-      const angle = Math.atan2(player.y - l.y, player.x - l.x);
-      l.x += Math.cos(angle) * pull;
-      l.y += Math.sin(angle) * pull;
-    }
-    if (d < 25) {
-      addItem(l.itemId, l.count);
-      loots.splice(i, 1);
-      playSound('drop', 0.1);
-    }
+    if (d < player.magnetRange) { const ang = Math.atan2(player.y - l.y, player.x - l.x); l.x += Math.cos(ang)*Math.min(300,player.magnetRange*3)*dt; l.y += Math.sin(ang)*Math.min(300,player.magnetRange*3)*dt; }
+    if (d < 25) { addItem(l.itemId, l.count); loots.splice(i,1); playSound('drop',0.1); }
   }
-  // Set origY for new loots
-  for (const l of loots) {
-    if (l._origY === undefined) l._origY = l.y;
+  loots.forEach(l => { if (l._origY === undefined) l._origY = l.y; });
+  for (let i=particles.length-1; i>=0; i--) { const p=particles[i]; p.x+=p.vx*dt; p.y+=p.vy*dt; p.life-=dt; if(p.life<=0)particles.splice(i,1); }
+  for (let i=dmgNums.length-1; i>=0; i--) { dmgNums[i].y-=30*dt; dmgNums[i].life-=dt; if(dmgNums[i].life<=0)dmgNums.splice(i,1); }
+
+  // <!-- 7.3 Minyon Yapay Zekası -->
+  for (let i=minions.length-1; i>=0; i--) {
+    const m=minions[i]; m.life-=dt; if(m.life<=0||m.hp<=0){minions.splice(i,1);continue;} m.attackCd-=dt;
+    let nearest=null, nd=Infinity;
+    for(const p of plants){ if(p.hp<=0)continue; const d=dist(m.x,m.y,p.x,p.y); if(d<nd){nearest=p; nd=d;} }
+    if(nearest){ const ang=Math.atan2(nearest.y-m.y,nearest.x-m.x); m.x+=Math.cos(ang)*100*dt; m.y+=Math.sin(ang)*100*dt; if(nd<30 && m.attackCd<=0){ nearest.hp-=5; m.attackCd=0.8; spawnDmgNum(nearest.x,nearest.y-5,5,'#2ecc71'); if(nearest.hp<=0)killPlant(nearest); } }
   }
 
-  // Particles
-  for (let i = particles.length - 1; i >= 0; i--) {
-    const p = particles[i];
-    p.x += p.vx * dt;
-    p.y += p.vy * dt;
-    p.life -= dt;
-    if (p.life <= 0) particles.splice(i, 1);
-  }
-
-  // Damage numbers
-  for (let i = dmgNums.length - 1; i >= 0; i--) {
-    dmgNums[i].y -= 30 * dt;
-    dmgNums[i].life -= dt;
-    if (dmgNums[i].life <= 0) dmgNums.splice(i, 1);
-  }
-
-  // Minions
-  for (let i = minions.length - 1; i >= 0; i--) {
-    const m = minions[i];
-    m.life -= dt;
-    if (m.life <= 0 || m.hp <= 0) { minions.splice(i, 1); continue; }
-    m.attackCd -= dt;
-    // Find nearest plant
-    let nearest = null, nd = Infinity;
-    for (const p of plants) {
-      if (p.hp <= 0) continue;
-      const d = dist(m.x, m.y, p.x, p.y);
-      if (d < nd) { nearest = p; nd = d; }
-    }
-    if (nearest) {
-      const angle = Math.atan2(nearest.y - m.y, nearest.x - m.x);
-      m.x += Math.cos(angle) * 100 * dt;
-      m.y += Math.sin(angle) * 100 * dt;
-      if (nd < 30 && m.attackCd <= 0) {
-        nearest.hp -= 5;
-        m.attackCd = 0.8;
-        spawnDmgNum(nearest.x, nearest.y - 5, 5, '#2ecc71');
-        if (nearest.hp <= 0) killPlant(nearest);
-      }
-    }
-  }
-
-  // Remove dead plants (keep some for visual)
+  // <!-- 7.4 Dünya Temizliği ve Yenileme -->
   plants = plants.filter(p => p.hp > 0 || !p.lootDropped);
-  // Actually remove fully dead
   plants = plants.filter(p => p.hp > 0);
-
-  // Respawn plants near player if too few
-  const nearPlants = plants.filter(p => dist(p.x, p.y, player.x, player.y) < 500).length;
-  if (nearPlants < 15) {
-    for (let i = 0; i < 3; i++) {
-      const angle = Math.random() * Math.PI * 2;
-      const r = 200 + Math.random() * 300;
-      spawnPlantNear(player.x + Math.cos(angle)*r, player.y + Math.sin(angle)*r, r);
-    }
+  if (plants.filter(p=>dist(p.x,p.y,player.x,player.y)<500).length < 15) {
+    for(let i=0;i<3;i++){ const ang=Math.random()*Math.PI*2; const r=200+Math.random()*300; spawnPlantNear(player.x+Math.cos(ang)*r, player.y+Math.sin(ang)*r, r); }
   }
 
-  // Camera
-  camera.x = player.x - C.W / 2;
-  camera.y = player.y - C.H / 2;
+  // <!-- 7.5 Kamera Takibi -->
+  camera.x = player.x - C.W/2; camera.y = player.y - C.H/2;
   camera.x = Math.max(0, Math.min(C.WORLD_W * C.TILE - C.W, camera.x));
   camera.y = Math.max(0, Math.min(C.WORLD_H * C.TILE - C.H, camera.y));
 
-  // Update HUD
+  // <!-- 7.6 Arayüz Güncellemesi -->
   updateHUD();
 }
 
-// ============================================================
-// RENDER
-// ============================================================
-function render() {
-  ctx.fillStyle = '#111';
-  ctx.fillRect(0, 0, C.W, C.H);
-
-  // Draw ground tiles
-  const startTX = Math.max(0, Math.floor(camera.x / C.TILE));
-  const startTY = Math.max(0, Math.floor(camera.y / C.TILE));
-  const endTX = Math.min(C.WORLD_W, startTX + Math.ceil(C.W / C.TILE) + 2);
-  const endTY = Math.min(C.WORLD_H, startTY + Math.ceil(C.H / C.TILE) + 2);
-
-  for (let ty = startTY; ty < endTY; ty++) {
-    for (let tx = startTX; tx < endTX; tx++) {
-      const biome = getBiome(tx, ty);
-      const sx = tx * C.TILE - camera.x;
-      const sy = ty * C.TILE - camera.y;
-      // Checkerboard pattern
-      const dark = (tx + ty) % 2 === 0;
-      ctx.fillStyle = dark ? biome.bg : biome.color;
-      ctx.globalAlpha = 0.6;
-      ctx.fillRect(sx, sy, C.TILE, C.TILE);
-      ctx.globalAlpha = 1;
-    }
-  }
-
-  // Draw biome borders (subtle)
-  for (let ty = startTY; ty < endTY; ty++) {
-    for (let tx = startTX; tx < endTX; tx++) {
-      const biome = getBiome(tx, ty);
-      const rightBiome = tx < C.WORLD_W - 1 ? getBiome(tx+1, ty) : biome;
-      const downBiome = ty < C.WORLD_H - 1 ? getBiome(tx, ty+1) : biome;
-      const sx = tx * C.TILE - camera.x;
-      const sy = ty * C.TILE - camera.y;
-      if (rightBiome.id !== biome.id || downBiome.id !== biome.id) {
-        ctx.strokeStyle = 'rgba(255,255,255,0.1)';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(sx, sy, C.TILE, C.TILE);
-      }
-    }
-  }
-
-  // Draw loots
-  for (const l of loots) {
-    const sx = l.x - camera.x, sy = l.y - camera.y;
-    if (sx < -30 || sx > C.W+30 || sy < -30 || sy > C.H+30) continue;
-    const def = ITEMS[l.itemId];
-    if (!def) continue;
-    const rColor = RARITY[l.rarity]?.color || '#aaa';
-    // Glow
-    ctx.beginPath();
-    ctx.arc(sx, sy, 10, 0, Math.PI*2);
-    ctx.fillStyle = rColor;
-    ctx.globalAlpha = 0.3;
-    ctx.fill();
-    ctx.globalAlpha = 1;
-    // Icon
-    ctx.font = '14px serif';
-    ctx.textAlign = 'center';
-    ctx.fillText(def.icon || '?', sx, sy + 5);
-    // Border
-    ctx.strokeStyle = rColor;
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.arc(sx, sy, 9, 0, Math.PI*2);
-    ctx.stroke();
-  }
-
-  // Draw plants
-  for (const p of plants) {
-    const sx = p.x - camera.x, sy = p.y - camera.y;
-    if (sx < -60 || sx > C.W+60 || sy < -60 || sy > C.H+60) continue;
-    const def = p.isBoss ? null : PLANTS[p.type];
-    const color = p.isBoss ? p.bossData.color : def.color;
-    const size = p.isBoss ? p.bossData.size : def.size;
-
-    // Plant shape
-    ctx.save();
-    ctx.translate(sx, sy);
-    drawPlant(p.type, color, size, p.isBoss);
-    ctx.restore();
-
-    // HP bar
-    if (p.hp < p.maxHp) {
-      const barW = Math.max(size * 2, 30);
-      const barH = 4;
-      const bx = -barW/2, by = -size - 10;
-      ctx.fillStyle = '#333';
-      ctx.fillRect(sx + bx, sy + by, barW, barH);
-      ctx.fillStyle = p.hp > p.maxHp * 0.3 ? '#2ecc71' : '#e74c3c';
-      ctx.fillRect(sx + bx, sy + by, barW * (p.hp / p.maxHp), barH);
-    }
-
-    // Boss label
-    if (p.isBoss) {
-      ctx.font = 'bold 11px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillStyle = '#e67e22';
-      ctx.fillText('👑 ' + p.bossData.name, sx, sy - size - 14);
-    }
-  }
-
-  // Draw minions
-  for (const m of minions) {
-    const sx = m.x - camera.x, sy = m.y - camera.y;
-    ctx.font = '16px serif';
-    ctx.textAlign = 'center';
-    ctx.fillText('🐾', sx, sy + 5);
-  }
-
-  // Draw player (saw character) - 2.5D floating effect
-  const px = player.x - camera.x, py = player.y - camera.y;
-  const sawRadius = player.radius;
-  const atkExt = player.attackAnim > 0 ? 5 : 0;
-  const hoverHeight = 14;
-  const bob = Math.sin(performance.now() / 400) * 3;
-  const sawY = -hoverHeight + bob;
-
-  // Ground shadow (ellipse, below saw)
-  ctx.save();
-  ctx.translate(px, py + 4);
-  ctx.scale(1, 0.4);
-  ctx.beginPath();
-  ctx.arc(0, 0, sawRadius + 6 + atkExt, 0, Math.PI*2);
-  ctx.fillStyle = 'rgba(0,0,0,0.35)';
-  ctx.fill();
-  ctx.restore();
-
-  // Saw body (elevated)
-  ctx.save();
-  ctx.translate(px, py + sawY);
-
-  // Glow underneath (floating light)
-  ctx.beginPath();
-  ctx.arc(0, hoverHeight - bob, sawRadius + 8, 0, Math.PI*2);
-  const glowGrad = ctx.createRadialGradient(0, hoverHeight - bob, 0, 0, hoverHeight - bob, sawRadius + 8);
-  glowGrad.addColorStop(0, 'rgba(46,204,113,0.25)');
-  glowGrad.addColorStop(1, 'rgba(46,204,113,0)');
-  ctx.fillStyle = glowGrad;
-  ctx.fill();
-
-  // Saw disc (slightly elliptical for 2.5D perspective)
-  ctx.save();
-  ctx.scale(1, 0.85);
-
-  // Saw body
-  ctx.beginPath();
-  ctx.arc(0, 0, sawRadius, 0, Math.PI*2);
-  const bodyGrad = ctx.createRadialGradient(-3, -3, 0, 0, 0, sawRadius);
-  bodyGrad.addColorStop(0, '#777');
-  bodyGrad.addColorStop(0.7, '#555');
-  bodyGrad.addColorStop(1, '#444');
-  ctx.fillStyle = bodyGrad;
-  ctx.fill();
-  ctx.strokeStyle = '#999';
-  ctx.lineWidth = 2;
-  ctx.stroke();
-
-  // Saw teeth - continuously rotating
-  const teethCount = 12;
-  ctx.save();
-  ctx.rotate(performance.now() / 120);
-  for (let i = 0; i < teethCount; i++) {
-    const a = (i / teethCount) * Math.PI * 2;
-    const tx = Math.cos(a) * (sawRadius + 3 + atkExt);
-    const ty = Math.sin(a) * (sawRadius + 3 + atkExt);
-    ctx.beginPath();
-    ctx.moveTo(Math.cos(a) * sawRadius, Math.sin(a) * sawRadius);
-    ctx.lineTo(tx - Math.cos(a + 0.15) * 4, ty - Math.sin(a + 0.15) * 4);
-    ctx.lineTo(tx + Math.cos(a + 0.15) * 4, ty + Math.sin(a + 0.15) * 4);
-    ctx.closePath();
-    ctx.fillStyle = '#c0c0c0';
-    ctx.fill();
-  }
-  ctx.restore();
-
-  // Center hub
-  ctx.beginPath();
-  ctx.arc(0, 0, 6, 0, Math.PI*2);
-  const hubGrad = ctx.createRadialGradient(-1, -1, 0, 0, 0, 6);
-  hubGrad.addColorStop(0, '#aaa');
-  hubGrad.addColorStop(1, '#666');
-  ctx.fillStyle = hubGrad;
-  ctx.fill();
-
-  // Center eye
-  ctx.beginPath();
-  ctx.arc(0, -1, 4, 0, Math.PI*2);
-  ctx.fillStyle = '#e74c3c';
-  ctx.fill();
-  // Eye glow
-  ctx.beginPath();
-  ctx.arc(0, -1, 6, 0, Math.PI*2);
-  const eyeGlow = ctx.createRadialGradient(0, -1, 2, 0, -1, 6);
-  eyeGlow.addColorStop(0, 'rgba(231,76,60,0.4)');
-  eyeGlow.addColorStop(1, 'rgba(231,76,60,0)');
-  ctx.fillStyle = eyeGlow;
-  ctx.fill();
-  // Pupil
-  ctx.beginPath();
-  ctx.arc(1, -1, 2, 0, Math.PI*2);
-  ctx.fillStyle = '#fff';
-  ctx.fill();
-
-  ctx.restore(); // end scale
-
-  // Direction indicator (on the floating saw)
-  ctx.save();
-  ctx.scale(1, 0.85);
-  ctx.beginPath();
-  ctx.moveTo(Math.cos(player.angle) * (sawRadius + 8 + atkExt), Math.sin(player.angle) * (sawRadius + 8 + atkExt));
-  ctx.lineTo(Math.cos(player.angle + 0.3) * sawRadius, Math.sin(player.angle + 0.3) * sawRadius);
-  ctx.lineTo(Math.cos(player.angle - 0.3) * sawRadius, Math.sin(player.angle - 0.3) * sawRadius);
-  ctx.fillStyle = '#f1c40f';
-  ctx.fill();
-  ctx.restore();
-
-  ctx.restore(); // end translate
-
-  // Attack range indicator (subtle circle around player)
-  ctx.beginPath();
-  ctx.arc(px, py, player.atkRange + 20, 0, Math.PI*2);
-  ctx.strokeStyle = 'rgba(241,196,15,0.12)';
-  ctx.lineWidth = 1;
-  ctx.stroke();
-
-  // Particles
-  for (const p of particles) {
-    const sx = p.x - camera.x, sy = p.y - camera.y;
-    ctx.globalAlpha = p.life / p.maxLife;
-    ctx.fillStyle = p.color;
-    ctx.fillRect(sx - p.size/2, sy - p.size/2, p.size, p.size);
-  }
-  ctx.globalAlpha = 1;
-
-  // Damage numbers on canvas
-  for (const d of dmgNums) {
-    const sx = d.x - camera.x, sy = d.y - camera.y;
-    ctx.globalAlpha = d.life;
-    ctx.font = 'bold 16px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillStyle = d.color;
-    ctx.strokeStyle = '#000';
-    ctx.lineWidth = 3;
-    ctx.strokeText(d.text, sx, sy);
-    ctx.fillText(d.text, sx, sy);
-  }
-  ctx.globalAlpha = 1;
-
-  // Draw minimap
-  renderMinimap();
-}
-
-function drawPlant(type, color, size, isBoss) {
-  const def = isBoss ? null : PLANTS[type];
-  const shape = isBoss ? 'boss' : def.shape;
-
-  switch(shape) {
-    case 'grass':
-      for (let i = -2; i <= 2; i++) {
-        ctx.fillStyle = color;
-        ctx.beginPath();
-        ctx.moveTo(i*3, 0);
-        ctx.lineTo(i*3 - 2, -size);
-        ctx.lineTo(i*3 + 2, -size);
-        ctx.fill();
-      }
-      break;
-    case 'clover':
-      for (let i = 0; i < 3; i++) {
-        const a = (i/3)*Math.PI*2 - Math.PI/2;
-        ctx.beginPath();
-        ctx.arc(Math.cos(a)*size*0.4, Math.sin(a)*size*0.4 - size*0.3, size*0.35, 0, Math.PI*2);
-        ctx.fillStyle = color;
-        ctx.fill();
-      }
-      break;
-    case 'flower':
-      for (let i = 0; i < 5; i++) {
-        const a = (i/5)*Math.PI*2;
-        ctx.beginPath();
-        ctx.arc(Math.cos(a)*size*0.4, Math.sin(a)*size*0.4 - size*0.3, size*0.3, 0, Math.PI*2);
-        ctx.fillStyle = color;
-        ctx.fill();
-      }
-      ctx.beginPath();
-      ctx.arc(0, -size*0.3, size*0.2, 0, Math.PI*2);
-      ctx.fillStyle = '#f1c40f';
-      ctx.fill();
-      break;
-    case 'mushroom':
-      ctx.fillStyle = '#d5c4a1';
-      ctx.fillRect(-3, -size*0.3, 6, size*0.3);
-      ctx.beginPath();
-      ctx.arc(0, -size*0.3, size*0.6, Math.PI, 0);
-      ctx.fillStyle = color;
-      ctx.fill();
-      // Spots
-      ctx.fillStyle = '#fff';
-      ctx.beginPath(); ctx.arc(-size*0.2, -size*0.45, 3, 0, Math.PI*2); ctx.fill();
-      ctx.beginPath(); ctx.arc(size*0.15, -size*0.35, 2, 0, Math.PI*2); ctx.fill();
-      break;
-    case 'lichen':
-      ctx.beginPath();
-      ctx.arc(0, 0, size*0.5, 0, Math.PI*2);
-      ctx.fillStyle = color;
-      ctx.globalAlpha = 0.7;
-      ctx.fill();
-      ctx.globalAlpha = 1;
-      // Glow
-      ctx.beginPath();
-      ctx.arc(0, 0, size*0.7, 0, Math.PI*2);
-      ctx.fillStyle = color;
-      ctx.globalAlpha = 0.2;
-      ctx.fill();
-      ctx.globalAlpha = 1;
-      break;
-    case 'cactus':
-      ctx.fillStyle = color;
-      ctx.fillRect(-4, -size, 8, size);
-      ctx.fillRect(-size*0.6, -size*0.7, size*0.3, size*0.3);
-      ctx.fillRect(size*0.3, -size*0.5, size*0.3, size*0.2);
-      // Spines
-      ctx.strokeStyle = '#2c3e50';
-      ctx.lineWidth = 1;
-      for (let i = 0; i < 4; i++) {
-        ctx.beginPath();
-        ctx.moveTo(-4, -size + i*size*0.25);
-        ctx.lineTo(-8, -size + i*size*0.25 - 3);
-        ctx.stroke();
-      }
-      break;
-    case 'bush':
-      ctx.beginPath();
-      ctx.arc(0, -size*0.3, size*0.5, 0, Math.PI*2);
-      ctx.fillStyle = color;
-      ctx.fill();
-      ctx.beginPath();
-      ctx.arc(-size*0.3, -size*0.1, size*0.35, 0, Math.PI*2);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.arc(size*0.3, -size*0.1, size*0.35, 0, Math.PI*2);
-      ctx.fill();
-      break;
-    case 'thorn':
-      ctx.fillStyle = color;
-      ctx.beginPath();
-      ctx.moveTo(0, -size);
-      ctx.lineTo(-size*0.3, 0);
-      ctx.lineTo(size*0.3, 0);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.moveTo(-size*0.5, -size*0.5);
-      ctx.lineTo(-size*0.7, -size*0.2);
-      ctx.lineTo(-size*0.2, -size*0.2);
-      ctx.fill();
-      break;
-    case 'reed':
-      for (let i = -1; i <= 1; i++) {
-        ctx.fillStyle = color;
-        ctx.fillRect(i*5 - 1, -size, 2, size);
-        ctx.beginPath();
-        ctx.ellipse(i*5, -size, 3, 6, 0, 0, Math.PI*2);
-        ctx.fillStyle = '#8B4513';
-        ctx.fill();
-      }
-      break;
-    case 'lily':
-      ctx.beginPath();
-      ctx.arc(0, 0, size*0.5, 0.1, Math.PI*2 - 0.1);
-      ctx.lineTo(0, 0);
-      ctx.fillStyle = '#27ae60';
-      ctx.fill();
-      ctx.beginPath();
-      ctx.arc(0, -2, size*0.2, 0, Math.PI*2);
-      ctx.fillStyle = color;
-      ctx.fill();
-      break;
-    case 'vine':
-      ctx.strokeStyle = color;
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.moveTo(0, 0);
-      for (let i = 1; i <= 5; i++) {
-        ctx.lineTo(Math.sin(i*1.2)*size*0.3, -i*size*0.2);
-      }
-      ctx.stroke();
-      // Teeth
-      ctx.fillStyle = '#c0392b';
-      for (let i = 1; i <= 4; i++) {
-        ctx.beginPath();
-        ctx.arc(Math.sin(i*1.2)*size*0.3, -i*size*0.2, 3, 0, Math.PI*2);
-        ctx.fill();
-      }
-      break;
-    case 'boss':
-      // Large pulsating boss
-      const pulse = 1 + Math.sin(performance.now()/300) * 0.05;
-      ctx.beginPath();
-      ctx.arc(0, -size*0.3, size*0.5*pulse, 0, Math.PI*2);
-      ctx.fillStyle = color;
-      ctx.fill();
-      ctx.strokeStyle = '#f1c40f';
-      ctx.lineWidth = 2;
-      ctx.stroke();
-      // Crown
-      ctx.font = `${size*0.4}px serif`;
-      ctx.textAlign = 'center';
-      ctx.fillText('👑', 0, -size*0.5);
-      break;
-  }
-}
-
-function renderMinimap() {
-  const mc = minimapCtx;
-  const mw = 140, mh = 140;
-  mc.fillStyle = '#111';
-  mc.fillRect(0, 0, mw, mh);
-
-  const scale = mw / (C.WORLD_W * C.TILE);
-
-  // Draw biome regions (simplified)
-  const step = 8;
-  for (let ty = 0; ty < C.WORLD_H; ty += step) {
-    for (let tx = 0; tx < C.WORLD_W; tx += step) {
-      const biome = getBiome(tx, ty);
-      mc.fillStyle = biome.color;
-      mc.globalAlpha = 0.5;
-      mc.fillRect(tx * C.TILE * scale, ty * C.TILE * scale, step * C.TILE * scale, step * C.TILE * scale);
-    }
-  }
-  mc.globalAlpha = 1;
-
-  // Plants as dots
-  for (const p of plants) {
-    const d = dist(p.x, p.y, player.x, player.y);
-    if (d > 800) continue;
-    mc.fillStyle = p.isBoss ? '#e67e22' : (PLANTS[p.type]?.color || '#0f0');
-    mc.fillRect(p.x * scale - 1, p.y * scale - 1, 2, 2);
-  }
-
-  // Player
-  mc.fillStyle = '#f1c40f';
-  mc.beginPath();
-  mc.arc(player.x * scale, player.y * scale, 3, 0, Math.PI*2);
-  mc.fill();
-
-  // View rect
-  mc.strokeStyle = 'rgba(255,255,255,0.4)';
-  mc.lineWidth = 1;
-  mc.strokeRect(camera.x * scale, camera.y * scale, C.W * scale, C.H * scale);
-}
-
-// ============================================================
-// HUD UPDATE
-// ============================================================
 function updateHUD() {
   document.getElementById('hud-level').textContent = player.level;
   document.getElementById('hud-xp-text').textContent = `${player.xp}/${player.xpNext} XP`;
@@ -1449,34 +1041,118 @@ function updateHUD() {
   document.getElementById('hud-speed').textContent = player.speed.toFixed(2);
   document.getElementById('hud-gold').textContent = player.gold;
   document.getElementById('hud-kills').textContent = player.kills;
-
   const biome = getBiome(Math.floor(player.x/C.TILE), Math.floor(player.y/C.TILE));
   document.getElementById('biome-label').textContent = `${biome.emoji} ${biome.name}`;
-
-  // Quests
   const qComplete = quests.bushCut >= quests.targetBush && quests.mushCut >= quests.targetMush && quests.totalCut >= quests.targetTotal;
-  document.getElementById('quest-bar').textContent = qComplete ?
-    '✅ Günlük görev tamamlandı!' :
-    `Günlük: Çalı ${quests.bushCut}/${quests.targetBush} | Mantar ${quests.mushCut}/${quests.targetMush} | Toplam ${quests.totalCut}/${quests.targetTotal}`;
+  document.getElementById('quest-bar').textContent = qComplete ? '✅ Günlük görev tamamlandı!' : `Günlük: Çalı ${quests.bushCut}/${quests.targetBush} | Mantar ${quests.mushCut}/${quests.targetMush} | Toplam ${quests.totalCut}/${quests.targetTotal}`;
 }
 
-// ============================================================
-// UI PANELS
-// ============================================================
-function openPanel(id) {
-  document.getElementById(id).style.display = 'block';
-  if (id === 'inv-panel') renderInventory();
-  if (id === 'skill-panel') renderSkills();
-  if (id === 'craft-panel') renderCrafting();
+// <!-- ========== BÖLÜM 8: GÖRSELLEŞTİRME VE RENDER ========== -->
+
+function render() {
+  ctx.fillStyle = '#111'; ctx.fillRect(0, 0, C.W, C.H);
+  const startTX = Math.max(0, Math.floor(camera.x / C.TILE));
+  const startTY = Math.max(0, Math.floor(camera.y / C.TILE));
+  const endTX = Math.min(C.WORLD_W, startTX + Math.ceil(C.W / C.TILE) + 2);
+  const endTY = Math.min(C.WORLD_H, startTY + Math.ceil(C.H / C.TILE) + 2);
+  for (let ty = startTY; ty < endTY; ty++) {
+    for (let tx = startTX; tx < endTX; tx++) {
+      const biome = getBiome(tx, ty); const sx = tx * C.TILE - camera.x; const sy = ty * C.TILE - camera.y;
+      ctx.fillStyle = (tx + ty) % 2 === 0 ? biome.bg : biome.color; ctx.globalAlpha = 0.6; ctx.fillRect(sx, sy, C.TILE, C.TILE); ctx.globalAlpha = 1;
+    }
+  }
+  for (let ty = startTY; ty < endTY; ty++) {
+    for (let tx = startTX; tx < endTX; tx++) {
+      const biome = getBiome(tx, ty); const rightBiome = tx < C.WORLD_W - 1 ? getBiome(tx+1, ty) : biome; const downBiome = ty < C.WORLD_H - 1 ? getBiome(tx, ty+1) : biome;
+      if (rightBiome.id !== biome.id || downBiome.id !== biome.id) { ctx.strokeStyle = 'rgba(255,255,255,0.1)'; ctx.lineWidth = 2; ctx.strokeRect(tx*C.TILE - camera.x, ty*C.TILE - camera.y, C.TILE, C.TILE); }
+    }
+  }
+  for (const l of loots) {
+    const sx = l.x - camera.x, sy = l.y - camera.y; if (sx<-30||sx>C.W+30||sy<-30||sy>C.H+30) continue;
+    const def = ITEMS[l.itemId]; if (!def) continue; const rColor = RARITY[l.rarity]?.color || '#aaa';
+    ctx.beginPath(); ctx.arc(sx, sy, 10, 0, Math.PI*2); ctx.fillStyle = rColor; ctx.globalAlpha = 0.3; ctx.fill(); ctx.globalAlpha = 1;
+    ctx.font = '14px serif'; ctx.textAlign = 'center'; ctx.fillText(def.icon || '?', sx, sy + 5);
+    ctx.strokeStyle = rColor; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(sx, sy, 9, 0, Math.PI*2); ctx.stroke();
+  }
+  for (const p of plants) {
+    const sx = p.x - camera.x, sy = p.y - camera.y; if (sx<-60||sx>C.W+60||sy<-60||sy>C.H+60) continue;
+    const def = p.isBoss ? null : PLANTS[p.type]; const color = p.isBoss ? p.bossData.color : def.color; const size = p.isBoss ? p.bossData.size : def.size;
+    ctx.save(); ctx.translate(sx, sy); drawPlant(p.type, color, size, p.isBoss); ctx.restore();
+    if (p.hp < p.maxHp) { const barW = Math.max(size*2,30); const barH=4; const bx=-barW/2, by=-size-10; ctx.fillStyle='#333'; ctx.fillRect(sx+bx, sy+by, barW, barH); ctx.fillStyle = p.hp>p.maxHp*0.3?'#2ecc71':'#e74c3c'; ctx.fillRect(sx+bx, sy+by, barW*(p.hp/p.maxHp), barH); }
+    if (p.isBoss) { ctx.font='bold 11px sans-serif'; ctx.textAlign='center'; ctx.fillStyle='#e67e22'; ctx.fillText('👑 '+p.bossData.name, sx, sy-size-14); }
+  }
+  for (const m of minions) { const sx=m.x-camera.x, sy=m.y-camera.y; ctx.font='16px serif'; ctx.textAlign='center'; ctx.fillText('🐾', sx, sy+5); }
+  const px = player.x - camera.x, py = player.y - camera.y;
+  const sawRadius = player.radius; const atkExt = player.attackAnim > 0 ? 5 : 0; const bob = Math.sin(performance.now() / 400) * 3; const sawY = -14 + bob;
+  ctx.save(); ctx.translate(px, py+4); ctx.scale(1,0.4); ctx.beginPath(); ctx.arc(0,0,sawRadius+6+atkExt,0,Math.PI*2); ctx.fillStyle='rgba(0,0,0,0.35)'; ctx.fill(); ctx.restore();
+  ctx.save(); ctx.translate(px, py+sawY);
+  ctx.beginPath(); ctx.arc(0,14-bob,sawRadius+8,0,Math.PI*2); const glowGrad=ctx.createRadialGradient(0,14-bob,0,0,14-bob,sawRadius+8); glowGrad.addColorStop(0,'rgba(46,204,113,0.25)'); glowGrad.addColorStop(1,'rgba(46,204,113,0)'); ctx.fillStyle=glowGrad; ctx.fill();
+  ctx.save(); ctx.scale(1,0.85);
+  ctx.beginPath(); ctx.arc(0,0,sawRadius,0,Math.PI*2); const bodyGrad=ctx.createRadialGradient(-3,-3,0,0,0,sawRadius); bodyGrad.addColorStop(0,'#777'); bodyGrad.addColorStop(0.7,'#555'); bodyGrad.addColorStop(1,'#444'); ctx.fillStyle=bodyGrad; ctx.fill(); ctx.strokeStyle='#999'; ctx.lineWidth=2; ctx.stroke();
+  ctx.save(); ctx.rotate(performance.now()/120); for(let i=0;i<12;i++){ const a=(i/12)*Math.PI*2; const tx=Math.cos(a)*(sawRadius+3+atkExt); const ty=Math.sin(a)*(sawRadius+3+atkExt); ctx.beginPath(); ctx.moveTo(Math.cos(a)*sawRadius,Math.sin(a)*sawRadius); ctx.lineTo(tx-Math.cos(a+0.15)*4,ty-Math.sin(a+0.15)*4); ctx.lineTo(tx+Math.cos(a+0.15)*4,ty+Math.sin(a+0.15)*4); ctx.closePath(); ctx.fillStyle='#c0c0c0'; ctx.fill(); } ctx.restore();
+  ctx.beginPath(); ctx.arc(0,0,6,0,Math.PI*2); const hubGrad=ctx.createRadialGradient(-1,-1,0,0,0,6); hubGrad.addColorStop(0,'#aaa'); hubGrad.addColorStop(1,'#666'); ctx.fillStyle=hubGrad; ctx.fill();
+  ctx.beginPath(); ctx.arc(0,-1,4,0,Math.PI*2); ctx.fillStyle='#e74c3c'; ctx.fill();
+  ctx.beginPath(); ctx.arc(0,-1,6,0,Math.PI*2); const eyeGlow=ctx.createRadialGradient(0,-1,2,0,-1,6); eyeGlow.addColorStop(0,'rgba(231,76,60,0.4)'); eyeGlow.addColorStop(1,'rgba(231,76,60,0)'); ctx.fillStyle=eyeGlow; ctx.fill();
+  ctx.beginPath(); ctx.arc(1,-1,2,0,Math.PI*2); ctx.fillStyle='#fff'; ctx.fill();
+  ctx.restore();
+  ctx.save(); ctx.scale(1,0.85); ctx.beginPath(); ctx.moveTo(Math.cos(player.angle)*(sawRadius+8+atkExt),Math.sin(player.angle)*(sawRadius+8+atkExt)); ctx.lineTo(Math.cos(player.angle+0.3)*sawRadius,Math.sin(player.angle+0.3)*sawRadius); ctx.lineTo(Math.cos(player.angle-0.3)*sawRadius,Math.sin(player.angle-0.3)*sawRadius); ctx.fillStyle='#f1c40f'; ctx.fill(); ctx.restore();
+  ctx.restore();
+  ctx.beginPath(); ctx.arc(px, py, player.atkRange+20,0,Math.PI*2); ctx.strokeStyle='rgba(241,196,15,0.12)'; ctx.lineWidth=1; ctx.stroke();
+  for (const p of particles) { const sx=p.x-camera.x, sy=p.y-camera.y; ctx.globalAlpha=p.life/p.maxLife; ctx.fillStyle=p.color; ctx.fillRect(sx-p.size/2,sy-p.size/2,p.size,p.size); } ctx.globalAlpha=1;
+  for (const d of dmgNums) { const sx=d.x-camera.x, sy=d.y-camera.y; ctx.globalAlpha=d.life; ctx.font='bold 16px sans-serif'; ctx.textAlign='center'; ctx.fillStyle=d.color; ctx.strokeStyle='#000'; ctx.lineWidth=3; ctx.strokeText(d.text,sx,sy); ctx.fillText(d.text,sx,sy); } ctx.globalAlpha=1;
+  renderMinimap();
 }
 
-function closePanel(id) {
-  document.getElementById(id).style.display = 'none';
+function drawPlant(type, color, size, isBoss) {
+  const def = isBoss ? null : PLANTS[type]; const shape = isBoss ? 'boss' : def.shape;
+  switch(shape) {
+    case 'grass': for(let i=-2;i<=2;i++){ ctx.fillStyle=color; ctx.beginPath(); ctx.moveTo(i*3,0); ctx.lineTo(i*3-2,-size); ctx.lineTo(i*3+2,-size); ctx.fill(); } break;
+    case 'clover': for(let i=0;i<3;i++){ const a=(i/3)*Math.PI*2-Math.PI/2; ctx.beginPath(); ctx.arc(Math.cos(a)*size*0.4,Math.sin(a)*size*0.4-size*0.3,size*0.35,0,Math.PI*2); ctx.fillStyle=color; ctx.fill(); } break;
+    case 'flower': for(let i=0;i<5;i++){ const a=(i/5)*Math.PI*2; ctx.beginPath(); ctx.arc(Math.cos(a)*size*0.4,Math.sin(a)*size*0.4-size*0.3,size*0.3,0,Math.PI*2); ctx.fillStyle=color; ctx.fill(); } ctx.beginPath(); ctx.arc(0,-size*0.3,size*0.2,0,Math.PI*2); ctx.fillStyle='#f1c40f'; ctx.fill(); break;
+    case 'mushroom': ctx.fillStyle='#d5c4a1'; ctx.fillRect(-3,-size*0.3,6,size*0.3); ctx.beginPath(); ctx.arc(0,-size*0.3,size*0.6,Math.PI,0); ctx.fillStyle=color; ctx.fill(); ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(-size*0.2,-size*0.45,3,0,Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(size*0.15,-size*0.35,2,0,Math.PI*2); ctx.fill(); break;
+    case 'lichen': ctx.beginPath(); ctx.arc(0,0,size*0.5,0,Math.PI*2); ctx.fillStyle=color; ctx.globalAlpha=0.7; ctx.fill(); ctx.globalAlpha=1; ctx.beginPath(); ctx.arc(0,0,size*0.7,0,Math.PI*2); ctx.fillStyle=color; ctx.globalAlpha=0.2; ctx.fill(); ctx.globalAlpha=1; break;
+    case 'cactus': ctx.fillStyle=color; ctx.fillRect(-4,-size,8,size); ctx.fillRect(-size*0.6,-size*0.7,size*0.3,size*0.3); ctx.fillRect(size*0.3,-size*0.5,size*0.3,size*0.2); ctx.strokeStyle='#2c3e50'; ctx.lineWidth=1; for(let i=0;i<4;i++){ ctx.beginPath(); ctx.moveTo(-4,-size+i*size*0.25); ctx.lineTo(-8,-size+i*size*0.25-3); ctx.stroke(); } break;
+    case 'bush': ctx.beginPath(); ctx.arc(0,-size*0.3,size*0.5,0,Math.PI*2); ctx.fillStyle=color; ctx.fill(); ctx.beginPath(); ctx.arc(-size*0.3,-size*0.1,size*0.35,0,Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(size*0.3,-size*0.1,size*0.35,0,Math.PI*2); ctx.fill(); break;
+    case 'thorn': ctx.fillStyle=color; ctx.beginPath(); ctx.moveTo(0,-size); ctx.lineTo(-size*0.3,0); ctx.lineTo(size*0.3,0); ctx.fill(); ctx.beginPath(); ctx.moveTo(-size*0.5,-size*0.5); ctx.lineTo(-size*0.7,-size*0.2); ctx.lineTo(-size*0.2,-size*0.2); ctx.fill(); break;
+    case 'reed': for(let i=-1;i<=1;i++){ ctx.fillStyle=color; ctx.fillRect(i*5-1,-size,2,size); ctx.beginPath(); ctx.ellipse(i*5,-size,3,6,0,0,Math.PI*2); ctx.fillStyle='#8B4513'; ctx.fill(); } break;
+    case 'lily': ctx.beginPath(); ctx.arc(0,0,size*0.5,0.1,Math.PI*2-0.1); ctx.lineTo(0,0); ctx.fillStyle='#27ae60'; ctx.fill(); ctx.beginPath(); ctx.arc(0,-2,size*0.2,0,Math.PI*2); ctx.fillStyle=color; ctx.fill(); break;
+    case 'vine': ctx.strokeStyle=color; ctx.lineWidth=3; ctx.beginPath(); ctx.moveTo(0,0); for(let i=1;i<=5;i++) ctx.lineTo(Math.sin(i*1.2)*size*0.3,-i*size*0.2); ctx.stroke(); ctx.fillStyle='#c0392b'; for(let i=1;i<=4;i++){ ctx.beginPath(); ctx.arc(Math.sin(i*1.2)*size*0.3,-i*size*0.2,3,0,Math.PI*2); ctx.fill(); } break;
+    case 'boss': const pulse=1+Math.sin(performance.now()/300)*0.05; ctx.beginPath(); ctx.arc(0,-size*0.3,size*0.5*pulse,0,Math.PI*2); ctx.fillStyle=color; ctx.fill(); ctx.strokeStyle='#f1c40f'; ctx.lineWidth=2; ctx.stroke(); ctx.font=`${size*0.4}px serif`; ctx.textAlign='center'; ctx.fillText('👑',0,-size*0.5); break;
+  }
 }
 
+function renderMinimap() {
+  const mc = minimapCtx; const mw=140, mh=140; mc.fillStyle='#111'; mc.fillRect(0,0,mw,mh);
+  const scale = mw/(C.WORLD_W*C.TILE); const step=8;
+  for(let ty=0; ty<C.WORLD_H; ty+=step){ for(let tx=0; tx<C.WORLD_W; tx+=step){ const biome=getBiome(tx,ty); mc.fillStyle=biome.color; mc.globalAlpha=0.5; mc.fillRect(tx*C.TILE*scale,ty*C.TILE*scale,step*C.TILE*scale,step*C.TILE*scale); } } mc.globalAlpha=1;
+  for(const p of plants){ if(dist(p.x,p.y,player.x,player.y)>800)continue; mc.fillStyle=p.isBoss?'#e67e22':(PLANTS[p.type]?.color||'#0f0'); mc.fillRect(p.x*scale-1,p.y*scale-1,2,2); }
+  mc.fillStyle='#f1c40f'; mc.beginPath(); mc.arc(player.x*scale,player.y*scale,3,0,Math.PI*2); mc.fill();
+  mc.strokeStyle='rgba(255,255,255,0.4)'; mc.lineWidth=1; mc.strokeRect(camera.x*scale,camera.y*scale,C.W*scale,C.H*scale);
+}
+
+// <!-- ========== BÖLÜM 9: KULLANICI ARAYÜZÜ PANELLERİ ========== -->
+
+// Panel açma fonksiyonu - global olarak erişilebilir olmalı
+window.openPanel = function(id) {
+  const panel = document.getElementById(id);
+  if (panel) {
+    panel.style.display = 'block';
+    if (id === 'inv-panel') renderInventory();
+    if (id === 'skill-panel') renderSkills();
+    if (id === 'craft-panel') renderCrafting();
+  }
+};
+
+// Panel kapatma fonksiyonu - global olarak erişilebilir olmalı
+window.closePanel = function(id) {
+  const panel = document.getElementById(id);
+  if (panel) panel.style.display = 'none';
+};
+
+// Envanter paneli render
 function renderInventory() {
-  // Saw equipment slots
   const sawEq = document.getElementById('saw-equip');
+  if (!sawEq) return;
   sawEq.innerHTML = '';
   for (const slot of SAW_SLOTS) {
     const div = document.createElement('div');
@@ -1488,7 +1164,6 @@ function renderInventory() {
       div.style.borderColor = RARITY[item.rarity]?.color || '#444';
       div.title = item.name;
       div.onclick = () => {
-        // Unequip
         addItem(eq, 1);
         player.equipment[slot.id] = null;
         recalcStats();
@@ -1499,31 +1174,32 @@ function renderInventory() {
     sawEq.appendChild(div);
   }
 
-  // Char equipment slots
   const charEq = document.getElementById('char-equip');
-  charEq.innerHTML = '';
-  for (const slot of CHAR_SLOTS) {
-    const div = document.createElement('div');
-    div.className = 'equip-slot';
-    const eq = player.equipment[slot.id];
-    const item = eq ? ITEMS[eq] : null;
-    div.innerHTML = `<div class="slot-label">${slot.name}</div>${item ? item.icon : '—'}`;
-    if (item) {
-      div.style.borderColor = RARITY[item.rarity]?.color || '#444';
-      div.title = item.name;
-      div.onclick = () => {
-        addItem(eq, 1);
-        player.equipment[slot.id] = null;
-        recalcStats();
-        playSound('equip', 0.2);
-        renderInventory();
-      };
+  if (charEq) {
+    charEq.innerHTML = '';
+    for (const slot of CHAR_SLOTS) {
+      const div = document.createElement('div');
+      div.className = 'equip-slot';
+      const eq = player.equipment[slot.id];
+      const item = eq ? ITEMS[eq] : null;
+      div.innerHTML = `<div class="slot-label">${slot.name}</div>${item ? item.icon : '—'}`;
+      if (item) {
+        div.style.borderColor = RARITY[item.rarity]?.color || '#444';
+        div.title = item.name;
+        div.onclick = () => {
+          addItem(eq, 1);
+          player.equipment[slot.id] = null;
+          recalcStats();
+          playSound('equip', 0.2);
+          renderInventory();
+        };
+      }
+      charEq.appendChild(div);
     }
-    charEq.appendChild(div);
   }
 
-  // Inventory grid
   const grid = document.getElementById('inv-grid');
+  if (!grid) return;
   grid.innerHTML = '';
   for (let i = 0; i < Math.max(24, player.inventory.length); i++) {
     const div = document.createElement('div');
@@ -1532,7 +1208,7 @@ function renderInventory() {
       const inv = player.inventory[i];
       const item = ITEMS[inv.itemId];
       if (item) {
-        div.innerHTML = `<div class="rarity-border rarity-${RARITY[item.rarity]?.id||'common'}"></div>${item.icon}<br><small>${inv.count>1?'x'+inv.count:''}</small>`;
+        div.innerHTML = `<div class="rarity-border rarity-${RARITY[item.rarity]?.id || 'common'}"></div>${item.icon}<br><small>${inv.count > 1 ? 'x' + inv.count : ''}</small>`;
         div.style.borderColor = RARITY[item.rarity]?.color || '#444';
         div.onclick = () => handleInvClick(inv.itemId);
         div.onmouseenter = (e) => showTooltip(e, inv.itemId);
@@ -1546,12 +1222,12 @@ function renderInventory() {
 function handleInvClick(itemId) {
   const item = ITEMS[itemId];
   if (!item) return;
-
-  // Consumable
   if (item.type === 'consumable') {
-    if (item.effect.fuel) player.fuel = Math.min(player.maxFuel, player.fuel + item.effect.fuel);
-    if (item.effect.speed) player.speed += item.effect.speed / 100;
-    if (item.effect.poison_res) player.poisonRes += item.effect.poison_res;
+    if (item.effect) {
+      if (item.effect.fuel_restore) player.fuel = Math.min(player.maxFuel, player.fuel + item.effect.fuel_restore);
+      if (item.effect.speed_boost) player.speed += item.effect.speed_boost / 100;
+      if (item.effect.poison_res) player.poisonRes += item.effect.poison_res;
+    }
     removeItem(itemId, 1);
     playSound('equip', 0.2);
     showNotification(`${item.icon} ${item.name} kullanıldı!`);
@@ -1559,21 +1235,15 @@ function handleInvClick(itemId) {
     renderInventory();
     return;
   }
-
-  // Equipment
   if (item.type.startsWith('saw_') || item.type.startsWith('char_')) {
     const slotId = item.type;
-    // Unequip current
-    if (player.equipment[slotId]) {
-      addItem(player.equipment[slotId], 1);
-    }
+    if (player.equipment[slotId]) addItem(player.equipment[slotId], 1);
     player.equipment[slotId] = itemId;
     removeItem(itemId, 1);
     recalcStats();
     playSound('equip', 0.2);
     showNotification(`${item.icon} ${item.name} giyildi!`);
     renderInventory();
-    return;
   }
 }
 
@@ -1581,23 +1251,27 @@ function showTooltip(e, itemId) {
   const item = ITEMS[itemId];
   if (!item) return;
   const tt = document.getElementById('tooltip');
-  tt.innerHTML = `<div class="tt-name" style="color:${RARITY[item.rarity]?.color||'#aaa'}">${item.icon} ${item.name}</div>
-    <div class="tt-stats"><div style="color:${RARITY[item.rarity]?.color||'#aaa'}">${RARITY[item.rarity]?.name||'Sıradan'}</div>
-    ${item.stats ? Object.entries(item.stats).map(([k,v]) => `<div class="stat-green">+${v} ${k}</div>`).join('') : ''}
-    ${item.effect ? Object.entries(item.effect).map(([k,v]) => `<div class="stat-blue">+${v} ${k}</div>`).join('') : ''}
-    <div style="color:#888;margin-top:4px">Tıkla: ${item.type==='consumable'?'Kullan':'Giy'}</div></div>`;
+  if (!tt) return;
+  tt.innerHTML = `<div class="tt-name" style="color:${RARITY[item.rarity]?.color || '#aaa'}">${item.icon} ${item.name}</div>
+    <div class="tt-stats"><div style="color:${RARITY[item.rarity]?.color || '#aaa'}">${RARITY[item.rarity]?.name || 'Sıradan'}</div>
+    ${item.stats ? Object.entries(item.stats).map(([k, v]) => `<div class="stat-green">+${v} ${k}</div>`).join('') : ''}
+    ${item.effect ? Object.entries(item.effect).map(([k, v]) => `<div class="stat-blue">+${v} ${k}</div>`).join('') : ''}
+    <div style="color:#888;margin-top:4px">Tıkla: ${item.type === 'consumable' ? 'Kullan' : 'Giy'}</div></div>`;
   tt.style.display = 'block';
   tt.style.left = e.clientX + 15 + 'px';
   tt.style.top = e.clientY + 15 + 'px';
 }
 
 function hideTooltip() {
-  document.getElementById('tooltip').style.display = 'none';
+  const tt = document.getElementById('tooltip');
+  if (tt) tt.style.display = 'none';
 }
 
 function renderSkills() {
-  document.getElementById('skill-points').textContent = player.skillPoints;
+  const spSpan = document.getElementById('skill-points');
+  if (spSpan) spSpan.textContent = player.skillPoints;
   const grid = document.getElementById('skill-grid');
+  if (!grid) return;
   grid.innerHTML = '';
   for (const sk of SKILLS) {
     const lvl = player.skills[sk.id] || 0;
@@ -1605,7 +1279,7 @@ function renderSkills() {
     div.className = 'skill-node' + (lvl > 0 ? ' unlocked' : '');
     div.innerHTML = `<div class="skill-name">${sk.icon} ${sk.name}</div>
       <div class="skill-desc">${sk.desc}</div>
-      <div style="margin-top:4px;color:${lvl>0?'#2ecc71':'#888'}">Seviye: ${lvl}/${sk.max}</div>
+      <div style="margin-top:4px;color:${lvl > 0 ? '#2ecc71' : '#888'}">Seviye: ${lvl}/${sk.max}</div>
       ${player.skillPoints > 0 && lvl < sk.max ? '<div style="margin-top:4px;color:#f1c40f">▶ Yükselt</div>' : ''}`;
     div.onclick = () => {
       if (player.skillPoints > 0 && lvl < sk.max) {
@@ -1623,20 +1297,23 @@ function renderSkills() {
 
 function renderCrafting() {
   const list = document.getElementById('craft-list');
+  if (!list) return;
   list.innerHTML = '';
   for (const recipe of RECIPES) {
     const result = ITEMS[recipe.result];
     if (!result) continue;
-    const canCraft = Object.entries(recipe.mats).every(([id,cnt]) => itemCount(id) >= cnt);
+    const canCraft = Object.entries(recipe.mats).every(([id, cnt]) => itemCount(id) >= cnt);
     const div = document.createElement('div');
     div.className = 'craft-item';
-    div.innerHTML = `<div><div class="craft-name" style="color:${RARITY[result.rarity]?.color||'#aaa'}">${result.icon} ${recipe.name}</div>
-      <div class="craft-mats">${Object.entries(recipe.mats).map(([id,cnt]) => {
+    div.innerHTML = `<div>
+      <div class="craft-name" style="color:${RARITY[result.rarity]?.color || '#aaa'}">${result.icon} ${recipe.name}</div>
+      <div class="craft-mats">${Object.entries(recipe.mats).map(([id, cnt]) => {
         const has = itemCount(id);
         const mat = ITEMS[id];
-        return `<span style="color:${has>=cnt?'#2ecc71':'#e74c3c'}">${mat?.icon||'?'} ${mat?.name||id} ${has}/${cnt}</span>`;
-      }).join(' &nbsp; ')}</div></div>
-      <button class="craft-btn-btn" ${canCraft?'':'disabled'}>Üret</button>`;
+        return `<span style="color:${has >= cnt ? '#2ecc71' : '#e74c3c'}">${mat?.icon || '?'} ${mat?.name || id} ${has}/${cnt}</span>`;
+      }).join(' &nbsp; ')}</div>
+    </div>
+    <button class="craft-btn-btn" ${canCraft ? '' : 'disabled'}>Üret</button>`;
     div.querySelector('.craft-btn-btn').onclick = () => {
       if (!canCraft) return;
       for (const [id, cnt] of Object.entries(recipe.mats)) removeItem(id, cnt);
@@ -1649,42 +1326,38 @@ function renderCrafting() {
   }
 }
 
-// ============================================================
-// INPUT
-// ============================================================
-function setupInput() {
-  window.addEventListener('keydown', e => { keys[e.code] = true; });
+// <!-- ========== BÖLÜM 10: GİRİŞ YÖNETİMİ VE OYUN BAŞLATMA ========== -->
+
+// <!-- 10.1 Giriş Ayarları -->
+function setupInput(){
+  // Klavye girişleri
+  window.addEventListener('keydown', e => { 
+    keys[e.code] = true; 
+    // Oyun içinde Space tuşu ile sayfa kaymasını engelle
+    if (e.code === 'Space') e.preventDefault();
+  });
   window.addEventListener('keyup', e => { keys[e.code] = false; });
 
+  // Fare girişleri
   canvas.addEventListener('mousemove', e => {
     const rect = canvas.getBoundingClientRect();
-    const scaleX = C.W / rect.width;
-    const scaleY = C.H / rect.height;
-    mouse.x = (e.clientX - rect.left) * scaleX;
-    mouse.y = (e.clientY - rect.top) * scaleY;
+    mouse.x = (e.clientX - rect.left) * (C.W / rect.width);
+    mouse.y = (e.clientY - rect.top) * (C.H / rect.height);
     mouse.worldX = mouse.x + camera.x;
     mouse.worldY = mouse.y + camera.y;
   });
-
-  canvas.addEventListener('mousedown', e => {
-    if (e.button === 0) mouse.down = true;
-  });
-  canvas.addEventListener('mouseup', e => {
-    if (e.button === 0) mouse.down = false;
-  });
+  canvas.addEventListener('mousedown', e => { if (e.button === 0) mouse.down = true; });
+  canvas.addEventListener('mouseup', e => { if (e.button === 0) mouse.down = false; });
   canvas.addEventListener('mouseleave', () => { mouse.down = false; });
 
-  // Touch support - Virtual Joystick
+  // Mobil joystick desteği
   isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
   const jZone = document.getElementById('joystick-zone');
   const jBase = document.getElementById('joystick-base');
   const jStick = document.getElementById('joystick-stick');
+  
+  if (isMobile) jZone.style.display = 'block';
 
-  if (isMobile) {
-    jZone.style.display = 'block';
-  }
-
-  // Joystick touch handling
   jZone.addEventListener('touchstart', e => {
     e.preventDefault();
     const t = e.changedTouches[0];
@@ -1696,7 +1369,6 @@ function setupInput() {
     joystick.stickY = t.clientY;
     joystick.dx = 0;
     joystick.dy = 0;
-    // Show joystick visuals
     jBase.style.display = 'block';
     jStick.style.display = 'block';
     jBase.style.left = (joystick.baseX - 50) + 'px';
@@ -1711,15 +1383,13 @@ function setupInput() {
       if (t.identifier === joystick.touchId) {
         joystick.stickX = t.clientX;
         joystick.stickY = t.clientY;
-        // Calculate direction
         let jx = joystick.stickX - joystick.baseX;
         let jy = joystick.stickY - joystick.baseY;
         const maxDist = 50;
         const d = Math.sqrt(jx*jx + jy*jy);
-        if (d > maxDist) { jx = jx/d*maxDist; jy = jy/d*maxDist; }
+        if (d > maxDist) { jx = jx/d * maxDist; jy = jy/d * maxDist; }
         joystick.dx = jx / maxDist;
         joystick.dy = jy / maxDist;
-        // Update stick visual
         jStick.style.left = (joystick.baseX + jx - 22) + 'px';
         jStick.style.top = (joystick.baseY + jy - 22) + 'px';
       }
@@ -1741,10 +1411,9 @@ function setupInput() {
   jZone.addEventListener('touchend', joystickEnd);
   jZone.addEventListener('touchcancel', joystickEnd);
 
-  // Right side touch for mouse direction (non-joystick area)
+  // Mobil sağ tarafta dokunma ile fare konumlandırma
   canvas.addEventListener('touchstart', e => {
     e.preventDefault();
-    // Only handle touches on the right half (non-joystick area)
     for (const t of e.changedTouches) {
       if (t.clientX > window.innerWidth * 0.5) {
         const rect = canvas.getBoundingClientRect();
@@ -1752,7 +1421,8 @@ function setupInput() {
         mouse.y = (t.clientY - rect.top) * (C.H / rect.height);
       }
     }
-  }, {passive: false});
+  }, { passive: false });
+
   canvas.addEventListener('touchmove', e => {
     e.preventDefault();
     for (const t of e.changedTouches) {
@@ -1762,39 +1432,42 @@ function setupInput() {
         mouse.y = (t.clientY - rect.top) * (C.H / rect.height);
       }
     }
-  }, {passive: false});
+  }, { passive: false });
 
-  // Prevent default touch on body
   document.addEventListener('touchmove', e => {
     if (e.target === canvas || e.target === jZone) e.preventDefault();
-  }, {passive: false});
+  }, { passive: false });
 
-  // UI buttons
+  document.addEventListener('touchmove', e => {
+    if (e.target === canvas || e.target === jZone) e.preventDefault();
+  }, { passive: false });
+  
+
+  // ========== PANEL AÇMA BUTONLARI (DÜZELTİLDİ) ==========
   document.getElementById('inventory-btn').onclick = () => openPanel('inv-panel');
   document.getElementById('skill-btn').onclick = () => openPanel('skill-panel');
   document.getElementById('craft-btn').onclick = () => openPanel('craft-panel');
 
-  // Close panels on ESC
+
+  // ESC tuşu ile panelleri kapat
   window.addEventListener('keydown', e => {
     if (e.code === 'Escape') {
-      ['inv-panel','skill-panel','craft-panel'].forEach(id => closePanel(id));
+      ['inv-panel', 'skill-panel', 'craft-panel'].forEach(id => closePanel(id));
     }
   });
 }
 
-// ============================================================
-// GAME LOOP
-// ============================================================
+
 function gameLoop(timestamp) {
   if (!gameRunning) return;
   const dt = Math.min((timestamp - lastTime) / 1000, 0.05);
   lastTime = timestamp;
 
-  // Don't update if a panel is open
-  const panelOpen = ['inv-panel','skill-panel','craft-panel'].some(id => document.getElementById(id).style.display === 'block');
-  if (!panelOpen) {
-    update(dt);
-  }
+  const panelOpen = ['inv-panel', 'skill-panel', 'craft-panel'].some(id => {
+    const panel = document.getElementById(id);
+    return panel && panel.style.display === 'block';
+  });
+  if (!panelOpen) update(dt);
   render();
   requestAnimationFrame(gameLoop);
 }
@@ -1805,7 +1478,7 @@ function startGame() {
   ctx = canvas.getContext('2d');
   canvas.width = C.W;
   canvas.height = C.H;
-  // Responsive
+
   function resize() {
     const ratio = C.W / C.H;
     let w = window.innerWidth, h = window.innerHeight;
@@ -1824,7 +1497,6 @@ function startGame() {
   recalcStats();
   generatePlants();
 
-  // Give starter items
   addItem('steel_blade', 1);
   addItem('gear', 1);
   addItem('oil', 3);
@@ -1837,7 +1509,6 @@ function startGame() {
   requestAnimationFrame(gameLoop);
 }
 
-// Start button
 document.getElementById('start-btn').onclick = startGame;
 </script>
 </body>
