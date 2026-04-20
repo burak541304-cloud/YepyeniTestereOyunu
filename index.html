@@ -60,8 +60,12 @@ const touchState = {
   joyDx: 0,
   joyDy: 0,
   joyR: 64,
+  /** Aktif s\u00fcr\u00fckleme merkezi (sol dokunu\u015fla olu\u015fur). */
   joyCx: 80,
   joyCy: 200,
+  /** Potions vb. yerle\u015fim i\u00e7in referans (joystick gizliyken). */
+  joyIdleCx: 80,
+  joyIdleCy: 200,
   aimId: -1,
   aimX: 0,
   aimY: 0,
@@ -69,51 +73,7 @@ const touchState = {
   attackT0: 0,
   btnDown: new Map(),
   invSlotPressId: -1,
-  /** true: sol yarıda sürükleyerek merkez ta\u015f\u0131n\u0131r; \u00b1 ile yar\u0131\u00e7ap. */
-  joyLayoutEdit: false,
-  joyLayoutDragId: -1,
-  joyLayoutLastMx: 0,
-  joyLayoutLastMy: 0,
 };
-
-const TOUCH_JOY_STORAGE_KEY = "touchJoyLayout";
-
-function clampJoyPosition(cw, ch) {
-  const m = touchState.joyR + 8;
-  touchState.joyCx = Math.max(m, Math.min(cw - m, touchState.joyCx));
-  touchState.joyCy = Math.max(m, Math.min(ch - m, touchState.joyCy));
-}
-
-function saveJoyLayout() {
-  try {
-    const cw = typeof canvasW === "number" ? canvasW : window.innerWidth;
-    const ch = typeof canvasH === "number" ? canvasH : window.innerHeight;
-    const m = Math.min(cw, ch);
-    localStorage.setItem(TOUCH_JOY_STORAGE_KEY, JSON.stringify({
-      cxRel: touchState.joyCx / cw,
-      cyRel: touchState.joyCy / ch,
-      rRel: touchState.joyR / m,
-    }));
-  } catch (_) {}
-}
-
-function joyConfigButtonRect(cw, ch) {
-  return { x: 10, y: Math.max(44, ch - 142), w: 40, h: 32 };
-}
-
-function joySizeMinusRect(cw, ch) {
-  const b = joyConfigButtonRect(cw, ch);
-  return { x: b.x + b.w + 5, y: b.y, w: 32, h: b.h };
-}
-
-function joySizePlusRect(cw, ch) {
-  const s = joySizeMinusRect(cw, ch);
-  return { x: s.x + s.w + 4, y: s.y, w: 32, h: s.h };
-}
-
-function _inRect(mx, my, r) {
-  return mx >= r.x && mx < r.x + r.w && my >= r.y && my < r.y + r.h;
-}
 
 function refreshMobileUI() {
   const narrow = Math.min(window.innerWidth, window.innerHeight) <= 1080;
@@ -124,24 +84,21 @@ function refreshMobileUI() {
 function updateTouchLayout() {
   const ch = window.innerHeight, cw = window.innerWidth;
   const m = Math.min(cw, ch);
-  const rDefault = Math.min(70, m * 0.1);
-  let parsed = null;
-  try {
-    const s = localStorage.getItem(TOUCH_JOY_STORAGE_KEY);
-    if (s) parsed = JSON.parse(s);
-  } catch (_) {}
-  if (parsed != null &&
-      typeof parsed.cxRel === "number" && typeof parsed.cyRel === "number" && typeof parsed.rRel === "number" &&
-      Number.isFinite(parsed.cxRel) && Number.isFinite(parsed.cyRel) && Number.isFinite(parsed.rRel)) {
-    touchState.joyR = Math.max(32, Math.min(100, parsed.rRel * m));
-    touchState.joyCx = parsed.cxRel * cw;
-    touchState.joyCy = parsed.cyRel * ch;
-    clampJoyPosition(cw, ch);
-  } else {
-    touchState.joyR = rDefault;
-    touchState.joyCx = rDefault + 22;
-    touchState.joyCy = ch - rDefault - 22;
+  touchState.joyR = Math.min(70, m * 0.1);
+  touchState.joyIdleCx = touchState.joyR + 22;
+  touchState.joyIdleCy = ch - touchState.joyR - 22;
+  if (touchState.joyId < 0) {
+    touchState.joyCx = touchState.joyIdleCx;
+    touchState.joyCy = touchState.joyIdleCy;
   }
+}
+
+/** iksir yerle\u015fimi: joystick bas\u0131l\u0131 de\u011filse sol alt referans. */
+function joyAnchorForLayout() {
+  if (touchState.joyId >= 0) {
+    return { cx: touchState.joyCx, cy: touchState.joyCy, r: touchState.joyR };
+  }
+  return { cx: touchState.joyIdleCx, cy: touchState.joyIdleCy, r: touchState.joyR };
 }
 
 /** Mobil modal pencereler i\u00e7in g\u00fcvenli alan (\u00fcstte \u00d7 \u00e7ipi i\u00e7in bo\u015fluk). */
@@ -163,10 +120,6 @@ function uiModalBounds(cw, ch) {
 function mobileAttackButtonRect(cw, ch) {
   const pad = 8, w = 52, h = 44;
   return { x: cw - w - pad, y: ch - pad - 46, w, h };
-}
-
-function inJoyZone(mx, my) {
-  return Math.hypot(mx - touchState.joyCx, my - touchState.joyCy) <= touchState.joyR * 1.55;
 }
 
 function mobileButtonsLayout(cw, ch) {
@@ -969,20 +922,31 @@ const charPanel = {
   open: false,
   _layout(cw, ch) {
     const b = uiModalBounds(cw, ch);
+    const land = cw > ch * 1.02;
     const n = PLAYER_SKILL_DEFS.length;
-    let rowStep = 54;
-    const headerH = 130;
-    let needH = headerH + n * rowStep + 24;
-    while (needH > b.maxH && rowStep > 40) {
+    let rowStep = land ? 40 : 54;
+    const titleH = land ? 20 : 26;
+    const statBlockH = land ? 52 : 78;
+    const gapBeforeSkills = land ? 10 : 18;
+    let needH = (land ? 10 : 14) + titleH + statBlockH + gapBeforeSkills + 16 + n * rowStep + (land ? 14 : 20);
+    while (needH > b.maxH && rowStep > 30) {
       rowStep -= 2;
-      needH = headerH + n * rowStep + 24;
+      needH = (land ? 10 : 14) + titleH + statBlockH + gapBeforeSkills + 16 + n * rowStep + (land ? 14 : 20);
     }
-    let pw = Math.min(420, b.maxW);
-    let ph = Math.min(Math.max(needH, 240), b.maxH);
+    let pw = Math.min(land ? Math.min(560, b.maxW) : 420, b.maxW);
+    pw = Math.max(280, pw);
+    let ph = Math.min(Math.max(needH, land ? 200 : 240), b.maxH);
     const px = Math.floor((cw - pw) / 2);
     const py = Math.max(b.top, Math.min(ch - ph - b.bottom, Math.floor((ch - ph) / 2)));
-    const boxH = Math.max(40, rowStep - 6);
-    return { px, py, pw, ph, rowStep, boxH };
+    const boxH = Math.max(land ? 30 : 40, rowStep - (land ? 8 : 6));
+    const titleY = py + (land ? 16 : 24);
+    const statBtnY = py + (land ? 36 : 52);
+    const skillHdrY = statBtnY + (land ? 34 : 42);
+    const skillStartY = skillHdrY + (land ? 12 : 18);
+    const closeR = { x: px + pw - 30, y: py + 8, w: 24, h: 24 };
+    return {
+      px, py, pw, ph, rowStep, boxH, land, titleY, statBtnY, skillHdrY, skillStartY, closeR,
+    };
   },
   _in(mx, my, r) {
     return mx >= r.x && mx < r.x + r.w && my >= r.y && my < r.y + r.h;
@@ -1024,36 +988,37 @@ const charPanel = {
       this.close();
       return true;
     }
-    const closeR = { x: L.px + L.pw - 30, y: L.py + 8, w: 24, h: 24 };
-    if (this._in(mx, my, closeR)) {
+    if (this._in(mx, my, L.closeR)) {
       this.close();
       return true;
     }
 
-    const btnY = L.py + 86;
+    const btnY = L.statBtnY;
+    const btnH = L.land ? 26 : 30;
     const bw = Math.min(104, Math.floor((L.pw - 50) / 3)), gap = Math.min(10, Math.max(4, Math.floor(L.pw * 0.02))), x0 = L.px + 20;
     if (player.statPoints > 0) {
-      if (this._in(mx, my, { x: x0, y: btnY, w: bw, h: 30 })) {
+      if (this._in(mx, my, { x: x0, y: btnY, w: bw, h: btnH })) {
         const err = this.tryAllocStat(player, "str");
         if (err) { pickupMsgText = err; pickupMsgTimer = 1.4; }
         return true;
       }
-      if (this._in(mx, my, { x: x0 + bw + gap, y: btnY, w: bw, h: 30 })) {
+      if (this._in(mx, my, { x: x0 + bw + gap, y: btnY, w: bw, h: btnH })) {
         const err = this.tryAllocStat(player, "agi");
         if (err) { pickupMsgText = err; pickupMsgTimer = 1.4; }
         return true;
       }
-      if (this._in(mx, my, { x: x0 + 2 * (bw + gap), y: btnY, w: bw, h: 30 })) {
+      if (this._in(mx, my, { x: x0 + 2 * (bw + gap), y: btnY, w: bw, h: btnH })) {
         const err = this.tryAllocStat(player, "wis");
         if (err) { pickupMsgText = err; pickupMsgTimer = 1.4; }
         return true;
       }
     }
 
-    let sy = L.py + 138;
+    let sy = L.skillStartY;
     const unlockW = Math.min(108, L.pw - 130);
+    const unlockH = L.land ? 26 : 28;
     for (const sk of PLAYER_SKILL_DEFS) {
-      const unlockR = { x: L.px + L.pw - unlockW - 10, y: sy + 2, w: unlockW, h: 28 };
+      const unlockR = { x: L.px + L.pw - unlockW - 10, y: sy + 2, w: unlockW, h: unlockH };
       if (!player.skills[sk.id] && this._in(mx, my, unlockR)) {
         const err = this.tryUnlockSkill(player, inventory, sk.id);
         if (err) {
@@ -1081,38 +1046,40 @@ const charPanel = {
     ctx.stroke();
 
     ctx.fillStyle = "#e8e8f0";
-    ctx.font = "bold 14px monospace";
-    ctx.fillText("Karakter  [C] kapat", L.px + 14, L.py + 26);
+    ctx.font = L.land ? "bold 12px monospace" : "bold 14px monospace";
+    ctx.fillText("Karakter  [C] kapat", L.px + 14, L.titleY);
     ctx.fillStyle = "#f0d050";
-    ctx.font = "bold 12px monospace";
-    ctx.fillText("Stat puan\u0131: " + player.statPoints + "   (Lv." + player.level + ")", L.px + 14, L.py + 50);
+    ctx.font = L.land ? "bold 11px monospace" : "bold 12px monospace";
+    ctx.fillText("Stat puan\u0131: " + player.statPoints + "   (Lv." + player.level + ")", L.px + 14, L.titleY + (L.land ? 18 : 24));
     ctx.fillStyle = "#a0a0c0";
-    ctx.font = "10px monospace";
-    ctx.fillText("STR:" + player.str + "  AGI:" + player.agi + "  WIS:" + player.wis, L.px + 14, L.py + 68);
+    ctx.font = L.land ? "9px monospace" : "10px monospace";
+    ctx.fillText("STR:" + player.str + "  AGI:" + player.agi + "  WIS:" + player.wis, L.px + 14, L.titleY + (L.land ? 32 : 44));
 
-    const btnY = L.py + 86;
+    const btnY = L.statBtnY;
+    const btnH = L.land ? 26 : 30;
     const bw = Math.min(104, Math.floor((L.pw - 50) / 3)), gap = Math.min(10, Math.max(4, Math.floor(L.pw * 0.02))), x0 = L.px + 20;
     const drawMiniBtn = (x, y, label, active) => {
       ctx.fillStyle = active ? "#2a5080" : "#303048";
-      roundRect(ctx, x, y, bw, 30, 5);
+      roundRect(ctx, x, y, bw, btnH, 5);
       ctx.fill();
       ctx.strokeStyle = active ? "#80b0ff" : "#505070";
       ctx.stroke();
       ctx.fillStyle = active ? "#fff" : "#707090";
-      ctx.font = "bold 11px monospace";
-      ctx.fillText(label, x + (bw - ctx.measureText(label).width) / 2, y + 20);
+      ctx.font = L.land ? "bold 10px monospace" : "bold 11px monospace";
+      ctx.fillText(label, x + (bw - ctx.measureText(label).width) / 2, y + (L.land ? 17 : 20));
     };
     drawMiniBtn(x0, btnY, "+ STR", player.statPoints > 0);
     drawMiniBtn(x0 + bw + gap, btnY, "+ AGI", player.statPoints > 0);
     drawMiniBtn(x0 + 2 * (bw + gap), btnY, "+ WIS", player.statPoints > 0);
 
     ctx.fillStyle = "#c0c8e0";
-    ctx.font = "bold 11px monospace";
-    ctx.fillText("Yetenekler (seviye + alt\u0131n)", L.px + 14, L.py + 128);
+    ctx.font = L.land ? "bold 10px monospace" : "bold 11px monospace";
+    ctx.fillText("Yetenekler (seviye + alt\u0131n)", L.px + 14, L.skillHdrY);
 
-    let sy = L.py + 138;
+    let sy = L.skillStartY;
     const gold = inventory.countItem("coin");
     const unlockW = Math.min(108, L.pw - 130);
+    const unlockH = L.land ? 26 : 28;
     for (const sk of PLAYER_SKILL_DEFS) {
       ctx.fillStyle = "#2a2840";
       roundRect(ctx, L.px + 14, sy, L.pw - 28, L.boxH, 6);
@@ -1121,13 +1088,13 @@ const charPanel = {
       roundRect(ctx, L.px + 14, sy, L.pw - 28, L.boxH, 6);
       ctx.stroke();
       ctx.fillStyle = player.skills[sk.id] ? "#70ffa0" : "#e0e0f0";
-      ctx.font = "bold 11px monospace";
-      ctx.fillText(sk.name + (player.skills[sk.id] ? "  \u2713" : ""), L.px + 22, sy + 16);
+      ctx.font = L.land ? "bold 10px monospace" : "bold 11px monospace";
+      ctx.fillText(sk.name + (player.skills[sk.id] ? "  \u2713" : ""), L.px + 22, sy + (L.land ? 14 : 16));
       ctx.fillStyle = "#9090b0";
-      ctx.font = "9px monospace";
-      ctx.fillText(sk.desc + "  |  Lv" + sk.minLevel + "  |  " + sk.gold + " alt\u0131n", L.px + 22, sy + 32);
+      ctx.font = L.land ? "8px monospace" : "9px monospace";
+      ctx.fillText(sk.desc + "  |  Lv" + sk.minLevel + "  |  " + sk.gold + " alt\u0131n", L.px + 22, sy + (L.land ? 26 : 32));
 
-      const unlockR = { x: L.px + L.pw - unlockW - 10, y: sy + 2, w: unlockW, h: 28 };
+      const unlockR = { x: L.px + L.pw - unlockW - 10, y: sy + 2, w: unlockW, h: unlockH };
       if (!player.skills[sk.id]) {
         const can = player.level >= sk.minLevel && gold >= sk.gold;
         ctx.fillStyle = can ? "#2a6040" : "#303030";
@@ -1136,9 +1103,9 @@ const charPanel = {
         ctx.strokeStyle = can ? "#60c080" : "#505050";
         ctx.stroke();
         ctx.fillStyle = can ? "#fff" : "#606060";
-        ctx.font = "bold 10px monospace";
+        ctx.font = L.land ? "bold 9px monospace" : "bold 10px monospace";
         const t = "A\u00e7 " + sk.gold + "G";
-        ctx.fillText(t, unlockR.x + (unlockR.w - ctx.measureText(t).width) / 2, unlockR.y + 19);
+        ctx.fillText(t, unlockR.x + (unlockR.w - ctx.measureText(t).width) / 2, unlockR.y + (L.land ? 17 : 19));
       }
       sy += L.rowStep;
     }
@@ -4071,6 +4038,9 @@ class Shop {
     this.buyPicker = null;
     /** Son \u00e7izilen sat\u0131n al diyalo\u011fu i\u00e7in boyut (\u0131mle\u00e7a t\u0131klamas\u0131 ile ayn\u0131 hizada). */
     this._buyPickerMetrics = null;
+    /** Ma\u011faza ızgaras\u0131 dikey kayd\u0131rma (dokunmatik). */
+    this.gridScrollTouchId = -1;
+    this.gridScrollLastY = 0;
   }
 
   openShop(name, template, poolKey) {
@@ -4089,6 +4059,7 @@ class Shop {
     this.sellPicker = null;
     this.buyPicker = null;
     this._buyPickerMetrics = null;
+    this.gridScrollTouchId = -1;
   }
 
   rebuildStockFromTemplate() {
@@ -4128,6 +4099,7 @@ class Shop {
     this.tooltipSpecial = false;
     this.sellPicker = null;
     this.buyPicker = null;
+    this.gridScrollTouchId = -1;
   }
   toggle() { if (this.open) this.close(); }
 
@@ -4188,6 +4160,68 @@ class Shop {
 
   _buyGridY(L) {
     return L.gridYStart;
+  }
+
+  _shopGridClip(L) {
+    const gridY = this._buyGridY(L);
+    const clipBottom = this.tab === 1 && !this.sellPicker ? L.py + L.ph - 28 : L.py + L.ph - 10;
+    return { x: L.px, y: gridY - 2, w: L.pw, h: clipBottom - gridY + 2, gridY, clipBottom };
+  }
+
+  _maxScrollBuy(L) {
+    const rowStride = this._shopRowStride(L);
+    const n = this.stock.length;
+    const cols = L.shopCols;
+    const rows = Math.ceil(Math.max(1, n) / cols);
+    const totalH = rows * rowStride;
+    const vis = this._shopGridClip(L).h;
+    return Math.max(0, totalH - vis + 6);
+  }
+
+  _maxScrollSell(L, inventory) {
+    const rowStride = this._shopRowStride(L);
+    const n = this._getSellableEntries(inventory).length;
+    const cols = L.shopCols;
+    const rows = Math.ceil(Math.max(1, n) / cols);
+    const totalH = rows * rowStride;
+    const vis = this._shopGridClip(L).h;
+    return Math.max(0, totalH - vis + 6);
+  }
+
+  _shopScrollBtnUp(L) {
+    const c = this._shopGridClip(L);
+    const bw = 36, bh = 28;
+    return { x: L.px + L.pw - bw - 6, y: c.gridY + 2, w: bw, h: bh };
+  }
+
+  _shopScrollBtnDown(L) {
+    const c = this._shopGridClip(L);
+    const bw = 36, bh = 28;
+    return { x: L.px + L.pw - bw - 6, y: c.clipBottom - bh - 4, w: bw, h: bh };
+  }
+
+  applyTouchGridScroll(pixelDy, cw, ch, inventory) {
+    const L = this._layout(cw, ch);
+    const maxS = this.tab === 0 ? this._maxScrollBuy(L) : this._maxScrollSell(L, inventory);
+    if (maxS <= 0) return;
+    if (this.tab === 0) this.scrollBuy = Math.max(0, Math.min(maxS, this.scrollBuy + pixelDy));
+    else this.scrollSell = Math.max(0, Math.min(maxS, this.scrollSell + pixelDy));
+  }
+
+  tryBeginGridScroll(touchId, mx, my, cw, ch, inventory) {
+    if (!this.open || this.buyPicker || (this.tab === 1 && this.sellPicker)) return false;
+    const L = this._layout(cw, ch);
+    const maxS = this.tab === 0 ? this._maxScrollBuy(L) : this._maxScrollSell(L, inventory);
+    if (maxS < 8) return false;
+    const clip = this._shopGridClip(L);
+    const stripX0 = clip.x + clip.w - 48;
+    if (mx < stripX0 || mx > clip.x + clip.w - 2) return false;
+    if (my < clip.y || my > clip.y + clip.h) return false;
+    const upR = this._shopScrollBtnUp(L), dnR = this._shopScrollBtnDown(L);
+    if (this._pointInRect(mx, my, upR) || this._pointInRect(mx, my, dnR)) return false;
+    this.gridScrollTouchId = touchId;
+    this.gridScrollLastY = my;
+    return true;
   }
 
   _getSellableEntries(inventory) {
@@ -4570,6 +4604,22 @@ class Shop {
     const rowStride = this._shopRowStride(L);
     const sSlot = L.shopSlot;
 
+    const maxSB = this.tab === 0 ? this._maxScrollBuy(L) : this._maxScrollSell(L, inventory);
+    if (maxSB >= 8) {
+      const upR = this._shopScrollBtnUp(L), dnR = this._shopScrollBtnDown(L);
+      const step = this._shopRowStride(L);
+      if (this._pointInRect(mx, my, upR)) {
+        if (this.tab === 0) this.scrollBuy = Math.max(0, this.scrollBuy - step);
+        else this.scrollSell = Math.max(0, this.scrollSell - step);
+        return true;
+      }
+      if (this._pointInRect(mx, my, dnR)) {
+        if (this.tab === 0) this.scrollBuy = Math.min(maxSB, this.scrollBuy + step);
+        else this.scrollSell = Math.min(maxSB, this.scrollSell + step);
+        return true;
+      }
+    }
+
     if (this.tab === 0) {
       if (button !== 0) return true;
       if (this.buyPicker) {
@@ -4711,8 +4761,15 @@ class Shop {
     if (mx >= L.px && mx < L.px + L.pw && my >= L.py && my < L.py + L.ph) {
       if (this.tab === 1 && this.sellPicker) this.sellPicker = null;
       if (this.tab === 0 && this.buyPicker) this.buyPicker = null;
-      if (this.tab === 0) this.scrollBuy = Math.max(0, this.scrollBuy + dy * 20);
-      else this.scrollSell = Math.max(0, this.scrollSell + dy * 20);
+      const land = cw > ch * 1.02;
+      const step = dy * (land ? 34 : 20);
+      if (this.tab === 0) {
+        const maxS = this._maxScrollBuy(L);
+        this.scrollBuy = Math.max(0, Math.min(maxS, this.scrollBuy + step));
+      } else {
+        const maxS = this._maxScrollSell(L, inventory);
+        this.scrollSell = Math.max(0, Math.min(maxS, this.scrollSell + step));
+      }
     }
   }
 
@@ -4832,7 +4889,9 @@ class Shop {
     const ssPad = ss < 10 ? "0" + ss : String(ss);
     if (land) {
       ctx.fillStyle = "#e8c070"; ctx.font = "bold 9px monospace";
-      const line1 = "\u2605 \u00d6zel: " + mm + ":" + ssPad + "  |  S\u0131n\u0131rs\u0131z: ok, iksir, yemek, malzeme";
+      const maxGHint = this.tab === 0 ? this._maxScrollBuy(L) : this._maxScrollSell(L, inventory);
+      const scrHint = maxGHint >= 8 ? "  |  Sa\u011f \u25B2\u25BC veya parmak kayd\u0131r" : "";
+      const line1 = "\u2605 \u00d6zel: " + mm + ":" + ssPad + scrHint;
       ctx.fillText(line1, L.px + 12, L.py + 36);
     } else {
       ctx.fillStyle = "#e8c070"; ctx.font = "bold 10px monospace";
@@ -4856,6 +4915,26 @@ class Shop {
     }
 
     ctx.restore();
+
+    const maxGridScroll = this.tab === 0 ? this._maxScrollBuy(L) : this._maxScrollSell(L, inventory);
+    if (maxGridScroll >= 8) {
+      const upR = this._shopScrollBtnUp(L), dnR = this._shopScrollBtnDown(L);
+      ctx.fillStyle = "rgba(42,38,62,0.96)";
+      roundRect(ctx, upR.x, upR.y, upR.w, upR.h, 5);
+      ctx.fill();
+      roundRect(ctx, dnR.x, dnR.y, dnR.w, dnR.h, 5);
+      ctx.fill();
+      ctx.strokeStyle = "#a090d0";
+      ctx.lineWidth = 1.2;
+      roundRect(ctx, upR.x, upR.y, upR.w, upR.h, 5);
+      ctx.stroke();
+      roundRect(ctx, dnR.x, dnR.y, dnR.w, dnR.h, 5);
+      ctx.stroke();
+      ctx.fillStyle = "#f0f0ff";
+      ctx.font = "bold 15px monospace";
+      ctx.fillText("\u25B2", upR.x + upR.w / 2 - 7, upR.y + 20);
+      ctx.fillText("\u25BC", dnR.x + dnR.w / 2 - 7, dnR.y + 20);
+    }
 
     if (this.tab === 1 && !this.sellPicker) {
       ctx.fillStyle = "#6a6a88"; ctx.font = "9px monospace";
@@ -5179,7 +5258,7 @@ class HUD {
     ctx.fillStyle = "#f0f0f0"; ctx.font = "11px monospace";
     if (touchState.mobileUI) {
       ctx.fillText(
-        "Mobil: joystick (\u2699 d\u00fczen) | \u2694 Q/R | sa\u011f E/C/I/P/M/B/F | \u00d7 kapat",
+        "Mobil: sol y\u00f6n \u2014 joystick | \u2694 Q/R | sa\u011f E/C/I/P/M/B/F | \u00d7 kapat",
         10,
         canvasH - 10
       );
@@ -5199,9 +5278,9 @@ function layoutCombatPotions(cw, ch) {
   let y = ch - h - bottomPad;
 
   if (touchState.mobileUI) {
-    const J = touchState;
+    const J = joyAnchorForLayout();
     const atk = mobileAttackButtonRect(cw, ch);
-    const joyRight = J.joyCx + J.joyR * 1.55;
+    const joyRight = J.cx + J.r * 1.55;
     let potW = 44, potH = 44, g = 5;
     let manaX = atk.x - g - potW;
     let hpX = manaX - g - potW;
@@ -6275,7 +6354,12 @@ window.addEventListener("mouseup", (e) => {
   }
 });
 canvas.addEventListener("wheel", (e) => {
-  if (shop.open) { shop.handleScroll(e.deltaY > 0 ? 1 : -1, e.clientX, e.clientY, canvasW, canvasH); e.preventDefault(); }
+  if (shop.open) {
+    const land = canvasW > canvasH * 1.02;
+    const dy = e.deltaY > 0 ? (land ? 2.2 : 1) : (land ? -2.2 : -1);
+    shop.handleScroll(dy, e.clientX, e.clientY, canvasW, canvasH);
+    e.preventDefault();
+  }
 }, { passive: false });
 
 function tryMobileClosePanels(mx, my) {
@@ -6306,6 +6390,7 @@ function handleCanvasTouchStart(e) {
       continue;
     }
     if (shop.open) {
+      if (shop.tryBeginGridScroll(id, mx, my, canvasW, canvasH, inventory)) continue;
       shop.handleClick(mx, my, canvasW, canvasH, inventory, false, 0);
       continue;
     }
@@ -6334,42 +6419,6 @@ function handleCanvasTouchStart(e) {
 
     if (!shop.open && !craftPanel.open && tryCombatPotionClick(mx, my)) continue;
 
-    if (_inRect(mx, my, joyConfigButtonRect(canvasW, canvasH))) {
-      touchState.joyLayoutEdit = !touchState.joyLayoutEdit;
-      if (touchState.joyLayoutEdit) {
-        if (touchState.joyId >= 0) {
-          touchState.joyId = -1;
-          touchState.joyDx = 0;
-          touchState.joyDy = 0;
-        }
-      } else {
-        clampJoyPosition(canvasW, canvasH);
-        saveJoyLayout();
-      }
-      continue;
-    }
-
-    if (touchState.joyLayoutEdit) {
-      if (_inRect(mx, my, joySizeMinusRect(canvasW, canvasH))) {
-        touchState.joyR = Math.max(32, touchState.joyR - 6);
-        clampJoyPosition(canvasW, canvasH);
-        saveJoyLayout();
-        continue;
-      }
-      if (_inRect(mx, my, joySizePlusRect(canvasW, canvasH))) {
-        touchState.joyR = Math.min(100, touchState.joyR + 6);
-        clampJoyPosition(canvasW, canvasH);
-        saveJoyLayout();
-        continue;
-      }
-      if (mx < canvasW - 100 && !hitMobileButton(mx, my, canvasW, canvasH)) {
-        touchState.joyLayoutDragId = id;
-        touchState.joyLayoutLastMx = mx;
-        touchState.joyLayoutLastMy = my;
-        continue;
-      }
-    }
-
     const br = hitMobileButton(mx, my, canvasW, canvasH);
     if (br) {
       if (br.key === "attack") {
@@ -6381,14 +6430,15 @@ function handleCanvasTouchStart(e) {
       continue;
     }
 
-    if (!touchState.joyLayoutEdit && inJoyZone(mx, my)) {
-      if (touchState.joyId < 0) {
-        touchState.joyId = id;
-        touchState.joyOx = touchState.joyCx;
-        touchState.joyOy = touchState.joyCy;
-        touchState.joyDx = 0;
-        touchState.joyDy = 0;
-      }
+    const joyLeftMaxX = canvasW * 0.48;
+    if (touchState.joyId < 0 && mx < joyLeftMaxX) {
+      touchState.joyId = id;
+      touchState.joyCx = mx;
+      touchState.joyCy = my;
+      touchState.joyOx = mx;
+      touchState.joyOy = my;
+      touchState.joyDx = 0;
+      touchState.joyDy = 0;
       continue;
     }
 
@@ -6408,14 +6458,10 @@ function handleCanvasTouchMove(e) {
     mouseX = mx;
     mouseY = my;
 
-    if (id === touchState.joyLayoutDragId) {
-      const dx = mx - touchState.joyLayoutLastMx;
-      const dy = my - touchState.joyLayoutLastMy;
-      touchState.joyCx += dx;
-      touchState.joyCy += dy;
-      touchState.joyLayoutLastMx = mx;
-      touchState.joyLayoutLastMy = my;
-      clampJoyPosition(canvasW, canvasH);
+    if (shop.open && shop.gridScrollTouchId === id) {
+      const dy = my - shop.gridScrollLastY;
+      shop.gridScrollLastY = my;
+      shop.applyTouchGridScroll(-dy, canvasW, canvasH, inventory);
     }
     if (id === touchState.joyId) {
       let dx = mx - touchState.joyOx, dy = my - touchState.joyOy;
@@ -6464,10 +6510,8 @@ function handleCanvasTouchEnd(e) {
       inventory.finishSlotPress(mx, my, canvasW, canvasH, false);
     }
 
-    if (id === touchState.joyLayoutDragId) {
-      touchState.joyLayoutDragId = -1;
-      clampJoyPosition(canvasW, canvasH);
-      saveJoyLayout();
+    if (shop.open && id === shop.gridScrollTouchId) {
+      shop.gridScrollTouchId = -1;
     }
     if (id === touchState.joyId) {
       touchState.joyId = -1;
@@ -6524,58 +6568,25 @@ function renderTouchOverlay(ctx) {
     return;
   }
 
-  const J = touchState;
-  ctx.globalAlpha = 0.35;
-  ctx.fillStyle = "rgba(40,40,70,0.9)";
-  ctx.beginPath();
-  ctx.arc(J.joyCx, J.joyCy, J.joyR, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.globalAlpha = 0.55;
-  ctx.strokeStyle = J.joyLayoutEdit ? "#d0a0ff" : "#8090c0";
-  ctx.lineWidth = J.joyLayoutEdit ? 2.5 : 2;
-  ctx.setLineDash(J.joyLayoutEdit ? [6, 5] : []);
-  ctx.beginPath();
-  ctx.arc(J.joyCx, J.joyCy, J.joyR, 0, Math.PI * 2);
-  ctx.stroke();
-  ctx.setLineDash([]);
-  const kx = J.joyOx + J.joyDx * J.joyR * 0.88, ky = J.joyOy + J.joyDy * J.joyR * 0.88;
-  ctx.fillStyle = "rgba(200,210,255,0.85)";
-  ctx.beginPath();
-  ctx.arc(kx, ky, J.joyR * 0.32, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.globalAlpha = 1;
-
-  const cfg = joyConfigButtonRect(cw, ch);
-  ctx.globalAlpha = 0.92;
-  ctx.fillStyle = J.joyLayoutEdit ? "rgba(90,55,115,0.94)" : "rgba(30,30,48,0.92)";
-  roundRect(ctx, cfg.x, cfg.y, cfg.w, cfg.h, 7);
-  ctx.fill();
-  ctx.strokeStyle = J.joyLayoutEdit ? "#e8b0ff" : "#606888";
-  ctx.lineWidth = 1.5;
-  roundRect(ctx, cfg.x, cfg.y, cfg.w, cfg.h, 7);
-  ctx.stroke();
-  ctx.fillStyle = "#f0f0ff";
-  ctx.font = "bold 16px monospace";
-  ctx.fillText(J.joyLayoutEdit ? "\u2713" : "\u2699", cfg.x + cfg.w / 2 - 8, cfg.y + 22);
-  if (J.joyLayoutEdit) {
-    const mr = joySizeMinusRect(cw, ch), pr = joySizePlusRect(cw, ch);
-    ctx.fillStyle = "rgba(28,28,48,0.92)";
-    roundRect(ctx, mr.x, mr.y, mr.w, mr.h, 6);
-    roundRect(ctx, pr.x, pr.y, pr.w, pr.h, 6);
+  if (touchState.joyId >= 0) {
+    const J = touchState;
+    ctx.globalAlpha = 0.38;
+    ctx.fillStyle = "rgba(40,40,70,0.92)";
+    ctx.beginPath();
+    ctx.arc(J.joyCx, J.joyCy, J.joyR, 0, Math.PI * 2);
     ctx.fill();
-    ctx.strokeStyle = "#7078a0";
-    roundRect(ctx, mr.x, mr.y, mr.w, mr.h, 6);
-    roundRect(ctx, pr.x, pr.y, pr.w, pr.h, 6);
+    ctx.globalAlpha = 0.6;
+    ctx.strokeStyle = "#8090c0";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(J.joyCx, J.joyCy, J.joyR, 0, Math.PI * 2);
     ctx.stroke();
-    ctx.fillStyle = "#e8e8f8";
-    ctx.font = "bold 17px monospace";
-    ctx.fillText("\u2212", mr.x + mr.w / 2 - 5, mr.y + 22);
-    ctx.fillText("+", pr.x + pr.w / 2 - 5, pr.y + 21);
-    if (cfg.y >= 62) {
-      ctx.font = "9px monospace";
-      ctx.fillStyle = "#b8b8d8";
-      ctx.fillText("Sol s\u00fcr\u00fckle: konum  |  \u2699 bitir", cfg.x, cfg.y - 10);
-    }
+    const kx = J.joyOx + J.joyDx * J.joyR * 0.88, ky = J.joyOy + J.joyDy * J.joyR * 0.88;
+    ctx.fillStyle = "rgba(200,210,255,0.9)";
+    ctx.beginPath();
+    ctx.arc(kx, ky, J.joyR * 0.32, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
   }
 
   const btns = mobileButtonsLayout(cw, ch);
