@@ -69,7 +69,51 @@ const touchState = {
   attackT0: 0,
   btnDown: new Map(),
   invSlotPressId: -1,
+  /** true: sol yarıda sürükleyerek merkez ta\u015f\u0131n\u0131r; \u00b1 ile yar\u0131\u00e7ap. */
+  joyLayoutEdit: false,
+  joyLayoutDragId: -1,
+  joyLayoutLastMx: 0,
+  joyLayoutLastMy: 0,
 };
+
+const TOUCH_JOY_STORAGE_KEY = "touchJoyLayout";
+
+function clampJoyPosition(cw, ch) {
+  const m = touchState.joyR + 8;
+  touchState.joyCx = Math.max(m, Math.min(cw - m, touchState.joyCx));
+  touchState.joyCy = Math.max(m, Math.min(ch - m, touchState.joyCy));
+}
+
+function saveJoyLayout() {
+  try {
+    const cw = typeof canvasW === "number" ? canvasW : window.innerWidth;
+    const ch = typeof canvasH === "number" ? canvasH : window.innerHeight;
+    const m = Math.min(cw, ch);
+    localStorage.setItem(TOUCH_JOY_STORAGE_KEY, JSON.stringify({
+      cxRel: touchState.joyCx / cw,
+      cyRel: touchState.joyCy / ch,
+      rRel: touchState.joyR / m,
+    }));
+  } catch (_) {}
+}
+
+function joyConfigButtonRect(cw, ch) {
+  return { x: 10, y: Math.max(44, ch - 142), w: 40, h: 32 };
+}
+
+function joySizeMinusRect(cw, ch) {
+  const b = joyConfigButtonRect(cw, ch);
+  return { x: b.x + b.w + 5, y: b.y, w: 32, h: b.h };
+}
+
+function joySizePlusRect(cw, ch) {
+  const s = joySizeMinusRect(cw, ch);
+  return { x: s.x + s.w + 4, y: s.y, w: 32, h: s.h };
+}
+
+function _inRect(mx, my, r) {
+  return mx >= r.x && mx < r.x + r.w && my >= r.y && my < r.y + r.h;
+}
 
 function refreshMobileUI() {
   const narrow = Math.min(window.innerWidth, window.innerHeight) <= 1080;
@@ -79,10 +123,25 @@ function refreshMobileUI() {
 
 function updateTouchLayout() {
   const ch = window.innerHeight, cw = window.innerWidth;
-  const r = Math.min(70, Math.min(cw, ch) * 0.1);
-  touchState.joyR = r;
-  touchState.joyCx = r + 22;
-  touchState.joyCy = ch - r - 22;
+  const m = Math.min(cw, ch);
+  const rDefault = Math.min(70, m * 0.1);
+  let parsed = null;
+  try {
+    const s = localStorage.getItem(TOUCH_JOY_STORAGE_KEY);
+    if (s) parsed = JSON.parse(s);
+  } catch (_) {}
+  if (parsed != null &&
+      typeof parsed.cxRel === "number" && typeof parsed.cyRel === "number" && typeof parsed.rRel === "number" &&
+      Number.isFinite(parsed.cxRel) && Number.isFinite(parsed.cyRel) && Number.isFinite(parsed.rRel)) {
+    touchState.joyR = Math.max(32, Math.min(100, parsed.rRel * m));
+    touchState.joyCx = parsed.cxRel * cw;
+    touchState.joyCy = parsed.cyRel * ch;
+    clampJoyPosition(cw, ch);
+  } else {
+    touchState.joyR = rDefault;
+    touchState.joyCx = rDefault + 22;
+    touchState.joyCy = ch - rDefault - 22;
+  }
 }
 
 /** Mobil modal pencereler i\u00e7in g\u00fcvenli alan (\u00fcstte \u00d7 \u00e7ipi i\u00e7in bo\u015fluk). */
@@ -120,6 +179,7 @@ function mobileButtonsLayout(cw, ch) {
   y -= gap + 34;
   const row = [
     { key: "KeyE", label: "E" },
+    { key: "KeyC", label: "C" },
     { key: "KeyI", label: "I" },
     { key: "KeyP", label: "P" },
     { key: "KeyM", label: "M" },
@@ -5088,7 +5148,7 @@ class HUD {
     ctx.fillStyle = "#f0f0f0"; ctx.font = "11px monospace";
     if (touchState.mobileUI) {
       ctx.fillText(
-        "Mobil: joystick | \u2694 yan\u0131nda Q/R iksir | sa\u011f: E/I/P/M/B/F | \u00d7 kapat",
+        "Mobil: joystick (\u2699 d\u00fczen) | \u2694 Q/R | sa\u011f E/C/I/P/M/B/F | \u00d7 kapat",
         10,
         canvasH - 10
       );
@@ -6243,6 +6303,42 @@ function handleCanvasTouchStart(e) {
 
     if (!shop.open && !craftPanel.open && tryCombatPotionClick(mx, my)) continue;
 
+    if (_inRect(mx, my, joyConfigButtonRect(canvasW, canvasH))) {
+      touchState.joyLayoutEdit = !touchState.joyLayoutEdit;
+      if (touchState.joyLayoutEdit) {
+        if (touchState.joyId >= 0) {
+          touchState.joyId = -1;
+          touchState.joyDx = 0;
+          touchState.joyDy = 0;
+        }
+      } else {
+        clampJoyPosition(canvasW, canvasH);
+        saveJoyLayout();
+      }
+      continue;
+    }
+
+    if (touchState.joyLayoutEdit) {
+      if (_inRect(mx, my, joySizeMinusRect(canvasW, canvasH))) {
+        touchState.joyR = Math.max(32, touchState.joyR - 6);
+        clampJoyPosition(canvasW, canvasH);
+        saveJoyLayout();
+        continue;
+      }
+      if (_inRect(mx, my, joySizePlusRect(canvasW, canvasH))) {
+        touchState.joyR = Math.min(100, touchState.joyR + 6);
+        clampJoyPosition(canvasW, canvasH);
+        saveJoyLayout();
+        continue;
+      }
+      if (mx < canvasW - 100 && !hitMobileButton(mx, my, canvasW, canvasH)) {
+        touchState.joyLayoutDragId = id;
+        touchState.joyLayoutLastMx = mx;
+        touchState.joyLayoutLastMy = my;
+        continue;
+      }
+    }
+
     const br = hitMobileButton(mx, my, canvasW, canvasH);
     if (br) {
       if (br.key === "attack") {
@@ -6254,7 +6350,7 @@ function handleCanvasTouchStart(e) {
       continue;
     }
 
-    if (inJoyZone(mx, my)) {
+    if (!touchState.joyLayoutEdit && inJoyZone(mx, my)) {
       if (touchState.joyId < 0) {
         touchState.joyId = id;
         touchState.joyOx = touchState.joyCx;
@@ -6281,6 +6377,15 @@ function handleCanvasTouchMove(e) {
     mouseX = mx;
     mouseY = my;
 
+    if (id === touchState.joyLayoutDragId) {
+      const dx = mx - touchState.joyLayoutLastMx;
+      const dy = my - touchState.joyLayoutLastMy;
+      touchState.joyCx += dx;
+      touchState.joyCy += dy;
+      touchState.joyLayoutLastMx = mx;
+      touchState.joyLayoutLastMy = my;
+      clampJoyPosition(canvasW, canvasH);
+    }
     if (id === touchState.joyId) {
       let dx = mx - touchState.joyOx, dy = my - touchState.joyOy;
       const max = touchState.joyR * 0.88;
@@ -6310,6 +6415,7 @@ function pulseMobileButtonKey(key) {
   }
   if (key === "KeyQ") pulseJust("KeyQ");
   else if (key === "KeyR") pulseJust("KeyR");
+  else if (key === "KeyC") pulseJust("KeyC");
   else if (key === "KeyI") pulseJust("KeyI");
   else if (key === "KeyP") pulseJust("KeyP");
   else if (key === "KeyM") pulseJust("KeyM");
@@ -6327,6 +6433,11 @@ function handleCanvasTouchEnd(e) {
       inventory.finishSlotPress(mx, my, canvasW, canvasH, false);
     }
 
+    if (id === touchState.joyLayoutDragId) {
+      touchState.joyLayoutDragId = -1;
+      clampJoyPosition(canvasW, canvasH);
+      saveJoyLayout();
+    }
     if (id === touchState.joyId) {
       touchState.joyId = -1;
       touchState.joyDx = 0;
@@ -6389,17 +6500,52 @@ function renderTouchOverlay(ctx) {
   ctx.arc(J.joyCx, J.joyCy, J.joyR, 0, Math.PI * 2);
   ctx.fill();
   ctx.globalAlpha = 0.55;
-  ctx.strokeStyle = "#8090c0";
-  ctx.lineWidth = 2;
+  ctx.strokeStyle = J.joyLayoutEdit ? "#d0a0ff" : "#8090c0";
+  ctx.lineWidth = J.joyLayoutEdit ? 2.5 : 2;
+  ctx.setLineDash(J.joyLayoutEdit ? [6, 5] : []);
   ctx.beginPath();
   ctx.arc(J.joyCx, J.joyCy, J.joyR, 0, Math.PI * 2);
   ctx.stroke();
+  ctx.setLineDash([]);
   const kx = J.joyOx + J.joyDx * J.joyR * 0.88, ky = J.joyOy + J.joyDy * J.joyR * 0.88;
   ctx.fillStyle = "rgba(200,210,255,0.85)";
   ctx.beginPath();
   ctx.arc(kx, ky, J.joyR * 0.32, 0, Math.PI * 2);
   ctx.fill();
   ctx.globalAlpha = 1;
+
+  const cfg = joyConfigButtonRect(cw, ch);
+  ctx.globalAlpha = 0.92;
+  ctx.fillStyle = J.joyLayoutEdit ? "rgba(90,55,115,0.94)" : "rgba(30,30,48,0.92)";
+  roundRect(ctx, cfg.x, cfg.y, cfg.w, cfg.h, 7);
+  ctx.fill();
+  ctx.strokeStyle = J.joyLayoutEdit ? "#e8b0ff" : "#606888";
+  ctx.lineWidth = 1.5;
+  roundRect(ctx, cfg.x, cfg.y, cfg.w, cfg.h, 7);
+  ctx.stroke();
+  ctx.fillStyle = "#f0f0ff";
+  ctx.font = "bold 16px monospace";
+  ctx.fillText(J.joyLayoutEdit ? "\u2713" : "\u2699", cfg.x + cfg.w / 2 - 8, cfg.y + 22);
+  if (J.joyLayoutEdit) {
+    const mr = joySizeMinusRect(cw, ch), pr = joySizePlusRect(cw, ch);
+    ctx.fillStyle = "rgba(28,28,48,0.92)";
+    roundRect(ctx, mr.x, mr.y, mr.w, mr.h, 6);
+    roundRect(ctx, pr.x, pr.y, pr.w, pr.h, 6);
+    ctx.fill();
+    ctx.strokeStyle = "#7078a0";
+    roundRect(ctx, mr.x, mr.y, mr.w, mr.h, 6);
+    roundRect(ctx, pr.x, pr.y, pr.w, pr.h, 6);
+    ctx.stroke();
+    ctx.fillStyle = "#e8e8f8";
+    ctx.font = "bold 17px monospace";
+    ctx.fillText("\u2212", mr.x + mr.w / 2 - 5, mr.y + 22);
+    ctx.fillText("+", pr.x + pr.w / 2 - 5, pr.y + 21);
+    if (cfg.y >= 62) {
+      ctx.font = "9px monospace";
+      ctx.fillStyle = "#b8b8d8";
+      ctx.fillText("Sol s\u00fcr\u00fckle: konum  |  \u2699 bitir", cfg.x, cfg.y - 10);
+    }
+  }
 
   const btns = mobileButtonsLayout(cw, ch);
   for (const b of btns) {
@@ -6966,8 +7112,10 @@ function gameLoop(now) {
     const lvText = "\u2B50 Seviye " + player.level + "!";
     ctx.fillText(lvText, canvasW / 2 - ctx.measureText(lvText).width / 2, canvasH / 2 - 80 - (2.5 - t) * 20);
     ctx.fillStyle = "#c0c0d0"; ctx.font = "13px monospace";
-    const statText = "+3 stat puan\u0131  |  Taban HP+8  MP+5  |  [C] da\u011f\u0131t";
-    ctx.fillText(statText, canvasW / 2 - ctx.measureText(statText).width / 2, canvasH / 2 - 55 - (2.5 - t) * 20);
+    const statHint = touchState.mobileUI
+      ? "+3 stat  |  HP+8 MP+5  |  Sa\u011fda C: Karakter"
+      : "+3 stat puan\u0131  |  Taban HP+8  MP+5  |  [C] da\u011f\u0131t";
+    ctx.fillText(statHint, canvasW / 2 - ctx.measureText(statHint).width / 2, canvasH / 2 - 55 - (2.5 - t) * 20);
     ctx.globalAlpha = 1;
   }
 
