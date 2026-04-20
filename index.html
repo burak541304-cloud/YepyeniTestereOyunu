@@ -4042,7 +4042,9 @@ class PetPanel {
 
 /* ── Shop / Market ───────────────────────────────────────── */
 
-const SHOP_SLOT = 44, SHOP_GAP = 4, SHOP_COLS = 4;
+const SHOP_SLOT = 44, SHOP_GAP = 4;
+/** Dikey d\u00fczen: varsay\u0131lan s\u00fctun say\u0131s\u0131; yatayda _layout i\u00e7inde art\u0131r\u0131l\u0131r. */
+const SHOP_COLS_DEFAULT = 4;
 
 class Shop {
   constructor() {
@@ -4147,18 +4149,37 @@ class Shop {
 
   _layout(cw, ch) {
     const b = uiModalBounds(cw, ch);
-    let pw = Math.min(448, b.maxW);
-    let ph = Math.min(400, b.maxH);
+    const land = cw > ch * 1.02;
+    let pw = land
+      ? Math.min(b.maxW, Math.max(320, Math.floor(cw * 0.92)))
+      : Math.min(448, b.maxW);
     pw = Math.max(260, pw);
-    ph = Math.max(200, ph);
+    let ph = land
+      ? Math.min(Math.max(168, Math.floor(b.maxH * 0.97)), b.maxH)
+      : Math.min(400, b.maxH);
+    ph = Math.max(land ? 160 : 200, ph);
     const innerGridW = pw - 32;
     let shopSlot = SHOP_SLOT;
     let shopGap = SHOP_GAP;
-    while (SHOP_COLS * (shopSlot + shopGap) - shopGap > innerGridW && shopSlot > 30) shopSlot -= 2;
-    const shopPriceBand = ph < 280 ? 11 : 14;
+    let shopCols = land ? 6 : SHOP_COLS_DEFAULT;
+    while (shopCols * (shopSlot + shopGap) - shopGap > innerGridW) {
+      if (shopSlot > 26) shopSlot -= 2;
+      else if (shopCols > 3) shopCols--;
+      else break;
+    }
+    const shopPriceBand = ph < 260 ? 10 : ph < 280 ? 11 : 14;
     const px = Math.floor((cw - pw) / 2);
     const py = Math.max(b.top, Math.min(ch - ph - b.bottom, Math.floor((ch - ph) / 2)));
-    return { px, py, pw, ph, shopSlot, shopGap, shopPriceBand };
+    const tabBuyX = px + 12;
+    const tabSellX = px + 12 + (land ? 78 : 100);
+    const tabY = land ? py + 14 : py + 38;
+    const tabW = land ? 72 : 90;
+    const tabH = land ? 18 : 24;
+    const gridYStart = land ? py + 44 : py + 96;
+    return {
+      px, py, pw, ph, shopSlot, shopGap, shopPriceBand, shopCols, shopLand: land,
+      tabBuyX, tabSellX, tabY, tabW, tabH, gridYStart,
+    };
   }
 
   _shopRowStride(L) {
@@ -4166,7 +4187,7 @@ class Shop {
   }
 
   _buyGridY(L) {
-    return L.py + 96;
+    return L.gridYStart;
   }
 
   _getSellableEntries(inventory) {
@@ -4531,7 +4552,7 @@ class Shop {
     if (!this.open) return false;
     const L = this._layout(cw, ch);
 
-    const tabBuyX = L.px + 16, tabSellX = L.px + 16 + 100, tabY = L.py + 38, tabW = 90, tabH = 24;
+    const tabBuyX = L.tabBuyX, tabSellX = L.tabSellX, tabY = L.tabY, tabW = L.tabW, tabH = L.tabH;
     if (mx >= tabBuyX && mx < tabBuyX + tabW && my >= tabY && my < tabY + tabH) {
       this.tab = 0;
       this.sellPicker = null;
@@ -4600,7 +4621,7 @@ class Shop {
         this.buyPicker = null;
       }
       for (let i = 0; i < this.stock.length; i++) {
-        const row = Math.floor(i / SHOP_COLS), col = i % SHOP_COLS;
+        const row = Math.floor(i / L.shopCols), col = i % L.shopCols;
         const sx = gridX + col * (L.shopSlot + L.shopGap);
         const sy = gridY + row * rowStride - this.scrollBuy;
         if (sy < gridY - sSlot || sy > L.py + L.ph) continue;
@@ -4665,7 +4686,7 @@ class Shop {
       }
       const sellable = this._getSellableEntries(inventory);
       for (let i = 0; i < sellable.length; i++) {
-        const row = Math.floor(i / SHOP_COLS), col = i % SHOP_COLS;
+        const row = Math.floor(i / L.shopCols), col = i % L.shopCols;
         const sx = gridX + col * (L.shopSlot + L.shopGap);
         const sy = gridY + row * rowStride - this.scrollSell;
         if (sy < gridY - sSlot || sy > L.py + L.ph) continue;
@@ -4736,7 +4757,7 @@ class Shop {
         if (this._pointInRect(mx, my, B.dialog)) return;
       }
       for (let i = 0; i < this.stock.length; i++) {
-        const row = Math.floor(i / SHOP_COLS), col = i % SHOP_COLS;
+        const row = Math.floor(i / L.shopCols), col = i % L.shopCols;
         const sx = gridX + col * (L.shopSlot + L.shopGap);
         const sy = gridY + row * rowStride - this.scrollBuy;
         if (mx >= sx && mx < sx + sSlot && my >= sy && my < sy + sSlot) {
@@ -4755,7 +4776,7 @@ class Shop {
       }
       const sellable = this._getSellableEntries(inventory);
       for (let i = 0; i < sellable.length; i++) {
-        const row = Math.floor(i / SHOP_COLS), col = i % SHOP_COLS;
+        const row = Math.floor(i / L.shopCols), col = i % L.shopCols;
         const sx = gridX + col * (L.shopSlot + L.shopGap);
         const sy = gridY + row * rowStride - this.scrollSell;
         if (mx >= sx && mx < sx + sSlot && my >= sy && my < sy + sSlot) {
@@ -4778,37 +4799,47 @@ class Shop {
     ctx.strokeStyle = "#c0a050"; ctx.lineWidth = 2;
     roundRect(ctx, L.px, L.py, L.pw, L.ph, 10); ctx.fill(); ctx.stroke();
 
-    ctx.fillStyle = "#f0d050"; ctx.font = "bold 16px monospace";
-    ctx.fillText(this.shopName, L.px + 16, L.py + 24);
+    const land = L.shopLand;
+    const titleY = L.py + (land ? 18 : 24);
+    ctx.fillStyle = "#f0d050"; ctx.font = land ? "bold 14px monospace" : "bold 16px monospace";
+    ctx.fillText(this.shopName, L.px + 12, titleY);
 
-    ctx.fillStyle = "#888"; ctx.font = "11px monospace";
-    ctx.fillText("[Esc] Kapat", L.px + L.pw - 90, L.py + 24);
+    ctx.fillStyle = "#888"; ctx.font = land ? "10px monospace" : "11px monospace";
+    ctx.fillText("[Esc] Kapat", L.px + L.pw - 86, titleY);
 
-    drawItemIcon(ctx, "coin", L.px + L.pw - 165, L.py + 12, 14);
-    ctx.fillStyle = "#f0d050"; ctx.font = "bold 12px monospace";
-    ctx.fillText(String(gold), L.px + L.pw - 148, L.py + 24);
+    drawItemIcon(ctx, "coin", L.px + L.pw - 152, L.py + (land ? 6 : 12), land ? 12 : 14);
+    ctx.fillStyle = "#f0d050"; ctx.font = land ? "bold 11px monospace" : "bold 12px monospace";
+    ctx.fillText(String(gold), L.px + L.pw - 136, titleY);
 
-    const tabBuyX = L.px + 16, tabSellX = L.px + 16 + 100, tabY = L.py + 38, tabW = 90, tabH = 24;
+    const tabBuyX = L.tabBuyX, tabSellX = L.tabSellX, tabY = L.tabY, tabW = L.tabW, tabH = L.tabH;
     ctx.fillStyle = this.tab === 0 ? "rgba(80,180,80,0.3)" : "rgba(40,40,60,0.5)";
     ctx.strokeStyle = this.tab === 0 ? "#60c060" : "#505070"; ctx.lineWidth = 1;
     roundRect(ctx, tabBuyX, tabY, tabW, tabH, 4); ctx.fill(); ctx.stroke();
-    ctx.fillStyle = this.tab === 0 ? "#90ff90" : "#888"; ctx.font = "bold 12px monospace";
-    ctx.fillText("Satın Al", tabBuyX + 12, tabY + 16);
+    ctx.fillStyle = this.tab === 0 ? "#90ff90" : "#888"; ctx.font = land ? "bold 10px monospace" : "bold 12px monospace";
+    const buyLab = "Sat\u0131n Al";
+    ctx.fillText(buyLab, tabBuyX + (tabW - ctx.measureText(buyLab).width) / 2, tabY + (land ? 14 : 16));
 
     ctx.fillStyle = this.tab === 1 ? "rgba(200,160,50,0.3)" : "rgba(40,40,60,0.5)";
     ctx.strokeStyle = this.tab === 1 ? "#c0a030" : "#505070"; ctx.lineWidth = 1;
     roundRect(ctx, tabSellX, tabY, tabW, tabH, 4); ctx.fill(); ctx.stroke();
-    ctx.fillStyle = this.tab === 1 ? "#f0d050" : "#888"; ctx.font = "bold 12px monospace";
-    ctx.fillText("Sat", tabSellX + 28, tabY + 16);
+    ctx.fillStyle = this.tab === 1 ? "#f0d050" : "#888"; ctx.font = land ? "bold 10px monospace" : "bold 12px monospace";
+    const sellLab = "Sat";
+    ctx.fillText(sellLab, tabSellX + (tabW - ctx.measureText(sellLab).width) / 2, tabY + (land ? 14 : 16));
 
     const rotLeft = Math.max(0, SHOP_SPECIAL_ROTATE_SEC - this.specialT);
     const mm = Math.floor(rotLeft / 60);
     const ss = Math.floor(rotLeft % 60);
     const ssPad = ss < 10 ? "0" + ss : String(ss);
-    ctx.fillStyle = "#e8c070"; ctx.font = "bold 10px monospace";
-    ctx.fillText("\u2605 \u00d6zel teklif yenileme: " + mm + ":" + ssPad, L.px + 16, L.py + 56);
-    ctx.fillStyle = "#7a7a98"; ctx.font = "9px monospace";
-    ctx.fillText("Ok, iksir, yiyecek ve temel malzemeler s\u0131n\u0131rs\u0131z stok.", L.px + 16, L.py + 72);
+    if (land) {
+      ctx.fillStyle = "#e8c070"; ctx.font = "bold 9px monospace";
+      const line1 = "\u2605 \u00d6zel: " + mm + ":" + ssPad + "  |  S\u0131n\u0131rs\u0131z: ok, iksir, yemek, malzeme";
+      ctx.fillText(line1, L.px + 12, L.py + 36);
+    } else {
+      ctx.fillStyle = "#e8c070"; ctx.font = "bold 10px monospace";
+      ctx.fillText("\u2605 \u00d6zel teklif yenileme: " + mm + ":" + ssPad, L.px + 16, L.py + 56);
+      ctx.fillStyle = "#7a7a98"; ctx.font = "9px monospace";
+      ctx.fillText("Ok, iksir, yiyecek ve temel malzemeler s\u0131n\u0131rs\u0131z stok.", L.px + 16, L.py + 72);
+    }
 
     const gridX = L.px + 16, gridY = this._buyGridY(L);
     const clipBottom = this.tab === 1 && !this.sellPicker ? L.py + L.ph - 28 : L.py + L.ph - 10;
@@ -4880,7 +4911,7 @@ class Shop {
       const si = this.stock[i];
       const def = ITEMS[si.id];
       if (!def) continue;
-      const row = Math.floor(i / SHOP_COLS), col = i % SHOP_COLS;
+      const row = Math.floor(i / L.shopCols), col = i % L.shopCols;
       const sx = gridX + col * (L.shopSlot + L.shopGap);
       const sy = gridY + row * rowStride - this.scrollBuy;
 
@@ -5036,7 +5067,7 @@ class Shop {
     for (let i = 0; i < sellable.length; i++) {
       const slot = sellable[i].slot;
       const def = ITEMS[slot.id];
-      const row = Math.floor(i / SHOP_COLS), col = i % SHOP_COLS;
+      const row = Math.floor(i / L.shopCols), col = i % L.shopCols;
       const sx = gridX + col * (L.shopSlot + L.shopGap);
       const sy = gridY + row * rowStride - this.scrollSell;
 
