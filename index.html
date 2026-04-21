@@ -50,6 +50,190 @@ function roundRect(ctx, x, y, w, h, r) {
   ctx.closePath();
 }
 
+/** Varl\u0131k \u00fczerinde ortalanm\u0131\u015f isim etiketi (d\u00fcnya koordinat\u0131nda). */
+function drawEntityNameLabel(ctx, cx, topY, text, opts) {
+  opts = opts || {};
+  const t = String(text || "").trim() || "?";
+  ctx.save();
+  ctx.font = opts.font || "bold 8px monospace";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "top";
+  const w = Math.max(ctx.measureText(t).width, 10);
+  const h = 11;
+  const pad = 3;
+  const x = Math.round(cx - w / 2 - pad);
+  const y = Math.round(topY);
+  ctx.fillStyle = opts.bg || "rgba(8, 10, 22, 0.78)";
+  roundRect(ctx, x, y, w + pad * 2, h, 4);
+  ctx.fill();
+  if (opts.border) {
+    ctx.strokeStyle = opts.border;
+    ctx.lineWidth = 1;
+    roundRect(ctx, x, y, w + pad * 2, h, 4);
+    ctx.stroke();
+  }
+  ctx.fillStyle = opts.color || "#e8ecf8";
+  ctx.fillText(t, cx, y + 2);
+  ctx.restore();
+}
+
+/** Web Audio ile k\u0131sa prosed\u00fcrel SFX; harici dosya yok. U: sessize al, [ ]: g\u00fc\u00e7. */
+const gameAudio = (function () {
+  const LS = "chopgrow_audio_v1";
+  let ctx = null;
+  let lastHurt = 0;
+  const S = { master: 0.45, muted: false };
+
+  function load() {
+    try {
+      const raw = localStorage.getItem(LS);
+      if (raw) {
+        const o = JSON.parse(raw);
+        if (typeof o.muted === "boolean") S.muted = o.muted;
+        if (typeof o.master === "number") S.master = Math.max(0, Math.min(1, o.master));
+      }
+    } catch (e) {}
+  }
+
+  function save() {
+    try { localStorage.setItem(LS, JSON.stringify({ muted: S.muted, master: S.master })); } catch (e) {}
+  }
+
+  function amp() { return S.muted ? 0 : S.master; }
+
+  function ensureCtx() {
+    if (!ctx) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return null;
+      ctx = new AC();
+    }
+    return ctx;
+  }
+
+  function resume() {
+    const c = ensureCtx();
+    if (c && c.state === "suspended") void c.resume();
+  }
+
+  function noiseBurst(duration, volMul) {
+    const c = ensureCtx();
+    if (!c || amp() <= 0) return;
+    const n = Math.max(1, Math.floor(c.sampleRate * duration));
+    const buf = c.createBuffer(1, n, c.sampleRate);
+    const ch = buf.getChannelData(0);
+    for (let i = 0; i < n; i++) ch[i] = (Math.random() * 2 - 1) * 0.4;
+    const src = c.createBufferSource();
+    src.buffer = buf;
+    const g = c.createGain();
+    const t = c.currentTime;
+    const v = volMul * amp();
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(v, t + 0.012);
+    g.gain.exponentialRampToValueAtTime(0.0008, t + duration);
+    src.connect(g);
+    g.connect(c.destination);
+    src.start(t);
+    src.stop(t + duration + 0.03);
+  }
+
+  function tone(freq, dur, wave, volMul, freqEnd) {
+    const c = ensureCtx();
+    if (!c || amp() <= 0) return;
+    const o = c.createOscillator();
+    const g = c.createGain();
+    o.type = wave || "sine";
+    const t = c.currentTime;
+    o.frequency.setValueAtTime(freq, t);
+    if (freqEnd != null && freqEnd > 0)
+      o.frequency.exponentialRampToValueAtTime(Math.max(30, freqEnd), t + dur);
+    const v = volMul * amp();
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(v, t + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0008, t + dur);
+    o.connect(g);
+    g.connect(c.destination);
+    o.start(t);
+    o.stop(t + dur + 0.03);
+  }
+
+  return {
+    load,
+    save,
+    resume,
+    toggleMute() {
+      S.muted = !S.muted;
+      save();
+      return S.muted;
+    },
+    nudgeMaster(delta) {
+      S.master = Math.max(0, Math.min(1, S.master + delta));
+      save();
+      return S.master;
+    },
+    playMelee() {
+      noiseBurst(0.08, 0.32);
+      tone(150, 0.055, "triangle", 0.18, 85);
+    },
+    playShoot() {
+      tone(1100, 0.045, "square", 0.11, 420);
+    },
+    playPowerShoot() {
+      tone(180, 0.1, "sawtooth", 0.16, 48);
+      tone(720, 0.065, "square", 0.075, 220);
+    },
+    playHurt() {
+      const now = performance.now();
+      if (now - lastHurt < 140) return;
+      lastHurt = now;
+      tone(200, 0.085, "sawtooth", 0.2, 65);
+    },
+    playPickup() {
+      tone(620, 0.055, "sine", 0.18);
+      tone(880, 0.07, "sine", 0.14);
+    },
+    playPotion() {
+      tone(392, 0.06, "sine", 0.18);
+      tone(587, 0.08, "sine", 0.15);
+    },
+    playLevelUp() {
+      const c = ensureCtx();
+      if (!c || amp() <= 0) return;
+      const notes = [523, 659, 784, 988];
+      const t0 = c.currentTime;
+      for (let i = 0; i < notes.length; i++) {
+        const o = c.createOscillator();
+        const g = c.createGain();
+        o.type = "sine";
+        const start = t0 + i * 0.095;
+        const d = 0.095;
+        o.frequency.setValueAtTime(notes[i], start);
+        const v = 0.13 * amp();
+        g.gain.setValueAtTime(0, start);
+        g.gain.linearRampToValueAtTime(v, start + 0.008);
+        g.gain.exponentialRampToValueAtTime(0.0008, start + d);
+        o.connect(g);
+        g.connect(c.destination);
+        o.start(start);
+        o.stop(start + d + 0.02);
+      }
+    },
+    playKill() {
+      tone(95, 0.12, "triangle", 0.19, 38);
+      noiseBurst(0.06, 0.15);
+    },
+    playSkill() {
+      tone(320, 0.07, "sine", 0.16, 620);
+      tone(480, 0.055, "sine", 0.1, 240);
+    },
+    playChop() {
+      noiseBurst(0.07, 0.28);
+      tone(90, 0.04, "triangle", 0.12, 55);
+    },
+  };
+})();
+
+gameAudio.load();
+
 /* ── input ───────────────────────────────────────────────── */
 
 const keys = {};
@@ -59,6 +243,7 @@ let canvasMouse0Down = false;
 
 window.addEventListener("keydown", (e) => {
   if (e.target && (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA")) return;
+  gameAudio.resume();
   if (!keys[e.code]) justPressed[e.code] = true;
   keys[e.code] = true;
   e.preventDefault();
@@ -3019,6 +3204,7 @@ class Player {
       this.statPoints += 3;
       this.levelUpTimer = 2.5;
       this._pendingFullHeal = true;
+      gameAudio.playLevelUp();
     }
   }
 
@@ -3079,6 +3265,7 @@ class Player {
     a = Math.max(0.35, a);
     this.hp = Math.max(0, this.hp - a);
     this.dmgFlashTimer = 0.3;
+    if (kind !== "poison") gameAudio.playHurt();
   }
 
   heal(amount) {
@@ -3690,6 +3877,10 @@ class Player {
       this._drawEquippedBlade(ctx, cx, cy, bounce, a, bladeId);
     }
     if (this.swingAnim > 0) this._drawMeleeSwing(ctx, cx, cy, bounce);
+    drawEntityNameLabel(ctx, this.centerX, this.y - 14, getPlayerWorldLabelName(), {
+      color: "#e8f4ff",
+      border: "rgba(120, 170, 220, 0.4)",
+    });
   }
 
   _drawEquippedBlade(ctx, cx, cy, bounce, aimAngle, bladeId) {
@@ -3933,6 +4124,11 @@ class Player {
     }
     ctx.globalAlpha = 1;
     ctx.restore();
+
+    drawEntityNameLabel(ctx, cx, Math.round(cy + wave - 34), getPlayerWorldLabelName(), {
+      color: "#e8f4ff",
+      border: "rgba(120, 170, 220, 0.4)",
+    });
   }
 
   get centerX() { return this.x + this.w / 2; }
@@ -5449,6 +5645,12 @@ class Monster {
       ctx.restore();
       ctx.globalAlpha = 1;
     }
+    const mt = MONSTER_TYPES[this.type];
+    const isBoss = mt && mt.boss;
+    drawEntityNameLabel(ctx, this.cx, this.y - 20, (mt && mt.name) ? mt.name : this.type, {
+      color: isBoss ? "#ffd8a0" : "#e8f0ff",
+      border: isBoss ? "rgba(255, 170, 90, 0.5)" : "rgba(140, 160, 200, 0.35)",
+    });
   }
 }
 
@@ -7348,6 +7550,7 @@ function tryUseHpPotion() {
   inventory.removeItem("potion", 1);
   const healAmt = 32 + (player.wis + player._eqWis) * 3;
   player.heal(healAmt);
+  gameAudio.playPotion();
   pickupMsgText = "+" + Math.floor(healAmt) + " HP";
   pickupMsgTimer = 1.2;
   return true;
@@ -7362,6 +7565,7 @@ function tryUseManaPotion() {
   inventory.removeItem("potion_mana", 1);
   const amt = 28 + (player.wis + player._eqWis) * 2;
   player.mana = Math.min(player.maxMana, player.mana + amt);
+  gameAudio.playPotion();
   pickupMsgText = "+" + Math.floor(amt) + " MP";
   pickupMsgTimer = 1.2;
   return true;
@@ -7405,6 +7609,7 @@ function tryAutoPickupNearbyWorldItems() {
   const picked = before - best.count;
   const def = ITEMS[best.itemId];
   if (picked > 0 && def) {
+    gameAudio.playPickup();
     pickupMsgText = "+" + picked + " " + def.name;
     pickupMsgTimer = 1.1;
     actionCooldown = Math.max(actionCooldown, 0.06);
@@ -8698,6 +8903,7 @@ function tryPlayerMeleeAttack(player, inventory, monsters) {
   player.meleeCooldown = 0.48;
   player.swingAnim = 0.28;
   player.gainXP(2);
+  gameAudio.playMelee();
   return true;
 }
 
@@ -8720,6 +8926,7 @@ function tryReleasePowerShotClick() {
     pa.speed *= 1.5;
     arrows.push(pa);
     player.gainXP(3);
+    gameAudio.playPowerShoot();
   }
   player.powerCharging = false;
   player.powerCharge = 0;
@@ -8746,6 +8953,7 @@ function tryMeleeOrRangedClick() {
       na.damage = applyOutgoingPlayerDamage(player.getRangedDamage(), player, inventory, {});
       arrows.push(na);
       player.gainXP(1);
+      gameAudio.playShoot();
       return true;
     } else {
       if (pickupMsgTimer <= 0) {
@@ -8958,6 +9166,7 @@ function tryCastActiveSkill(slotIndex) {
   if (ok) {
     player.mana -= def.mana;
     player.activeSkillCd[slotIndex] = def.cooldown;
+    gameAudio.playSkill();
   }
   return ok;
 }
@@ -8979,6 +9188,7 @@ function tryAutoAttackWhileHeld() {
 
 canvas.addEventListener("mousedown", (e) => {
   if (e.sourceCapabilities && e.sourceCapabilities.firesTouchEvents) return;
+  gameAudio.resume();
   if (e.button === 0) canvasMouse0Down = true;
   if (charPanel.open) {
     charPanel.handleClick(e.clientX, e.clientY, canvasW, canvasH, player, inventory);
@@ -9075,6 +9285,7 @@ function tryMobileClosePanels(mx, my) {
 }
 
 function handleCanvasTouchStart(e) {
+  gameAudio.resume();
   refreshMobileUI();
   updateTouchLayout();
 
@@ -9449,6 +9660,7 @@ function tryChopTree(player, map, inventory) {
   pickupMsgText = "+" + woodAmt + " Odun";
   pickupMsgTimer = 1.5;
   actionCooldown = 0.28;
+  gameAudio.playChop();
   return true;
 }
 
@@ -9465,6 +9677,7 @@ function handleInteraction() {
       if (wi.tryPickup(inventory)) {
         const picked = before - wi.count;
         const def = ITEMS[wi.itemId];
+        if (picked > 0) gameAudio.playPickup();
         pickupMsgText = "+" + picked + " " + def.name;
         pickupMsgTimer = 1.5;
         actionCooldown = 0.15;
@@ -9544,6 +9757,14 @@ function writeSlotDisplayName(slot, name) {
   try {
     localStorage.setItem(saveMetaKeyForSlot(slot), JSON.stringify({ name: String(name || "").slice(0, 32) }));
   } catch (e) { /* quota */ }
+}
+
+function getPlayerWorldLabelName() {
+  if (typeof currentSaveSlot === "number" && currentSaveSlot >= 0) {
+    const n = readSlotDisplayName(currentSaveSlot);
+    if (n) return n;
+  }
+  return "Ok\u00e7u";
 }
 
 function hasSaveInSlot(slot) {
@@ -10158,6 +10379,21 @@ function gameLoop(now) {
 
   if (wasJustPressed("KeyQ") && !uiOpen) tryUseHpPotion();
   if (wasJustPressed("KeyR") && !uiOpen) tryUseManaPotion();
+  if (wasJustPressed("KeyU") && !uiOpen) {
+    const muted = gameAudio.toggleMute();
+    pickupMsgText = muted ? "Ses kapal\u0131 (U)" : "Ses a\u00e7\u0131k (U)";
+    pickupMsgTimer = 1.1;
+  }
+  if (wasJustPressed("BracketRight") && !uiOpen) {
+    const v = gameAudio.nudgeMaster(0.08);
+    pickupMsgText = "Ses g\u00fc\u00e7\u00fc: %" + Math.round(v * 100);
+    pickupMsgTimer = 0.75;
+  }
+  if (wasJustPressed("BracketLeft") && !uiOpen) {
+    const v = gameAudio.nudgeMaster(-0.08);
+    pickupMsgText = "Ses g\u00fc\u00e7\u00fc: %" + Math.round(v * 100);
+    pickupMsgTimer = 0.75;
+  }
 
   if (!uiOpen && !charPanel.open) {
     if (wasJustPressed("Tab")) {
@@ -10228,6 +10464,7 @@ function gameLoop(now) {
     for (const m of monsters) {
       const r = m.update(dt, map, player);
       if (r === "dead") {
+        gameAudio.playKill();
         player.gainXP(m.xpReward);
         dropMonsterLoot(m, worldItems);
         const mt = MONSTER_TYPES[m.type];
