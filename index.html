@@ -9034,25 +9034,48 @@ function drawRangedTargetHpBanner(ctx, cw, ch, m) {
   const mt = MONSTER_TYPES[m.type];
   const mobName = (mt && mt.name) ? mt.name : m.type;
   const hpLine = Math.ceil(m.hp) + "/" + m.maxHp;
+  const ratio = Math.max(0, Math.min(1, m.maxHp > 0 ? m.hp / m.maxHp : 0));
   ctx.save();
-  ctx.font = "bold 13px monospace";
+  ctx.font = "bold 12px monospace";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   const line = mobName + "   " + hpLine;
   const tw = ctx.measureText(line).width;
-  const bw = Math.min(cw - 24, tw + 36);
-  const bh = 36;
+  const bw = Math.min(cw - 24, Math.max(tw + 48, 200));
+  const bh = 46;
   const bx = (cw - bw) / 2;
   const by = 10;
-  ctx.fillStyle = "#b01010";
+  const pad = 8;
+  const barH = 11;
+  const barY = by + bh - barH - pad;
+  const barX = bx + pad;
+  const barW = bw - pad * 2;
+
+  ctx.fillStyle = "#1a0608";
   roundRect(ctx, bx, by, bw, bh, 8);
   ctx.fill();
-  ctx.strokeStyle = "rgba(0,0,0,0.45)";
+  ctx.strokeStyle = "rgba(0,0,0,0.55)";
   ctx.lineWidth = 2;
   roundRect(ctx, bx, by, bw, bh, 8);
   ctx.stroke();
+
+  ctx.fillStyle = "rgba(0,0,0,0.5)";
+  roundRect(ctx, barX, barY, barW, barH, 4);
+  ctx.fill();
+  const fillW = Math.max(0, barW * ratio);
+  if (fillW > 0.5) {
+    ctx.fillStyle = ratio > 0.35 ? "#d81818" : ratio > 0.15 ? "#c04020" : "#903030";
+    roundRect(ctx, barX, barY, fillW, barH, 4);
+    ctx.fill();
+  }
+
+  ctx.font = "bold 12px monospace";
   ctx.fillStyle = "#ffffff";
-  ctx.fillText(line, cw / 2, by + bh / 2);
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = "rgba(0,0,0,0.85)";
+  ctx.strokeText(line, cw / 2, by + (barY - by) / 2);
+  ctx.fillStyle = "#ffffff";
+  ctx.fillText(line, cw / 2, by + (barY - by) / 2);
   ctx.restore();
 }
 
