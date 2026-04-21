@@ -77,6 +77,48 @@ function drawEntityNameLabel(ctx, cx, topY, text, opts) {
   ctx.restore();
 }
 
+const RAGE_BURST_DURATION = 6;
+const RAGE_ACTIVATE_MIN = 0.22;
+let damageFloaters = [];
+
+function spawnDamageFloater(wx, wy, value, furyHit) {
+  damageFloaters.push({
+    x: wx,
+    y: wy,
+    text: String(value),
+    life: 0.95,
+    vy: -48,
+    color: furyHit ? "#ff4545" : "#ffe078",
+  });
+}
+
+function updateDamageFloaters(dt) {
+  for (let i = damageFloaters.length - 1; i >= 0; i--) {
+    const f = damageFloaters[i];
+    f.life -= dt;
+    f.y += f.vy * dt;
+    f.vy *= Math.pow(0.18, dt);
+    if (f.life <= 0) damageFloaters.splice(i, 1);
+  }
+}
+
+function renderDamageFloaters(ctx) {
+  for (const f of damageFloaters) {
+    const a = Math.min(1, f.life * 2.2);
+    ctx.save();
+    ctx.globalAlpha = a;
+    ctx.font = "bold 12px monospace";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = "rgba(0,0,0,0.92)";
+    ctx.strokeText(f.text, f.x, f.y);
+    ctx.fillStyle = f.color || "#ffe078";
+    ctx.fillText(f.text, f.x, f.y);
+    ctx.restore();
+  }
+}
+
 /** Web Audio ile k\u0131sa prosed\u00fcrel SFX; harici dosya yok. U: sessize al, [ ]: g\u00fc\u00e7. */
 const gameAudio = (function () {
   const LS = "chopgrow_audio_v1";
@@ -745,6 +787,7 @@ function applyOutgoingPlayerDamage(baseDmg, player, inventory, opts) {
     const mult = 1.5 + (agg.critDamagePct / 100);
     d *= mult;
   }
+  if (player.rageBurstTimer > 0) d *= 3;
   return Math.max(1, Math.floor(d));
 }
 
@@ -3183,6 +3226,10 @@ class Player {
     this.levelUpTimer = 0;
     this.powerCharging = false;
     this.powerCharge = 0;
+    /** 0\u20131: canavara her vuru\u015fta dolar; [G] ile t\u00fcketilir. */
+    this.rageMeter = 0;
+    /** >0 iken 3x hasar / max can&mana, g\u00f6rsel patlama. */
+    this.rageBurstTimer = 0;
 
     this.statPoints = 0;
     this.skills = Object.create(null);
@@ -3231,6 +3278,10 @@ class Player {
     if (this.skills.arcane) skMana += 22;
     this.maxHp = this.baseMaxHp + eqHp + skHp;
     this.maxMana = this.baseMaxMana + eqMana + skMana;
+    if (this.rageBurstTimer > 0) {
+      this.maxHp = Math.floor(this.maxHp * 3);
+      this.maxMana = Math.floor(this.maxMana * 3);
+    }
     if (this._pendingFullHeal) {
       this.hp = this.maxHp;
       this.mana = this.maxMana;
@@ -3708,6 +3759,27 @@ class Player {
     const bowInFront = this._isBowInFront(d, a);
     const S = vis.shirt;
 
+    if (this.rageBurstTimer > 0) {
+      const pu = 0.82 + 0.18 * Math.sin(performance.now() * 0.014);
+      ctx.save();
+      ctx.globalAlpha = 0.32 * pu;
+      const rg = ctx.createRadialGradient(cx, cy - 4, 2, cx, cy, 40 + pu * 14);
+      rg.addColorStop(0, "rgba(255,220,120,0.95)");
+      rg.addColorStop(0.4, "rgba(255,90,40,0.5)");
+      rg.addColorStop(1, "rgba(200,20,0,0)");
+      ctx.fillStyle = rg;
+      ctx.beginPath();
+      ctx.arc(cx, cy - 2, 46, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = 0.6 * pu;
+      ctx.strokeStyle = "rgba(255,240,160,0.9)";
+      ctx.lineWidth = 2.8;
+      ctx.beginPath();
+      ctx.arc(cx, cy - 2, 32 + pu * 8, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
+
     this._drawEquipmentAura(ctx, cx, cy, vis);
     if (vis.showFantasyBack) {
       this._drawFantasyWings(ctx, cx, cy, d, bounce);
@@ -4155,6 +4227,8 @@ class Arrow {
     this.trail = [];
     /** "fire" | "ice" | null \u2014 beceri c\u00f6mle\u011fi g\u00f6r\u00fcn\u00fcm\u00fc */
     this.element = null;
+    /** G\u00fc\u00e7 patlamas\u0131nda at\u0131lan b\u00fcy\u00fck ok g\u00f6r\u00fcn\u00fcm\u00fc */
+    this.furyShot = false;
   }
 
   update(dt, map) {
@@ -4189,8 +4263,10 @@ class Arrow {
       ctx.globalAlpha = 1;
     }
 
+    const fs = this.furyShot ? 1.75 : 1;
     ctx.save();
     ctx.translate(Math.round(this.x), Math.round(this.y));
+    ctx.scale(fs, fs);
     ctx.rotate(this.angle);
 
     if (this.power) {
@@ -4205,6 +4281,13 @@ class Arrow {
     } else if (this.element === "ice") {
       shaft = "#5090b8"; tip = "#e8f8ff"; feather = "#4080c0";
       ctx.shadowColor = "#a0d8ff"; ctx.shadowBlur = 5;
+    }
+    if (this.furyShot && !this.element) {
+      shaft = "#5a3018"; tip = "#fff0c0"; feather = "#ff3018";
+    }
+    if (this.furyShot) {
+      ctx.shadowColor = "#ff5020";
+      ctx.shadowBlur = 16 + Math.sin(performance.now() * 0.02) * 4;
     }
     ctx.fillStyle = this.power ? "#b060e0" : shaft;
     ctx.fillRect(-8, -1, 16, 2);
@@ -5465,7 +5548,17 @@ class Monster {
 
   takeDamage(amount) {
     if (this.state === "dying") return;
-    this.hp -= amount;
+    const dmg = Math.max(0, amount);
+    const prevHp = this.hp;
+    this.hp -= dmg;
+    const dealt = Math.max(0, Math.min(dmg, prevHp));
+    if (dealt > 0.01) {
+      spawnDamageFloater(this.cx, this.y - 12, Math.round(dealt),
+        typeof player !== "undefined" && player && player.rageBurstTimer > 0);
+      if (typeof player !== "undefined" && player) {
+        player.rageMeter = Math.min(1, (player.rageMeter || 0) + 0.048 + dealt / 650);
+      }
+    }
     this.hitFlash = 0.15;
     if (this.hp <= 0) {
       this.hp = 0;
@@ -5646,10 +5739,12 @@ class Monster {
       ctx.globalAlpha = 1;
     }
     const mt = MONSTER_TYPES[this.type];
-    const isBoss = mt && mt.boss;
-    drawEntityNameLabel(ctx, this.cx, this.y - 20, (mt && mt.name) ? mt.name : this.type, {
-      color: isBoss ? "#ffd8a0" : "#e8f0ff",
-      border: isBoss ? "rgba(255, 170, 90, 0.5)" : "rgba(140, 160, 200, 0.35)",
+    const nm = (mt && mt.name) ? mt.name : this.type;
+    const danger = typeof player !== "undefined" && player && isMonsterDangerousForPlayerLevel(this, player.level);
+    drawEntityNameLabel(ctx, this.cx, this.y - 20, nm, {
+      color: danger ? "#ff4a4a" : "#ffffff",
+      border: danger ? "rgba(90, 20, 20, 0.7)" : "rgba(200, 200, 210, 0.35)",
+      bg: danger ? "rgba(26, 8, 8, 0.82)" : "rgba(8, 10, 22, 0.78)",
     });
   }
 }
@@ -5855,6 +5950,9 @@ class Pet {
     this.followDist = 28;
     /** @type {WorldItem | null} */
     this.lootTarget = null;
+    /** G\u00fc\u00e7 [G] ile verilen canavar hedefi */
+    this.combatTarget = null;
+    this.petAttackCd = 0;
   }
 
   feed(itemId) {
@@ -5868,13 +5966,60 @@ class Pet {
     return gain;
   }
 
-  update(dt, player, map, worldItems, inventory) {
+  update(dt, player, map, worldItems, inventory, monsters) {
     this.lastFedTimer += dt;
     if (this.lastFedTimer > 60) this.happiness = Math.max(0, this.happiness - dt * 0.5);
     if (this.heartTimer > 0) this.heartTimer -= dt;
 
     this.posHistory.push({ x: player.centerX, y: player.centerY });
     if (this.posHistory.length > 30) this.posHistory.shift();
+
+    if (!player.rageBurstTimer || player.rageBurstTimer <= 0) {
+      this.combatTarget = null;
+    } else if (this.combatTarget && (!this.combatTarget.alive || this.combatTarget.state === "dying")) {
+      this.combatTarget = null;
+    }
+
+    const rageFight = player.rageBurstTimer > 0 && this.combatTarget && this.combatTarget.alive &&
+      this.combatTarget.state !== "dying" && monsters && !player.inBoat;
+    if (rageFight) {
+      const m = this.combatTarget;
+      let mdx = m.cx - this.centerX, mdy = m.cy - this.centerY;
+      let md = Math.hypot(mdx, mdy) || 1;
+      if (md < 40) {
+        this.petAttackCd -= dt;
+        if (this.petAttackCd <= 0) {
+          const raw = player.getMeleeDamage() * 0.5;
+          m.takeDamage(applyOutgoingPlayerDamage(raw, player, inventory, { monster: m }));
+          this.petAttackCd = 0.55;
+        }
+        this.moving = md > 3;
+        if (Math.abs(mdx) > Math.abs(mdy)) this.direction = mdx > 0 ? DIR.RIGHT : DIR.LEFT;
+        else this.direction = mdy > 0 ? DIR.DOWN : DIR.UP;
+        this.animTimer += dt;
+        if (this.animTimer >= 0.12) {
+          this.animTimer = 0;
+          this.animFrame = (this.animFrame + 1) % 4;
+        }
+      } else {
+        const speed = PET_TYPES[this.type].speed * 1.7;
+        const nx = mdx / md, ny = mdy / md;
+        const newX = this.x + nx * speed * dt;
+        const newY = this.y + ny * speed * dt;
+        const mm = 2;
+        if (!map.isSolidPx(newX + mm, this.y + mm) && !map.isSolidPx(newX + this.w - mm, this.y + mm)) this.x = newX;
+        if (!map.isSolidPx(this.x + mm, newY + mm) && !map.isSolidPx(this.x + this.w - mm, newY + mm)) this.y = newY;
+        this.moving = true;
+        if (Math.abs(mdx) > Math.abs(mdy)) this.direction = mdx > 0 ? DIR.RIGHT : DIR.LEFT;
+        else this.direction = mdy > 0 ? DIR.DOWN : DIR.UP;
+        this.animTimer += dt;
+        if (this.animTimer >= 0.12) {
+          this.animTimer = 0;
+          this.animFrame = (this.animFrame + 1) % 4;
+        }
+      }
+      return;
+    }
 
     if (player.inBoat) this.lootTarget = null;
 
@@ -5999,7 +6144,21 @@ class Pet {
   }
 
   render(ctx) {
+    const furyPet = typeof player !== "undefined" && player && player.rageBurstTimer > 0;
+    if (furyPet) {
+      ctx.save();
+      const pcx = this.x + this.w / 2, pcy = this.y + this.h / 2;
+      ctx.translate(pcx, pcy);
+      ctx.scale(1.14, 1.14);
+      ctx.translate(-pcx, -pcy);
+      ctx.shadowColor = "rgba(255,120,40,0.95)";
+      ctx.shadowBlur = 16;
+    }
     drawPetSprite(ctx, this.type, Math.round(this.x), Math.round(this.y), this.direction, this.animFrame, this.moving);
+    if (furyPet) {
+      ctx.shadowBlur = 0;
+      ctx.restore();
+    }
 
     if (this.heartTimer > 0) {
       const hAlpha = Math.min(1, this.heartTimer / 0.3);
@@ -8833,6 +8992,98 @@ function spawnMonsters() {
 }
 const monsters = spawnMonsters();
 
+/** Ok ile son nişan alınan canavar (üst bant HP için). */
+let rangedFocusMonster = null;
+let rangedFocusTimer = 0;
+const RANGED_FOCUS_HOLD_SEC = 3.8;
+
+function registerRangedAimTarget(mon) {
+  if (mon && mon.alive && mon.state !== "dying") {
+    rangedFocusMonster = mon;
+    rangedFocusTimer = RANGED_FOCUS_HOLD_SEC;
+  }
+}
+
+function updateRangedFocusState(dt) {
+  if (rangedFocusTimer > 0) rangedFocusTimer -= dt;
+  if (rangedFocusMonster && (!rangedFocusMonster.alive || rangedFocusMonster.state === "dying")) {
+    rangedFocusMonster = null;
+    rangedFocusTimer = 0;
+    return;
+  }
+  if (rangedFocusTimer <= 0) rangedFocusMonster = null;
+}
+
+/** Yakla\u015f\u0131k g\u00fc\u00e7: oyuncu seviyesine g\u00f6re isim rengi. */
+function monsterRelativePowerScore(m) {
+  if (!m) return 0;
+  const s = m.levelScale || 1;
+  return (m.maxHp * 0.12 + m.dmg * 4 + m.xpReward * 0.55) * (0.75 + s * 0.25);
+}
+
+function isMonsterDangerousForPlayerLevel(m, plv) {
+  if (!m) return false;
+  const mt = MONSTER_TYPES[m.type];
+  if (mt && mt.boss) return true;
+  const pl = 20 + plv * 21;
+  return monsterRelativePowerScore(m) >= pl * 0.9;
+}
+
+function drawRangedTargetHpBanner(ctx, cw, ch, m) {
+  if (!m || !m.alive || m.state === "dying" || rangedFocusTimer <= 0) return;
+  const mt = MONSTER_TYPES[m.type];
+  const mobName = (mt && mt.name) ? mt.name : m.type;
+  const hpLine = Math.ceil(m.hp) + "/" + m.maxHp;
+  ctx.save();
+  ctx.font = "bold 13px monospace";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  const line = mobName + "   " + hpLine;
+  const tw = ctx.measureText(line).width;
+  const bw = Math.min(cw - 24, tw + 36);
+  const bh = 36;
+  const bx = (cw - bw) / 2;
+  const by = 10;
+  ctx.fillStyle = "#b01010";
+  roundRect(ctx, bx, by, bw, bh, 8);
+  ctx.fill();
+  ctx.strokeStyle = "rgba(0,0,0,0.45)";
+  ctx.lineWidth = 2;
+  roundRect(ctx, bx, by, bw, bh, 8);
+  ctx.stroke();
+  ctx.fillStyle = "#ffffff";
+  ctx.fillText(line, cw / 2, by + bh / 2);
+  ctx.restore();
+}
+
+function tryActivateRageBurst() {
+  if (player.inBoat) {
+    pickupMsgText = "Teknede g\u00fc\u00e7 patlamas\u0131 kullan\u0131lamaz";
+    pickupMsgTimer = 1;
+    return false;
+  }
+  if (player.rageMeter < RAGE_ACTIVATE_MIN) {
+    pickupMsgText = "G\u00fc\u00e7 \u00e7ubu\u011fu: canavarlara vurarak doldur, sonra [G]";
+    pickupMsgTimer = 1.2;
+    return false;
+  }
+  if (player.rageBurstTimer > 0) return false;
+  const hr = player.hp / Math.max(1, player.maxHp);
+  const mr = player.mana / Math.max(1, player.maxMana);
+  player.rageBurstTimer = RAGE_BURST_DURATION;
+  player.rageMeter = 0;
+  player.applyEquipmentBonus(inventory);
+  player.hp = Math.max(1, Math.floor(player.maxHp * hr));
+  player.mana = Math.min(player.maxMana, Math.floor(player.maxMana * mr));
+  if (activePet && rangedFocusMonster && rangedFocusMonster.alive && rangedFocusMonster.state !== "dying") {
+    activePet.combatTarget = rangedFocusMonster;
+  }
+  pickupMsgText = "G\u00dc\u00c7 PATLAMASI! 3x hasar & can (6 sn) [G]";
+  pickupMsgTimer = 1.35;
+  gameAudio.playSkill();
+  return true;
+}
+
 function dropMonsterLoot(m, worldItems) {
   const lo = m.loot || [];
   const tc = Math.floor(m.cx / TILE_SIZE), tr = Math.floor(m.cy / TILE_SIZE);
@@ -8868,7 +9119,7 @@ function playerHasBowEquipped(inv) {
   return !!(e && ITEMS[e.id] && ITEMS[e.id].equipSlot === "bow");
 }
 
-function arrowLaunchAngleTowardNearestInRange(fromX, fromY, fallbackAngle, monsters) {
+function arrowAimAssist(fromX, fromY, fallbackAngle, monsters) {
   let best = null;
   let bestD = Infinity;
   for (const m of monsters) {
@@ -8877,8 +9128,12 @@ function arrowLaunchAngleTowardNearestInRange(fromX, fromY, fallbackAngle, monst
     if (d < 6 || d > ARROW_AIM_ASSIST_RANGE) continue;
     if (d < bestD) { bestD = d; best = m; }
   }
-  if (!best) return fallbackAngle;
-  return Math.atan2(best.cy - fromY, best.cx - fromX);
+  if (!best) return { angle: fallbackAngle, target: null };
+  return { angle: Math.atan2(best.cy - fromY, best.cx - fromX), target: best };
+}
+
+function arrowLaunchAngleTowardNearestInRange(fromX, fromY, fallbackAngle, monsters) {
+  return arrowAimAssist(fromX, fromY, fallbackAngle, monsters).angle;
 }
 
 function tryPlayerMeleeAttack(player, inventory, monsters) {
@@ -8919,12 +9174,14 @@ function tryReleasePowerShotClick() {
     player.shootAnim = 0.3;
     const sx = player.centerX + Math.cos(player.angle) * 14;
     const sy = player.centerY + Math.sin(player.angle) * 14;
-    const aimAng = arrowLaunchAngleTowardNearestInRange(sx, sy, player.angle, monsters);
-    const pa = new Arrow(sx, sy, aimAng);
+    const aim = arrowAimAssist(sx, sy, player.angle, monsters);
+    const pa = new Arrow(sx, sy, aim.angle);
     pa.power = true;
+    pa.furyShot = player.rageBurstTimer > 0;
     pa.damage = applyOutgoingPlayerDamage(player.getPowerDamage(), player, inventory, {});
     pa.speed *= 1.5;
     arrows.push(pa);
+    registerRangedAimTarget(aim.target);
     player.gainXP(3);
     gameAudio.playPowerShoot();
   }
@@ -8948,10 +9205,12 @@ function tryMeleeOrRangedClick() {
       player.shootAnim = 0.25;
       const sx = player.centerX + Math.cos(player.angle) * 14;
       const sy = player.centerY + Math.sin(player.angle) * 14;
-      const aimAng = arrowLaunchAngleTowardNearestInRange(sx, sy, player.angle, monsters);
-      const na = new Arrow(sx, sy, aimAng);
+      const aim = arrowAimAssist(sx, sy, player.angle, monsters);
+      const na = new Arrow(sx, sy, aim.angle);
+      na.furyShot = player.rageBurstTimer > 0;
       na.damage = applyOutgoingPlayerDamage(player.getRangedDamage(), player, inventory, {});
       arrows.push(na);
+      registerRangedAimTarget(aim.target);
       player.gainXP(1);
       gameAudio.playShoot();
       return true;
@@ -9042,8 +9301,9 @@ function skillCastNova() {
 function spawnSkillBolt(element) {
   const sx = player.centerX + Math.cos(player.angle) * 14;
   const sy = player.centerY + Math.sin(player.angle) * 14;
-  const aimAng = arrowLaunchAngleTowardNearestInRange(sx, sy, player.angle, monsters);
-  const a = new Arrow(sx, sy, aimAng);
+  const aim = arrowAimAssist(sx, sy, player.angle, monsters);
+  const a = new Arrow(sx, sy, aim.angle);
+  a.furyShot = player.rageBurstTimer > 0;
   a.damage = applyOutgoingPlayerDamage(
     player.getRangedDamage() * (element === "fire" ? 1.15 : 1.05),
     player, inventory, {}
@@ -9051,6 +9311,7 @@ function spawnSkillBolt(element) {
   a.element = element;
   if (element === "ice") a.speed = 245;
   arrows.push(a);
+  registerRangedAimTarget(aim.target);
   player.shootAnim = 0.22;
   return true;
 }
@@ -9118,12 +9379,18 @@ function skillCastVolley() {
   }
   const base = player.angle;
   const spread = 0.24;
+  const sx = player.centerX + Math.cos(base) * 14;
+  const sy = player.centerY + Math.sin(base) * 14;
   for (let k = -1; k <= 1; k++) {
     inventory.removeItem("arrow", 1);
-    const ang = base + k * spread;
-    const sx = player.centerX + Math.cos(base) * 14;
-    const sy = player.centerY + Math.sin(base) * 14;
+    let ang = base + k * spread;
+    if (k === 0) {
+      const aim = arrowAimAssist(sx, sy, base, monsters);
+      ang = aim.angle;
+      registerRangedAimTarget(aim.target);
+    }
     const a = new Arrow(sx, sy, ang);
+    a.furyShot = player.rageBurstTimer > 0;
     a.damage = applyOutgoingPlayerDamage(player.getRangedDamage() * 0.72, player, inventory, {});
     arrows.push(a);
   }
@@ -9787,6 +10054,7 @@ function playerToSave(p) {
     _eqStr: p._eqStr, _eqAgi: p._eqAgi, _eqWis: p._eqWis, _eqMeleeDmg: p._eqMeleeDmg, _eqRangedDmg: p._eqRangedDmg,
     manaCostShoot: p.manaCostShoot, manaCostPower: p.manaCostPower,
     dmgFlashTimer: p.dmgFlashTimer, levelUpTimer: p.levelUpTimer, powerCharging: p.powerCharging, powerCharge: p.powerCharge,
+    rageMeter: p.rageMeter || 0, rageBurstTimer: p.rageBurstTimer || 0,
     statPoints: p.statPoints, skills: Object.assign({}, p.skills || {}),
     _pendingFullHeal: !!p._pendingFullHeal,
     poisonTimer: p.poisonTimer || 0,
@@ -9809,6 +10077,8 @@ function applyPlayerSave(p, d) {
   }
   if (d.poisonTimer == null) p.poisonTimer = 0;
   if (!p.activeSkillCd || p.activeSkillCd.length < 8) p.activeSkillCd = [0, 0, 0, 0, 0, 0, 0, 0];
+  if (d.rageMeter == null) p.rageMeter = 0;
+  if (d.rageBurstTimer == null) p.rageBurstTimer = 0;
 }
 
 function slotStackToSave(s) {
@@ -10010,6 +10280,8 @@ function loadActivePetFromSave(o) {
   pet.heartTimer = o.heartTimer || 0;
   pet.followDist = o.followDist != null ? o.followDist : pet.followDist;
   pet.lootTarget = null;
+  pet.combatTarget = null;
+  pet.petAttackCd = 0;
   pet.posHistory = [];
   return pet;
 }
@@ -10363,6 +10635,8 @@ function gameLoop(now) {
 
   if (actionCooldown > 0) actionCooldown -= dt;
   if (pickupMsgTimer > 0) pickupMsgTimer -= dt;
+  updateRangedFocusState(dt);
+  updateDamageFloaters(dt);
 
   if (isActionPressed() && actionCooldown <= 0) handleInteraction();
 
@@ -10379,6 +10653,7 @@ function gameLoop(now) {
 
   if (wasJustPressed("KeyQ") && !uiOpen) tryUseHpPotion();
   if (wasJustPressed("KeyR") && !uiOpen) tryUseManaPotion();
+  if (wasJustPressed("KeyG") && !uiOpen && !player.inBoat) tryActivateRageBurst();
   if (wasJustPressed("KeyU") && !uiOpen) {
     const muted = gameAudio.toggleMute();
     pickupMsgText = muted ? "Ses kapal\u0131 (U)" : "Ses a\u00e7\u0131k (U)";
@@ -10458,7 +10733,7 @@ function gameLoop(now) {
   for (const wi of worldItems) wi.update(dt);
   if (!uiOpen && !player.inBoat) tryAutoPickupNearbyWorldItems();
   for (const wp of wildPets) if (wp.alive) wp.update(dt, map);
-  if (activePet) activePet.update(dt, player, map, worldItems, inventory);
+  if (activePet) activePet.update(dt, player, map, worldItems, inventory, monsters);
 
   if (!uiOpen) {
     for (const m of monsters) {
@@ -10482,7 +10757,25 @@ function gameLoop(now) {
     }
   }
 
+  let rageEndRatios = null;
+  if (player.rageBurstTimer > 0) {
+    player.rageBurstTimer -= dt;
+    if (player.rageBurstTimer <= 0) {
+      rageEndRatios = {
+        hr: player.hp / Math.max(1, player.maxHp),
+        mr: player.mana / Math.max(1, player.maxMana),
+      };
+      player.rageBurstTimer = 0;
+      if (activePet) activePet.combatTarget = null;
+    }
+  }
+
   player.applyEquipmentBonus(inventory);
+
+  if (rageEndRatios) {
+    player.hp = Math.max(1, Math.floor(player.maxHp * rageEndRatios.hr));
+    player.mana = Math.min(player.maxMana, Math.floor(player.maxMana * rageEndRatios.mr));
+  }
 
   for (let i = arrows.length - 1; i >= 0; i--) {
     const a = arrows[i];
@@ -10646,12 +10939,19 @@ function gameLoop(now) {
 
   for (const a of arrows) a.render(ctx);
   for (const s of monsterSpells) s.render(ctx);
+  renderDamageFloaters(ctx);
 
   camera.resetTransform(ctx);
 
+  if (!inventory.open && !petPanel.open && !shop.open && !craftPanel.open && !charPanel.open) {
+    drawRangedTargetHpBanner(ctx, canvasW, canvasH, rangedFocusMonster);
+  }
+
   if (!inventory.open && !petPanel.open && !shop.open && !craftPanel.open) {
     const hx = 10, hy = 10, hw = 170, barH = 10, gap = 4, pad = 6;
-    const panelH = pad * 2 + barH * 4 + gap * 3 + 22;
+    const extraRageRow = (player.rageBurstTimer > 0 || player.rageMeter > 0.02) ? barH + gap : 0;
+    const extraPwrRow = (player.powerCharging && player.powerCharge > 0) ? barH + gap : 0;
+    const panelH = pad * 2 + barH * 4 + gap * 3 + 22 + extraRageRow + extraPwrRow;
 
     ctx.fillStyle = "rgba(10,10,30,0.8)";
     roundRect(ctx, hx, hy, hw, panelH, 8); ctx.fill();
@@ -10697,8 +10997,16 @@ function gameLoop(now) {
     ctx.fillStyle = "#c0c0d0";
     ctx.fillText("Uzak:" + dmg, hx + pad + 70, by + 8);
 
+    if (player.rageBurstTimer > 0) {
+      by += barH + gap;
+      drawBar("FURY", player.rageBurstTimer, RAGE_BURST_DURATION, "#ff3018", "#ff7840", hx + pad, by);
+    } else if (player.rageMeter > 0.02) {
+      by += barH + gap;
+      drawBar("GUCH [G]", player.rageMeter * 100, 100, "#a02820", "#e85038", hx + pad, by);
+    }
+
     if (player.powerCharging && player.powerCharge > 0) {
-      by += 16;
+      by += barH + gap;
       drawBar("PWR", player.powerCharge * 100, 100, "#a040d0", "#d080ff", hx + pad, by);
     }
 
