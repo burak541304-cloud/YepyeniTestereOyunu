@@ -116,10 +116,33 @@ let MOBILE_MINIMAP_RIGHT_RESERVE_PX = 68;
 /** Mobil: sald\u0131r\u0131 bas\u0131l\u0131 tutunca bu s\u00fcre boyunca (ms) \u00f6nce Etkile\u015fim aday\u0131 kontrol\u00fc; NPC/a\u011fa\u00e7 vb. varsa ok/vuru\u015f ba\u015flamaz. */
 const MOBILE_ATTACK_INTERACT_MS = 240;
 
-/** Mobil otomatik iksir: e\u015fikler (0\u20131) ve tekrar kullan\u0131m bekleme (sn). */
-const MOBILE_AUTO_POT_HP_BELOW = 0.42;
-const MOBILE_AUTO_POT_MP_BELOW = 0.32;
+/** Mobil otomatik iksir tekrar kullan\u0131m bekleme (sn). */
 const MOBILE_AUTO_POT_COOLDOWN = 1.35;
+const AUTO_POT_SETTINGS_KEY = "chopgrow_autopot_v1";
+
+/** Oyuncu taraf\u0131ndan ayarlanabilir e\u015fikler (%5\u201395); yaln\u0131zca mobil otomatik iksirde kullan\u0131l\u0131r. */
+const autoPotSettings = { hpPct: 42, mpPct: 32 };
+
+function loadAutoPotSettings() {
+  try {
+    const raw = localStorage.getItem(AUTO_POT_SETTINGS_KEY);
+    if (!raw) return;
+    const o = JSON.parse(raw);
+    if (typeof o.hp === "number") autoPotSettings.hpPct = Math.max(5, Math.min(95, Math.round(o.hp)));
+    if (typeof o.mp === "number") autoPotSettings.mpPct = Math.max(5, Math.min(95, Math.round(o.mp)));
+  } catch (e) { /* ignore */ }
+}
+
+function saveAutoPotSettings() {
+  try {
+    localStorage.setItem(AUTO_POT_SETTINGS_KEY, JSON.stringify({
+      hp: autoPotSettings.hpPct,
+      mp: autoPotSettings.mpPct,
+    }));
+  } catch (e) { /* quota */ }
+}
+
+loadAutoPotSettings();
 
 let mobileAutoPotionCooldown = 0;
 
@@ -167,12 +190,21 @@ function uiModalBounds(cw, ch) {
 /** Sa\u011f alt MMORPG k\u00fcmesi: merkez sald\u0131r\u0131 + y\u00f6r\u00fcnge (beceri, SWAP, HEDEF daireleri). */
 function mobileCombatClusterGeom(cw, ch) {
   const pad = 10;
-  const centerX = cw - pad - 72;
-  const centerY = ch - pad - 94;
+  const margin = 10;
   const atkR = 40;
   const skillR = 20;
-  const orbitR = 92;
+  let orbitR = 92;
   const auxR = 18;
+  /** SWAP ~sa\u011fda; merkez + cos(angle)*R + r <= cw - margin olmal\u0131. */
+  const swapAng = 0.1;
+  if (touchState.mobileUI && cw < 520) {
+    orbitR = Math.max(78, Math.round(92 - (520 - cw) * 0.14));
+  }
+  const rightExtent = Math.cos(swapAng) * orbitR + auxR;
+  let centerX = cw - pad - 72;
+  const maxCx = cw - margin - rightExtent;
+  if (centerX > maxCx) centerX = maxCx;
+  const centerY = ch - pad - 94;
   return { centerX, centerY, atkR, skillR, orbitR, auxR, pad };
 }
 
@@ -1469,10 +1501,11 @@ const charPanel = {
     const titleH = land ? 20 : 26;
     const statBlockH = land ? 52 : 78;
     const gapBeforeSkills = land ? 10 : 18;
-    let needH = (land ? 10 : 14) + titleH + statBlockH + gapBeforeSkills + 16 + n * rowStep + (land ? 14 : 20);
+    const autoPotBlockH = touchState.mobileUI ? 58 : 0;
+    let needH = (land ? 10 : 14) + titleH + statBlockH + gapBeforeSkills + autoPotBlockH + 16 + n * rowStep + (land ? 14 : 20);
     while (needH > b.maxH && rowStep > 30) {
       rowStep -= 2;
-      needH = (land ? 10 : 14) + titleH + statBlockH + gapBeforeSkills + 16 + n * rowStep + (land ? 14 : 20);
+      needH = (land ? 10 : 14) + titleH + statBlockH + gapBeforeSkills + autoPotBlockH + 16 + n * rowStep + (land ? 14 : 20);
     }
     let pw = Math.min(land ? Math.min(560, b.maxW) : 420, b.maxW);
     pw = Math.max(280, pw);
@@ -1482,11 +1515,27 @@ const charPanel = {
     const boxH = Math.max(land ? 30 : 40, rowStep - (land ? 8 : 6));
     const titleY = py + (land ? 16 : 24);
     const statBtnY = py + (land ? 36 : 52);
-    const skillHdrY = statBtnY + (land ? 34 : 42);
+    const statBtnH = land ? 26 : 30;
+    const skillHdrY = statBtnY + (land ? 34 : 42) + autoPotBlockH;
     const skillStartY = skillHdrY + (land ? 12 : 18);
+    const autoPotY = touchState.mobileUI ? statBtnY + statBtnH + 8 : -1;
     const closeR = { x: px + pw - 30, y: py + 8, w: 24, h: 24 };
     return {
-      px, py, pw, ph, rowStep, boxH, land, titleY, statBtnY, skillHdrY, skillStartY, closeR,
+      px, py, pw, ph, rowStep, boxH, land, titleY, statBtnY, statBtnH, skillHdrY, skillStartY, closeR,
+      autoPotY, autoPotBlockH,
+    };
+  },
+  _autopotStepRects(L) {
+    if (!touchState.mobileUI || L.autoPotY < 0) return null;
+    const btnW = 34, btnH = 24, pairGap = 6;
+    const xR = L.px + L.pw - 14 - 2 * btnW - pairGap;
+    const y0 = L.autoPotY;
+    const y1 = y0 + 28;
+    return {
+      hpMinus: { x: xR, y: y0, w: btnW, h: btnH },
+      hpPlus: { x: xR + btnW + pairGap, y: y0, w: btnW, h: btnH },
+      mpMinus: { x: xR, y: y1, w: btnW, h: btnH },
+      mpPlus: { x: xR + btnW + pairGap, y: y1, w: btnW, h: btnH },
     };
   },
   _in(mx, my, r) {
@@ -1535,7 +1584,7 @@ const charPanel = {
     }
 
     const btnY = L.statBtnY;
-    const btnH = L.land ? 26 : 30;
+    const btnH = L.statBtnH;
     const bw = Math.min(104, Math.floor((L.pw - 50) / 3)), gap = Math.min(10, Math.max(4, Math.floor(L.pw * 0.02))), x0 = L.px + 20;
     if (player.statPoints > 0) {
       if (this._in(mx, my, { x: x0, y: btnY, w: bw, h: btnH })) {
@@ -1551,6 +1600,38 @@ const charPanel = {
       if (this._in(mx, my, { x: x0 + 2 * (bw + gap), y: btnY, w: bw, h: btnH })) {
         const err = this.tryAllocStat(player, "wis");
         if (err) { pickupMsgText = err; pickupMsgTimer = 1.4; }
+        return true;
+      }
+    }
+
+    const apR = this._autopotStepRects(L);
+    if (apR) {
+      if (this._in(mx, my, apR.hpMinus)) {
+        autoPotSettings.hpPct = Math.max(5, autoPotSettings.hpPct - 5);
+        saveAutoPotSettings();
+        pickupMsgText = "Oto can iksiri: HP < %" + autoPotSettings.hpPct;
+        pickupMsgTimer = 1.1;
+        return true;
+      }
+      if (this._in(mx, my, apR.hpPlus)) {
+        autoPotSettings.hpPct = Math.min(95, autoPotSettings.hpPct + 5);
+        saveAutoPotSettings();
+        pickupMsgText = "Oto can iksiri: HP < %" + autoPotSettings.hpPct;
+        pickupMsgTimer = 1.1;
+        return true;
+      }
+      if (this._in(mx, my, apR.mpMinus)) {
+        autoPotSettings.mpPct = Math.max(5, autoPotSettings.mpPct - 5);
+        saveAutoPotSettings();
+        pickupMsgText = "Oto mana iksiri: MP < %" + autoPotSettings.mpPct;
+        pickupMsgTimer = 1.1;
+        return true;
+      }
+      if (this._in(mx, my, apR.mpPlus)) {
+        autoPotSettings.mpPct = Math.min(95, autoPotSettings.mpPct + 5);
+        saveAutoPotSettings();
+        pickupMsgText = "Oto mana iksiri: MP < %" + autoPotSettings.mpPct;
+        pickupMsgTimer = 1.1;
         return true;
       }
     }
@@ -1597,7 +1678,7 @@ const charPanel = {
     ctx.fillText("STR:" + player.str + "  AGI:" + player.agi + "  WIS:" + player.wis, L.px + 14, L.titleY + (L.land ? 32 : 44));
 
     const btnY = L.statBtnY;
-    const btnH = L.land ? 26 : 30;
+    const btnH = L.statBtnH;
     const bw = Math.min(104, Math.floor((L.pw - 50) / 3)), gap = Math.min(10, Math.max(4, Math.floor(L.pw * 0.02))), x0 = L.px + 20;
     const drawMiniBtn = (x, y, label, active) => {
       ctx.fillStyle = active ? "#2a5080" : "#303048";
@@ -1612,6 +1693,38 @@ const charPanel = {
     drawMiniBtn(x0, btnY, "+ STR", player.statPoints > 0);
     drawMiniBtn(x0 + bw + gap, btnY, "+ AGI", player.statPoints > 0);
     drawMiniBtn(x0 + 2 * (bw + gap), btnY, "+ WIS", player.statPoints > 0);
+
+    if (touchState.mobileUI && L.autoPotY >= 0) {
+      const apR = this._autopotStepRects(L);
+      const ay = L.autoPotY;
+      ctx.fillStyle = "#7a8aac";
+      ctx.font = L.land ? "bold 9px monospace" : "bold 10px monospace";
+      ctx.fillText("Mobil otomatik iksir (e\u015fik)", L.px + 14, ay - 4);
+      const drawPotStepBtn = (r, sym) => {
+        ctx.fillStyle = "#2a3858";
+        roundRect(ctx, r.x, r.y, r.w, r.h, 4);
+        ctx.fill();
+        ctx.strokeStyle = "#6080a8";
+        ctx.stroke();
+        ctx.fillStyle = "#e0e8f8";
+        ctx.font = "bold 14px monospace";
+        ctx.fillText(sym, r.x + (r.w - ctx.measureText(sym).width) / 2, r.y + 18);
+      };
+      ctx.fillStyle = "#c8b8b8";
+      ctx.font = L.land ? "9px monospace" : "10px monospace";
+      ctx.fillText("Can < %" + autoPotSettings.hpPct, L.px + 14, ay + 17);
+      ctx.fillStyle = "#a8b8e8";
+      ctx.fillText("Mana < %" + autoPotSettings.mpPct, L.px + 14, ay + 45);
+      if (apR) {
+        drawPotStepBtn(apR.hpMinus, "\u2212");
+        drawPotStepBtn(apR.hpPlus, "+");
+        drawPotStepBtn(apR.mpMinus, "\u2212");
+        drawPotStepBtn(apR.mpPlus, "+");
+      }
+      ctx.fillStyle = "#5a6078";
+      ctx.font = "8px monospace";
+      ctx.fillText("\u00b15%  (5\u201395%)", L.px + 14, ay + 58);
+    }
 
     ctx.fillStyle = "#c0c8e0";
     ctx.font = L.land ? "bold 10px monospace" : "bold 11px monospace";
@@ -7147,7 +7260,7 @@ class HUD {
     ctx.fillStyle = "#f0f0f0"; ctx.font = "11px monospace";
     if (touchState.mobileUI) {
       ctx.fillText(
-        "Mobil: joystick | \u2694 sald\u0131r\u0131/Etkile\u015fim | beceri | hotbar yan\u0131 Q/R (oto-iksir) | \u00d7 kapat",
+        "Mobil: joystick | \u2694 | beceri | Q/R | oto-iksir e\u015fi\u011fi [C] | \u00d7 kapat",
         10,
         canvasH - 10
       );
@@ -10077,10 +10190,10 @@ function gameLoop(now) {
       if (mobileAutoPotionCooldown <= 0 && !player.inBoat) {
         const hpR = player.maxHp > 0 ? player.hp / player.maxHp : 1;
         const mpR = player.maxMana > 0 ? player.mana / player.maxMana : 1;
-        if (hpR < MOBILE_AUTO_POT_HP_BELOW && inventory.countItem("potion") > 0) {
+        if (hpR < autoPotSettings.hpPct / 100 && inventory.countItem("potion") > 0) {
           tryUseHpPotion();
           mobileAutoPotionCooldown = MOBILE_AUTO_POT_COOLDOWN;
-        } else if (mpR < MOBILE_AUTO_POT_MP_BELOW && inventory.countItem("potion_mana") > 0) {
+        } else if (mpR < autoPotSettings.mpPct / 100 && inventory.countItem("potion_mana") > 0) {
           tryUseManaPotion();
           mobileAutoPotionCooldown = MOBILE_AUTO_POT_COOLDOWN;
         }
