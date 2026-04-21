@@ -157,21 +157,57 @@ function uiModalBounds(cw, ch) {
   };
 }
 
+/** Beceri d\u00fc\u011fmelerinin sol \u00e7izgisi (iksir \u00e7ak\u0131\u015fmalar\u0131n\u0131 \u00f6nlemek i\u00e7in). */
+function mobileSkillClusterMinLeftPx(cw, ch) {
+  const G = mobileCombatClusterGeom(cw, ch);
+  const ang = mobileSkillSlotAngles();
+  let minL = G.centerX + G.atkR;
+  for (let i = 0; i < 4; i++) {
+    const cx = G.centerX + Math.cos(ang[i]) * G.orbitR;
+    minL = Math.min(minL, cx - G.skillR);
+  }
+  return minL;
+}
+
 /** Sa\u011f alt MMORPG k\u00fcmesi: merkez sald\u0131r\u0131 + y\u00f6r\u00fcnge beceriler. */
 function mobileCombatClusterGeom(cw, ch) {
   const pad = 10;
-  const centerX = cw - pad - 86;
-  const centerY = ch - pad - 102;
+  const centerX = cw - pad - 72;
+  const centerY = ch - pad - 94;
   const atkR = 40;
-  const skillR = 22;
-  const orbitR = 76;
-  const swapBtn = { key: "swap", x: centerX - 28, y: centerY - orbitR - 54, w: 56, h: 28 };
-  const targetBtn = { key: "target", x: centerX + 18, y: centerY - orbitR - 40, w: 76, h: 28 };
+  const skillR = 20;
+  const orbitR = 92;
+  let swapBtn;
+  let targetBtn;
+  if (touchState.mobileUI && typeof minimap !== "undefined" && minimap && minimap.visible) {
+    const mmPad = 10;
+    const sideReserve = MOBILE_MINIMAP_RIGHT_RESERVE_PX;
+    const mmBottom = mmPad + minimap.h + 8 + 10;
+    const topMenuBottom = 52 + 34 + 10;
+    const rowH = 30;
+    let rowY = Math.max(mmBottom, topMenuBottom);
+    rowY = Math.min(rowY, ch - rowH - 10);
+    rowY = Math.max(rowY, topMenuBottom);
+    const gap = 8;
+    const swapW = 56;
+    const targetW = 76;
+    const rowRight = cw - mmPad - sideReserve;
+    const targetX = rowRight - targetW;
+    const swapX = targetX - gap - swapW;
+    swapBtn = { x: swapX, y: rowY, w: swapW, h: rowH };
+    targetBtn = { x: targetX, y: rowY, w: targetW, h: rowH };
+  } else {
+    swapBtn = { x: centerX - 28, y: centerY - orbitR - 54, w: 56, h: 28 };
+    targetBtn = { x: centerX + 18, y: centerY - orbitR - 40, w: 76, h: 28 };
+  }
   return { centerX, centerY, atkR, skillR, orbitR, swapBtn, targetBtn, pad };
 }
 
+/** Geni\u015f yay: ~120\u00b0\u2013240\u00b0 (ana d\u00fc\u011fmenin solunda, \u00fcstten alta yay\u0131l\u0131r). */
 function mobileSkillSlotAngles() {
-  return [Math.PI * 0.92, Math.PI * 1.02, Math.PI * 1.12, Math.PI * 1.22];
+  const start = (Math.PI * 2) / 3;
+  const end = (Math.PI * 4) / 3;
+  return [0, 1, 2, 3].map((i) => start + ((end - start) * i) / 3);
 }
 
 /** Eski iksir yerle\u015fimi i\u00e7in sald\u0131r\u0131 alan\u0131 (dikd\u00f6rtgen yakla\u015f\u0131m\u0131). */
@@ -7135,22 +7171,35 @@ function layoutCombatPotions(cw, ch) {
     const J = joyAnchorForLayout();
     const atk = mobileAttackButtonRect(cw, ch);
     const joyRight = J.cx + J.r * 1.55;
+    const skillLeftBound = mobileSkillClusterMinLeftPx(cw, ch);
+    const potRightLimit = skillLeftBound - 14;
     let potW = 44, potH = 44, g = 5;
     let manaX = atk.x - g - potW;
     let hpX = manaX - g - potW;
-    while (hpX < joyRight + 10 && potW >= 30) {
+    while ((manaX + potW > potRightLimit || hpX < joyRight + 10) && potW >= 30) {
       potW -= 2;
       potH -= 2;
       g = 4;
       manaX = atk.x - g - potW;
       hpX = manaX - g - potW;
     }
-    if (hpX < joyRight + 8) {
-      hpX = joyRight + 8;
-      manaX = Math.min(atk.x - g - potW, hpX + potW + g);
-      if (manaX + potW > atk.x - 2) manaX = atk.x - g - potW;
+    if (manaX + potW > potRightLimit) {
+      const pairW = potW * 2 + g;
+      hpX = Math.max(joyRight + 10, potRightLimit - pairW);
+      manaX = hpX + potW + g;
+    }
+    if (hpX < joyRight + 10) {
+      hpX = joyRight + 10;
+      manaX = hpX + potW + g;
+    }
+    if (manaX + potW > potRightLimit) {
+      manaX = Math.max(joyRight + potW + g, potRightLimit - potW);
+      hpX = manaX - potW - g;
     }
     y = atk.y + (atk.h - potH) / 2;
+    if (manaX + potW > atk.x - 4 || hpX < joyRight + 8) {
+      y = atk.y - potH - 18;
+    }
     y = Math.max(56, Math.min(ch - potH - bottomPad, y));
     combatPotionRects = [
       { kind: "hp", x: hpX, y, w: potW, h: potH, key: "Q" },
