@@ -94,7 +94,21 @@ const touchState = {
   attackT0: 0,
   btnDown: new Map(),
   invSlotPressId: -1,
+  /** 0: beceri \u00e7ubu\u011fu A, 1: B (SWAP ile) */
+  skillBarPage: 0,
 };
+
+/** Mobil / masa\u00fcst\u00fc: 8 aktif beceri (SWAP ile 4+4). */
+const ACTIVE_SKILL_DEFS = [
+  { id: "whirl", icon: "\u2694", mana: 8, cooldown: 4.5 },
+  { id: "nova", icon: "\u2726", mana: 15, cooldown: 7 },
+  { id: "fire", icon: "F", mana: 6, cooldown: 3.2 },
+  { id: "frost", icon: "*", mana: 7, cooldown: 3.5 },
+  { id: "dash", icon: "\u21E8", mana: 5, cooldown: 4 },
+  { id: "thunder", icon: "\u26A1", mana: 12, cooldown: 6 },
+  { id: "mend", icon: "\u2764", mana: 10, cooldown: 8 },
+  { id: "volley", icon: "\u27F3", mana: 14, cooldown: 9 },
+];
 
 /**
  * Mobil: mini harita sa\u011f \u00fcstte; yan s\u00fctun (E, C, I, M, B, sald\u0131r\u0131) ile \u00e7ak\u0131\u015fmamas\u0131 i\u00e7in haritay\u0131 solda ka\u00e7 piksel kayd\u0131r.
@@ -143,37 +157,89 @@ function uiModalBounds(cw, ch) {
   };
 }
 
-/** Sa\u011f alttaki sald\u0131r\u0131 butonu dikd\u00f6rtgeni (mobil iksir yerle\u015fimi ile payla\u015f\u0131l\u0131r). */
+/** Sa\u011f alt MMORPG k\u00fcmesi: merkez sald\u0131r\u0131 + y\u00f6r\u00fcnge beceriler. */
+function mobileCombatClusterGeom(cw, ch) {
+  const pad = 10;
+  const centerX = cw - pad - 86;
+  const centerY = ch - pad - 102;
+  const atkR = 40;
+  const skillR = 22;
+  const orbitR = 76;
+  const swapBtn = { key: "swap", x: centerX - 28, y: centerY - orbitR - 54, w: 56, h: 28 };
+  const targetBtn = { key: "target", x: centerX + 18, y: centerY - orbitR - 40, w: 76, h: 28 };
+  return { centerX, centerY, atkR, skillR, orbitR, swapBtn, targetBtn, pad };
+}
+
+function mobileSkillSlotAngles() {
+  return [Math.PI * 0.92, Math.PI * 1.02, Math.PI * 1.12, Math.PI * 1.22];
+}
+
+/** Eski iksir yerle\u015fimi i\u00e7in sald\u0131r\u0131 alan\u0131 (dikd\u00f6rtgen yakla\u015f\u0131m\u0131). */
 function mobileAttackButtonRect(cw, ch) {
-  const pad = 8, w = 52, h = 44;
-  return { x: cw - w - pad, y: ch - pad - 46, w, h };
+  const G = mobileCombatClusterGeom(cw, ch);
+  const side = G.atkR * 2 + 4;
+  return { x: G.centerX - G.atkR - 2, y: G.centerY - G.atkR - 2, w: side, h: side };
 }
 
 function mobileButtonsLayout(cw, ch) {
-  const atk = mobileAttackButtonRect(cw, ch);
-  const gap = 5;
-  const x = atk.x, w = atk.w;
+  const G = mobileCombatClusterGeom(cw, ch);
   const out = [];
-  let y = atk.y;
-  out.push({ key: "attack", label: "\u2694", x, y, w, h: atk.h });
-  y -= gap + 34;
-  const row = [
+  const side = G.atkR * 2 + 4;
+  out.push({ key: "attack", kind: "attack", label: "\u2694", x: G.centerX - G.atkR - 2, y: G.centerY - G.atkR - 2, w: side, h: side, cx: G.centerX, cy: G.centerY, r: G.atkR });
+  const ang = mobileSkillSlotAngles();
+  const page = touchState.skillBarPage | 0;
+  for (let i = 0; i < 4; i++) {
+    const slot = page * 4 + i;
+    const a = ang[i];
+    const cx = G.centerX + Math.cos(a) * G.orbitR;
+    const cy = G.centerY + Math.sin(a) * G.orbitR;
+    out.push({
+      key: "skill" + slot,
+      kind: "skill",
+      skillSlot: slot,
+      label: ACTIVE_SKILL_DEFS[slot] ? ACTIVE_SKILL_DEFS[slot].icon : "?",
+      x: cx - G.skillR,
+      y: cy - G.skillR,
+      w: G.skillR * 2,
+      h: G.skillR * 2,
+      cx, cy, r: G.skillR,
+    });
+  }
+  out.push({ key: "swap", kind: "swap", label: "\u21C4", ...G.swapBtn });
+  out.push({ key: "target", kind: "target", label: "\u25CE", ...G.targetBtn });
+  const topY = 52;
+  const topH = 34;
+  const menuItems = [
+    { key: "KeyI", label: "\u00c7ant" },
+    { key: "KeyC", label: "K" },
     { key: "KeyE", label: "E" },
-    { key: "KeyC", label: "C" },
-    { key: "KeyI", label: "I" },
-    { key: "KeyM", label: "M" },
-    { key: "KeyB", label: "B" },
+    { key: "KeyM", label: "H" },
+    { key: "KeyB", label: "T" },
   ];
-  for (const b of row) {
-    out.push({ key: b.key, label: b.label, x, y, w, h: 32 });
-    y -= gap + 32;
+  const tw = 44;
+  const totalW = menuItems.length * tw + (menuItems.length - 1) * 4;
+  let tx = Math.floor((cw - totalW) / 2);
+  for (const m of menuItems) {
+    out.push({ key: m.key, kind: "menu", label: m.label, x: tx, y: topY, w: tw, h: topH });
+    tx += tw + 4;
   }
   return out;
 }
 
 function hitMobileButton(mx, my, cw, ch) {
   if (!touchState.mobileUI) return null;
+  const G = mobileCombatClusterGeom(cw, ch);
   for (const b of mobileButtonsLayout(cw, ch)) {
+    if (b.kind === "attack") {
+      const dx = mx - G.centerX, dy = my - G.centerY;
+      if (dx * dx + dy * dy <= G.atkR * G.atkR) return b;
+      continue;
+    }
+    if (b.kind === "skill") {
+      const dx = mx - b.cx, dy = my - b.cy;
+      if (dx * dx + dy * dy <= b.r * b.r) return b;
+      continue;
+    }
     if (mx >= b.x && mx <= b.x + b.w && my >= b.y && my <= b.y + b.h) return b;
   }
   return null;
@@ -251,6 +317,25 @@ const ITEMS = {
   sword_elven: { id: "sword_elven", name: "Elf K\u0131l\u0131c\u0131", stackable: true, maxStack: 32, rarity: "epic", equipSlot: "blade",
     stats: { str: 3, agi: 4, wis: 2, maxHp: 10, maxMana: 5, meleeDmg: 8, rangedDmg: 0 },
     desc: "Hafif ve \u00e7ok keskin.", buyPrice: 0, sellPrice: 110 },
+  spear_epic: { id: "spear_epic", name: "M\u0131zrak", stackable: true, maxStack: 32, rarity: "epic", equipSlot: "blade",
+    stats: { str: 6, agi: 2, wis: 1, maxHp: 0, maxMana: 0, meleeDmg: 14, rangedDmg: 0 },
+    extras: {
+      itemLevel: { cur: 19, max: 40 },
+      displayBaseDmg: 42,
+      critChance: 15,
+      critDamagePct: 20,
+      weakTo: [{ kind: "poison", label: "Zehir" }],
+      passives: [{ text: "D\u00fc\u015fman\u0131 arkadan vurursan kritik hasar verir." }],
+      bonusPctDmg: [10, 7],
+      firePct: 5,
+      backstabCrit: true,
+      special: {
+        text: "HP %20 alt\u0131nda oldu\u011funda +50% hasar",
+        hpBelow: 0.2,
+        dmgBonus: 0.5,
+      },
+    },
+    desc: "Karanl\u0131k metal u\u00e7 ve b\u00fcy\u00fcl\u00fc \u015fiddet.", buyPrice: 0, sellPrice: 130 },
   potion:      { id: "potion",      name: "Can \u0130ksiri",  stackable: true, maxStack: 16, desc: "Anında can verir. [Q] veya HUD.", buyPrice: 20,  sellPrice: 8  },
   potion_mana: { id: "potion_mana", name: "Mana \u0130ksiri", stackable: true, maxStack: 16, desc: "Anında mana verir. [R] veya HUD.", buyPrice: 26, sellPrice: 10 },
   seed:   { id: "seed",   name: "Tohum",     stackable: true, maxStack: 64, desc: "Ekilmeyi bekliyor.",        buyPrice: 3,  sellPrice: 1  },
@@ -259,25 +344,51 @@ const ITEMS = {
   bow:    { id: "bow",    name: "Tahta Yay", stackable: true, maxStack: 32, rarity: "common", equipSlot: "bow",
     stats: { str: 0, agi: 2, wis: 0, maxHp: 0, maxMana: 0, meleeDmg: 0, rangedDmg: 3 },
     desc: "Sa\u011flam ah\u015fap yay.", buyPrice: 25, sellPrice: 10 },
-  bow_hunter: { id: "bow_hunter", name: "Avc\u0131 Yay\u0131", stackable: true, maxStack: 32, rarity: "rare", equipSlot: "bow",
+  bow_hunter: { id: "bow_hunter", name: "Avc\u0131 Yay\u0131", stackable: true, maxStack: 32, rarity: "rare", equipSlot: "bow", weight: 3.2,
     stats: { str: 1, agi: 4, wis: 0, maxHp: 0, maxMana: 5, meleeDmg: 0, rangedDmg: 7 },
+    advanced: { attackPower: 118, defArrow: 4, resPoison: 6 },
     desc: "G\u00fc\u00e7l\u00fc gerilim.", buyPrice: 0, sellPrice: 35 },
-  bow_long: { id: "bow_long", name: "Uzun Yay", stackable: true, maxStack: 32, rarity: "epic", equipSlot: "bow",
+  bow_long: { id: "bow_long", name: "Uzun Yay", stackable: true, maxStack: 32, rarity: "epic", equipSlot: "bow", weight: 4,
     stats: { str: 0, agi: 3, wis: 2, maxHp: 0, maxMana: 10, meleeDmg: 0, rangedDmg: 12 },
+    advanced: { attackPower: 132, elemFlame: 78, resFire: 8, resLightning: 6, defense: 5 },
+    extras: {
+      itemLevel: { cur: 1, max: 40 },
+      displayBaseDmg: 132,
+      critChance: 8,
+      passives: [{ text: "Yava\u015f at\u0131\u015f; y\u00fcksek menzil (rol)." }],
+    },
     desc: "Menzil ve isabet.", buyPrice: 0, sellPrice: 85 },
   rope:   { id: "rope",   name: "Halat",    stackable: true, maxStack: 32, desc: "Sa\u011flam kenevir halat.",     buyPrice: 6,  sellPrice: 2  },
-  helm_leather:   { id: "helm_leather",   name: "Deri Mi\u011fer",       stackable: true, maxStack: 32, rarity: "common",    equipSlot: "head",   stats: { str: 1, agi: 0, wis: 0, maxHp: 8, maxMana: 0 }, desc: "Basit koruma.", buyPrice: 0, sellPrice: 15 },
+  helm_leather:   { id: "helm_leather",   name: "Deri Mi\u011fer",       stackable: true, maxStack: 32, rarity: "common",    equipSlot: "head",   stats: { str: 1, agi: 0, wis: 0, maxHp: 8, maxMana: 0 },
+    extras: { weakTo: [{ kind: "fire", label: "Ate\u015f" }], passives: [{ text: "Deri: a\u015f\u0131r\u0131 \u0131s\u0131da dayan\u0131kl\u0131l\u0131k d\u00fc\u015fer (bilgi)." }] },
+    desc: "Basit koruma.", buyPrice: 0, sellPrice: 15 },
   helm_iron:      { id: "helm_iron",      name: "Demir Mi\u011fer",      stackable: true, maxStack: 32, rarity: "rare",      equipSlot: "head",   stats: { str: 2, agi: 1, wis: 0, maxHp: 15, maxMana: 0 }, desc: "Sa\u011flam ba\u015f koruma.", buyPrice: 0, sellPrice: 45 },
   helm_epic:      { id: "helm_epic",      name: "G\u00f6kku\u015fa\u011f\u0131 Tac\u0131", stackable: true, maxStack: 32, rarity: "epic",      equipSlot: "head",   stats: { str: 4, agi: 2, wis: 2, maxHp: 25, maxMana: 10 }, desc: "Nadir b\u00fcy\u00fc ile i\u015flenmi\u015f.", buyPrice: 0, sellPrice: 120 },
   helm_legendary: { id: "helm_legendary", name: "Ejderha Kafas\u0131",   stackable: true, maxStack: 32, rarity: "legendary", equipSlot: "head",   stats: { str: 7, agi: 3, wis: 2, maxHp: 40, maxMana: 15 }, desc: "Efsanevi ejderha pullar\u0131ndan.", buyPrice: 0, sellPrice: 400 },
   chest_leather:  { id: "chest_leather",  name: "Deri Z\u0131rh",        stackable: true, maxStack: 32, rarity: "common",    equipSlot: "chest",  stats: { str: 1, agi: 1, wis: 0, maxHp: 12, maxMana: 0 }, desc: "Hafif g\u00f6vde korumas\u0131.", buyPrice: 0, sellPrice: 20 },
-  chest_steel:    { id: "chest_steel",    name: "\u00c7elik Z\u0131rh",      stackable: true, maxStack: 32, rarity: "rare",      equipSlot: "chest",  stats: { str: 3, agi: 1, wis: 0, maxHp: 28, maxMana: 0 }, desc: "Kal\u0131n \u00e7elik plakalar.", buyPrice: 0, sellPrice: 55 },
-  chest_epic:     { id: "chest_epic",     name: "Orman Kalbi",        stackable: true, maxStack: 32, rarity: "epic",      equipSlot: "chest",  stats: { str: 5, agi: 3, wis: 2, maxHp: 40, maxMana: 15 }, desc: "Eski a\u011fa\u00e7 ruhunun g\u00fcc\u00fc.", buyPrice: 0, sellPrice: 150 },
+  chest_steel:    { id: "chest_steel",    name: "\u00c7elik Z\u0131rh",      stackable: true, maxStack: 32, rarity: "rare",      equipSlot: "chest", weight: 28,
+    stats: { str: 3, agi: 1, wis: 0, maxHp: 28, maxMana: 0 },
+    advanced: { defense: 22, defSword: 8, defClub: 6, resFire: 5, resGlacier: 4 },
+    desc: "Kal\u0131n \u00e7elik plakalar.", buyPrice: 0, sellPrice: 55 },
+  chest_epic:     { id: "chest_epic",     name: "Orman Kalbi",        stackable: true, maxStack: 32, rarity: "epic",      equipSlot: "chest",  stats: { str: 5, agi: 3, wis: 2, maxHp: 40, maxMana: 15 },
+    extras: {
+      itemLevel: { cur: 12, max: 40 },
+      bonusPctDmg: 5,
+      passives: [{ text: "Ormanl\u0131k b\u00f6lgelerde g\u00fc\u00e7 hissedersin (rol)." }],
+      special: { text: "Mana d\u00fc\u015f\u00fckken ekstra g\u00fc\u00e7 (yak\u0131nda)." },
+    },
+    desc: "Eski a\u011fa\u00e7 ruhunun g\u00fcc\u00fc.", buyPrice: 0, sellPrice: 150 },
   chest_legendary:{ id: "chest_legendary",name: "G\u00f6lge Pelerini",   stackable: true, maxStack: 32, rarity: "legendary", equipSlot: "chest",  stats: { str: 8, agi: 5, wis: 4, maxHp: 60, maxMana: 25 }, desc: "Karanl\u0131\u011f\u0131n efsanevi k\u0131yafeti.", buyPrice: 0, sellPrice: 500 },
   boots_swift:    { id: "boots_swift",    name: "H\u0131zl\u0131 Botlar",      stackable: true, maxStack: 32, rarity: "rare",      equipSlot: "feet",   stats: { str: 0, agi: 4, wis: 0, maxHp: 0, maxMana: 0 }, desc: "Hareket h\u0131z\u0131n\u0131 art\u0131r\u0131r.", buyPrice: 0, sellPrice: 40 },
   boots_epic:     { id: "boots_epic",     name: "R\u00fczgar Ad\u0131mlar\u0131",  stackable: true, maxStack: 32, rarity: "epic",      equipSlot: "feet",   stats: { str: 1, agi: 6, wis: 1, maxHp: 10, maxMana: 8 }, desc: "Hafif ve b\u00fcy\u00fcl\u00fc.", buyPrice: 0, sellPrice: 110 },
-  ring_power:     { id: "ring_power",     name: "G\u00fc\u00e7 Y\u00fcz\u00fc\u011f\u00fc",      stackable: true, maxStack: 32, rarity: "epic",      equipSlot: "ring",   stats: { str: 5, agi: 0, wis: 2, maxHp: 0, maxMana: 20 }, desc: "Saf g\u00fc\u00e7 kristali.", buyPrice: 0, sellPrice: 90 },
-  amulet_wisdom:  { id: "amulet_wisdom",  name: "Bilgelik T\u0131ls\u0131m\u0131",  stackable: true, maxStack: 32, rarity: "legendary", equipSlot: "amulet", stats: { str: 2, agi: 2, wis: 8, maxHp: 20, maxMana: 40 }, desc: "Kadim bilgelik sembol\u00fc.", buyPrice: 0, sellPrice: 350 },
+  ring_power:     { id: "ring_power",     name: "G\u00fc\u00e7 Y\u00fcz\u00fc\u011f\u00fc",      stackable: true, maxStack: 32, rarity: "epic",      equipSlot: "ring", weight: 0.6,
+    stats: { str: 5, agi: 0, wis: 2, maxHp: 0, maxMana: 20 },
+    advanced: { defDagger: 6, defSword: 6, defClub: 6, defSpear: 6, defArrow: 6, defense: 4 },
+    desc: "Saf g\u00fc\u00e7 kristali.", buyPrice: 0, sellPrice: 90 },
+  amulet_wisdom:  { id: "amulet_wisdom",  name: "Bilgelik T\u0131ls\u0131m\u0131",  stackable: true, maxStack: 32, rarity: "legendary", equipSlot: "amulet", weight: 0.5,
+    stats: { str: 2, agi: 2, wis: 8, maxHp: 20, maxMana: 40 },
+    advanced: { resFire: 12, resGlacier: 12, resLightning: 12, resMagic: 18, resPoison: 10, resCurse: 14, defense: 8 },
+    desc: "Kadim bilgelik sembol\u00fc.", buyPrice: 0, sellPrice: 350 },
   gloves_archer:  { id: "gloves_archer",  name: "Ok\u00e7u Eldivenleri", stackable: true, maxStack: 32, rarity: "rare",      equipSlot: "hands",  stats: { str: 2, agi: 3, wis: 0, maxHp: 0, maxMana: 5 }, desc: "Yay \u00e7eki\u015fini kolayla\u015ft\u0131r\u0131r.", buyPrice: 0, sellPrice: 35 },
   lucky_charm:    { id: "lucky_charm",    name: "\u015eans T\u0131ls\u0131m\u0131",      stackable: true, maxStack: 32, rarity: "rare",      equipSlot: "amulet", stats: { str: 0, agi: 1, wis: 2, maxHp: 6, maxMana: 12 }, desc: "Eski kervan yollar\u0131ndan.", buyPrice: 175, sellPrice: 42 },
   merchants_ring: { id: "merchants_ring", name: "Lonca Y\u00fcz\u00fc\u011f\u00fc",      stackable: true, maxStack: 32, rarity: "epic",      equipSlot: "ring",   stats: { str: 2, agi: 2, wis: 2, maxHp: 10, maxMana: 14 }, desc: "T\u00fcccar loncas\u0131n\u0131n m\u00fchr\u00fc.", buyPrice: 310, sellPrice: 88 },
@@ -312,12 +423,308 @@ function rarityRank(r) {
   return 0;
 }
 
+function normalizeBonusPct(v) {
+  if (v == null) return 0;
+  if (Array.isArray(v)) return v.reduce((a, b) => a + (b | 0), 0);
+  return v | 0;
+}
+
+function aggregateEquipmentExtras(inv) {
+  const out = {
+    bonusPctDmg: 0, firePct: 0, icePct: 0, poisonPct: 0,
+    critChance: 0, critDamagePct: 0,
+    backstabCrit: false,
+    lowHpRules: [],
+  };
+  if (!inv || !inv.equipped) return out;
+  const eqKeys = ["blade", "bow", "head", "chest", "hands", "feet", "ring", "amulet"];
+  for (const sk of eqKeys) {
+    const es = inv.equipped[sk];
+    if (!es || !ITEMS[es.id]) continue;
+    const ex = ITEMS[es.id].extras;
+    if (!ex) continue;
+    const uv = getStackUpgradeLv(es);
+    const ux = 1 + uv * 0.038;
+    out.bonusPctDmg += Math.round(normalizeBonusPct(ex.bonusPctDmg) * ux);
+    out.firePct += Math.round((ex.firePct | 0) * ux);
+    out.icePct += Math.round((ex.icePct | 0) * ux);
+    out.poisonPct += Math.round((ex.poisonPct | 0) * ux);
+    out.critChance += Math.round((ex.critChance | 0) * (1 + uv * 0.04));
+    out.critDamagePct += Math.round((ex.critDamagePct | 0) * (1 + uv * 0.035));
+    if (ex.backstabCrit) out.backstabCrit = true;
+    if (ex.passives) {
+      for (const p of ex.passives) {
+        const t = typeof p === "string" ? p : p.text;
+        if (t && /arkad|arkadan|behind|backstab/i.test(t)) out.backstabCrit = true;
+      }
+    }
+    if (ex.special && ex.special.hpBelow > 0 && ex.special.dmgBonus != null) {
+      out.lowHpRules.push({ below: ex.special.hpBelow, bonus: ex.special.dmgBonus });
+    }
+  }
+  return out;
+}
+
+function isPlayerBehindMonster(player, monster) {
+  if (!player || !monster) return false;
+  const dx = player.centerX - monster.cx;
+  const dy = player.centerY - monster.cy;
+  const len = Math.hypot(dx, dy);
+  if (len < 6) return false;
+  const nx = dx / len, ny = dy / len;
+  let fx = 0, fy = 0;
+  const md = monster.direction;
+  if (md === 0) { fx = 0; fy = 1; }
+  else if (md === 3) { fx = 0; fy = -1; }
+  else if (md === 2) { fx = 1; fy = 0; }
+  else { fx = -1; fy = 0; }
+  return nx * fx + ny * fy < -0.38;
+}
+
+function applyOutgoingPlayerDamage(baseDmg, player, inventory, opts) {
+  opts = opts || {};
+  const agg = aggregateEquipmentExtras(inventory);
+  let d = baseDmg * (1 + agg.bonusPctDmg / 100) * (1 + (agg.firePct + agg.icePct + agg.poisonPct) / 100);
+  const hpRat = player.maxHp > 0 ? player.hp / player.maxHp : 1;
+  let lowExtra = 0;
+  for (const r of agg.lowHpRules) {
+    if (hpRat < r.below) lowExtra = Math.max(lowExtra, r.bonus);
+  }
+  if (lowExtra > 0) d *= 1 + lowExtra;
+  const backstab = !!(opts.monster && agg.backstabCrit && isPlayerBehindMonster(player, opts.monster));
+  const critRoll = Math.random() * 100 < Math.min(85, agg.critChance);
+  const crit = critRoll || backstab;
+  if (crit) {
+    const mult = 1.5 + (agg.critDamagePct / 100);
+    d *= mult;
+  }
+  return Math.max(1, Math.floor(d));
+}
+
 function itemStatPowerScore(def) {
-  if (!def || !def.stats) return 0;
-  const st = def.stats;
-  return (st.str || 0) * 1.1 + (st.agi || 0) * 1.1 + (st.wis || 0) * 1.1 +
-    (st.maxHp || 0) / 5 + (st.maxMana || 0) / 4 +
-    (st.meleeDmg || 0) * 2.2 + (st.rangedDmg || 0) * 2.2;
+  if (!def) return 0;
+  let s = 0;
+  if (def.stats) {
+    const st = def.stats;
+    s += (st.str || 0) * 1.1 + (st.agi || 0) * 1.1 + (st.wis || 0) * 1.1 +
+      (st.maxHp || 0) / 5 + (st.maxMana || 0) / 4 +
+      (st.meleeDmg || 0) * 2.2 + (st.rangedDmg || 0) * 2.2;
+  }
+  if (def.extras) {
+    const ex = def.extras;
+    s += normalizeBonusPct(ex.bonusPctDmg) * 0.32;
+    s += (ex.critChance || 0) * 0.07;
+    s += (ex.critDamagePct || 0) * 0.06;
+    s += (ex.firePct || 0) * 0.05 + (ex.icePct || 0) * 0.05 + (ex.poisonPct || 0) * 0.05;
+    if (ex.special && ex.special.dmgBonus > 0) s += ex.special.dmgBonus * 20;
+    if (ex.backstabCrit) s += 12;
+    s += (ex.displayBaseDmg || 0) * 0.04;
+  }
+  return s;
+}
+
+function getStackUpgradeLv(s) {
+  if (!s || s.upgrade == null) return 0;
+  const u = s.upgrade | 0;
+  return u > 0 ? u : 0;
+}
+
+function itemCanUpgrade(def) {
+  return !!(def && def.equipSlot && def.rarity && def.rarity !== "common");
+}
+
+function upgradeGoldCost(def, currentLv) {
+  const rr = rarityRank(def.rarity || "common");
+  return Math.max(8, Math.floor(20 * Math.pow(1.82, currentLv) * (0.65 + rr * 0.38)));
+}
+
+const MAX_ITEM_UPGRADE = 12;
+
+function upgradeSuccessPct(currentLv) {
+  if (currentLv >= MAX_ITEM_UPGRADE) return 0;
+  return Math.max(0.07, 0.9 - currentLv * 0.062);
+}
+
+function formatGold(n) {
+  try {
+    return (n | 0).toLocaleString("tr-TR");
+  } catch (e) {
+    return String(n | 0);
+  }
+}
+
+function stackUpgradesMatch(a, b) {
+  return (getStackUpgradeLv(a || {}) | 0) === (getStackUpgradeLv(b || {}) | 0);
+}
+
+function getEffectiveItemStatsMerged(def, upgradeLv) {
+  const stats = {};
+  if (def.stats) {
+    for (const k of Object.keys(def.stats)) stats[k] = def.stats[k];
+  }
+  const advanced = {};
+  if (def.advanced) {
+    for (const k of Object.keys(def.advanced)) advanced[k] = def.advanced[k];
+  }
+  const u = upgradeLv | 0;
+  if (u <= 0) return { stats, advanced };
+  const sc = 1 + u * 0.072;
+  for (const k of Object.keys(stats)) {
+    const v = stats[k];
+    if (typeof v === "number" && v) {
+      stats[k] = v > 0
+        ? Math.round(v * sc + u * (k.indexOf("Dmg") >= 0 ? 0.85 : 0.28))
+        : Math.round(v * (1 + u * 0.018));
+    }
+  }
+  for (const k of Object.keys(advanced)) {
+    const v = advanced[k];
+    if (typeof v === "number" && v > 0) advanced[k] = Math.round(v * sc + u * 0.55);
+    else if (typeof v === "number" && v < 0) advanced[k] = Math.round(v * (1 + u * 0.014));
+  }
+  return { stats, advanced };
+}
+
+function sumEquipmentEffective(inv) {
+  const st = { str: 0, agi: 0, wis: 0, maxHp: 0, maxMana: 0, meleeDmg: 0, rangedDmg: 0 };
+  const adv = {};
+  if (!inv || !inv.equipped) return { stats: st, advanced: adv };
+  const eqKeys = ["blade", "bow", "head", "chest", "hands", "feet", "ring", "amulet"];
+  for (let i = 0; i < eqKeys.length; i++) {
+    const sk = eqKeys[i];
+    const es = inv.equipped[sk];
+    if (!es) continue;
+    const d = ITEMS[es.id];
+    if (!d) continue;
+    const m = getEffectiveItemStatsMerged(d, getStackUpgradeLv(es));
+    for (const k of Object.keys(m.stats)) st[k] = (st[k] || 0) + (m.stats[k] || 0);
+    for (const k of Object.keys(m.advanced)) adv[k] = (adv[k] || 0) + (m.advanced[k] || 0);
+  }
+  return { stats: st, advanced: adv };
+}
+
+function getItemWeightDef(def) {
+  if (!def) return 0;
+  if (def.weight != null) return def.weight;
+  if (def.equipSlot) return def.equipSlot === "blade" || def.equipSlot === "bow" ? 10 : 6;
+  return def.stackable ? 0.4 : 2;
+}
+
+function inventoryTotalWeight(inv) {
+  if (!inv) return 0;
+  let w = 0;
+  const addSlot = (s) => {
+    if (!s) return;
+    const d = ITEMS[s.id];
+    w += getItemWeightDef(d) * Math.max(1, s.count | 0);
+  };
+  for (const s of inv.slots) addSlot(s);
+  for (const s of inv.hotbar) addSlot(s);
+  for (const sk of EQ_SLOTS) addSlot(inv.equipped[sk]);
+  return Math.round(w * 10) / 10;
+}
+
+function collectEffectiveStatLines(def, upgradeLv) {
+  const m = getEffectiveItemStatsMerged(def, upgradeLv | 0);
+  const lines = [];
+  const st = m.stats;
+  if (st.str) lines.push({ text: "G\u00fc\u00e7 +" + st.str, neg: false });
+  if (st.agi) lines.push({ text: "\u00c7eviklik +" + st.agi, neg: false });
+  if (st.wis) lines.push({ text: "Bilgelik +" + st.wis, neg: false });
+  if (st.maxHp != null && st.maxHp !== 0) lines.push({ text: "Max Can " + (st.maxHp > 0 ? "+" : "") + st.maxHp, neg: st.maxHp < 0 });
+  if (st.maxMana != null && st.maxMana !== 0) lines.push({ text: "Max Mana " + (st.maxMana > 0 ? "+" : "") + st.maxMana, neg: st.maxMana < 0 });
+  if (st.meleeDmg) lines.push({ text: "Yak\u0131n g\u00fc\u00e7 +" + st.meleeDmg, neg: false });
+  if (st.rangedDmg) lines.push({ text: "Uzak g\u00fc\u00e7 +" + st.rangedDmg, neg: false });
+  const adv = m.advanced;
+  const advLabels = {
+    defense: "Savunma",
+    resFire: "Ate\u015f direnci",
+    resGlacier: "Buz direnci",
+    resLightning: "\u015eim\u015fek direnci",
+    resMagic: "B\u00fcy\u00fc direnci",
+    resPoison: "Zehir direnci",
+    resCurse: "Lanet direnci",
+    defDagger: "Han\u00e7er savunmas\u0131",
+    defSword: "K\u0131l\u0131\u00e7 savunmas\u0131",
+    defClub: "G\u00fc\u00e7l\u00fc darbe sav.",
+    defSpear: "M\u0131zrak savunmas\u0131",
+    defArrow: "Ok savunmas\u0131",
+    attackPower: "Sald\u0131r\u0131 g\u00fcc\u00fc",
+    durabilityMax: "Max dayan\u0131kl\u0131l\u0131k",
+  };
+  for (const k of Object.keys(advLabels)) {
+    const v = adv[k];
+    if (v != null && v !== 0) lines.push({ text: advLabels[k] + ": " + (v > 0 ? "+" : "") + v, neg: v < 0 });
+  }
+  const elemLabels = {
+    elemPoison: "Zehir hasar\u0131",
+    elemFlame: "Ate\u015f hasar\u0131",
+    elemGlacier: "Buz hasar\u0131",
+    elemLightning: "\u015eim\u015fek hasar\u0131",
+  };
+  for (const k of Object.keys(elemLabels)) {
+    const v = adv[k];
+    if (v != null && v !== 0) lines.push({ text: elemLabels[k] + ": " + v, neg: false });
+  }
+  return lines;
+}
+
+/** Envanter sol s\u00fctun: KO tarz\u0131 basit karakter \u00f6nizlemesi (2D ka\u011f\u0131t bebek). */
+function drawInventoryCharacterPreview(ctx, inv, x, y, w, h) {
+  if (!player || typeof player._appearanceFromEquipment !== "function") return;
+  const vis = player._appearanceFromEquipment(inv);
+  const S = vis.shirt;
+  const cx = x + w / 2;
+  const cy = y + h / 2;
+  ctx.save();
+  const g = ctx.createLinearGradient(x, y, x + w, y + h);
+  g.addColorStop(0, "rgba(12,14,28,0.92)");
+  g.addColorStop(1, "rgba(6,8,18,0.96)");
+  ctx.fillStyle = g;
+  roundRect(ctx, x, y, w, h, 7);
+  ctx.fill();
+  ctx.strokeStyle = "rgba(120,100,70,0.85)";
+  ctx.lineWidth = 2;
+  roundRect(ctx, x, y, w, h, 7);
+  ctx.stroke();
+
+  ctx.fillStyle = S.pants;
+  ctx.fillRect(cx - w * 0.17, cy + h * 0.12, w * 0.15, h * 0.24);
+  ctx.fillRect(cx + w * 0.02, cy + h * 0.12, w * 0.15, h * 0.24);
+
+  ctx.fillStyle = S.main;
+  ctx.fillRect(cx - w * 0.19, cy - h * 0.1, w * 0.38, h * 0.26);
+  ctx.strokeStyle = "rgba(255,255,255,0.08)";
+  ctx.strokeRect(cx - w * 0.19, cy - h * 0.1, w * 0.38, h * 0.26);
+
+  ctx.fillStyle = S.skin;
+  ctx.beginPath();
+  ctx.arc(cx, cy - h * 0.24, w * 0.13, 0, Math.PI * 2);
+  ctx.fill();
+
+  if (vis.helmId) {
+    ctx.fillStyle = vis.helmId === "helm_legendary" ? "#3a2818" : "#707888";
+    ctx.fillRect(cx - w * 0.16, cy - h * 0.36, w * 0.32, h * 0.1);
+    ctx.strokeStyle = "rgba(0,0,0,0.35)";
+    ctx.strokeRect(cx - w * 0.16, cy - h * 0.36, w * 0.32, h * 0.1);
+  } else {
+    ctx.save();
+    ctx.translate(cx, cy);
+    player._drawBareHair(ctx, DIR.DOWN, 0);
+    ctx.restore();
+  }
+
+  if (vis.showFantasyBack) {
+    ctx.fillStyle = "rgba(255,100,160,0.22)";
+    ctx.beginPath();
+    ctx.ellipse(cx - w * 0.38, cy - h * 0.02, w * 0.14, h * 0.22, -0.35, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(cx + w * 0.38, cy - h * 0.02, w * 0.14, h * 0.22, 0.35, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  ctx.restore();
 }
 
 function hexToRgba(hex, a) {
@@ -430,6 +837,46 @@ function collectItemStatParts(def) {
   return parts;
 }
 
+/** Tooltip: seviye, temel hasar, kritik, zay\u0131fl\u0131k, pasif, y\u00fczde bonuslar, \u00f6zel kutu. */
+function appendItemExtraTooltipLines(def, fonts, measurePush, pushWrapped) {
+  const ex = def && def.extras;
+  if (!ex) return;
+  if (ex.itemLevel) {
+    measurePush(fonts.meta, "#e8ecf8", "Seviye " + ex.itemLevel.cur + "/" + ex.itemLevel.max);
+  }
+  if (ex.displayBaseDmg != null) {
+    measurePush(fonts.stat, "#f4f4ff", "\u2694 Temel hasar: " + ex.displayBaseDmg);
+  }
+  if (ex.critChance != null) {
+    measurePush(fonts.stat, "#ffd080", "Kritik \u015fans: %" + ex.critChance);
+  }
+  if (ex.critDamagePct != null) {
+    measurePush(fonts.stat, "#ffd080", "Kritik hasar: +" + ex.critDamagePct + "%");
+  }
+  if (ex.weakTo && ex.weakTo.length) {
+    const parts = ex.weakTo.map((w) => w.label || w.kind || "").filter(Boolean).join(", ");
+    if (parts) measurePush(fonts.meta, "#ff7a7a", "Zay\u0131f oldu\u011fu: " + parts);
+  }
+  if (ex.passives) {
+    for (const p of ex.passives) {
+      const txt = typeof p === "string" ? p : p.text;
+      if (txt) pushWrapped(txt, fonts.desc, "#d8e4f8");
+    }
+  }
+  if (Array.isArray(ex.bonusPctDmg)) {
+    for (const b of ex.bonusPctDmg) measurePush(fonts.stat, "#7ae890", "+%" + b + " Ek hasar");
+  } else if (ex.bonusPctDmg) {
+    measurePush(fonts.stat, "#7ae890", "+%" + ex.bonusPctDmg + " Ek hasar");
+  }
+  if (ex.firePct) measurePush(fonts.stat, "#ff9040", "+%" + ex.firePct + " Ate\u015f hasar\u0131");
+  if (ex.icePct) measurePush(fonts.stat, "#70d0ff", "+%" + ex.icePct + " Buz hasar\u0131");
+  if (ex.poisonPct) measurePush(fonts.stat, "#86e070", "+%" + ex.poisonPct + " Zehir hasar\u0131");
+  if (ex.special && ex.special.text) {
+    const mech = ex.special.hpBelow > 0 && ex.special.dmgBonus != null;
+    measurePush(fonts.meta, mech ? "#64f0a0" : "#a8e8c8", "\u25c8 " + ex.special.text);
+  }
+}
+
 /** Tek sat\u0131rda ta\u015fmadan kelime kayd\u0131r\u0131r (ctx.font \u00f6nceden atanmal\u0131). */
 function wrapTextToLinesWithFont(ctx, text, maxWidth, font) {
   if (!text) return [];
@@ -521,7 +968,7 @@ function collectItemMetaLines(def, itemId, opts) {
 
 /**
  * Tooltip i\u00e7in sat\u0131r listesi + boyut (mobil: daha b\u00fcy\u00fck font, geni\u015f kutu).
- * @param {{ omitPrices?: boolean, innerMax?: number, omitIdentity?: boolean }} metaOpts
+ * @param {{ omitPrices?: boolean, innerMax?: number, omitIdentity?: boolean, stackRef?: object, upgradeLv?: number }} metaOpts
  */
 function buildItemTooltipLayout(ctx, def, itemId, canvasW, mobile, metaOpts, trailingLines) {
   metaOpts = metaOpts || {};
@@ -551,8 +998,13 @@ function buildItemTooltipLayout(ctx, def, itemId, canvasW, mobile, metaOpts, tra
     for (const t of parts) measurePush(font, color, t);
   };
 
+  const upLv = metaOpts.upgradeLv != null ? metaOpts.upgradeLv | 0
+    : (metaOpts.stackRef ? getStackUpgradeLv(metaOpts.stackRef) : 0);
+
   if (!metaOpts.omitIdentity) {
-    pushWrapped(def.name || "?", fonts.title, "#f0d050");
+    let title = def.name || "?";
+    if (upLv > 0) title += "(+" + upLv + ")";
+    pushWrapped(title, fonts.title, "#f0d050");
     if (def.rarity) {
       const rlab = RARITY_LABEL_TR[def.rarity] || String(def.rarity).toUpperCase();
       measurePush(fonts.rare, getItemRarityColor(itemId), rlab);
@@ -562,10 +1014,14 @@ function buildItemTooltipLayout(ctx, def, itemId, canvasW, mobile, metaOpts, tra
     if (def.equipSlot) {
       measurePush(fonts.meta, "#a8c0f0", "Giyim: " + (EQ_LABELS[def.equipSlot] || def.equipSlot));
     }
+    if (def.weight != null) {
+      measurePush(fonts.meta, "#c0c8d8", "A\u011f\u0131rl\u0131k: " + def.weight);
+    }
   }
-  for (const s of collectItemStatParts(def)) {
-    measurePush(fonts.stat, "#8ae0a8", s);
+  for (const row of collectEffectiveStatLines(def, upLv)) {
+    measurePush(fonts.stat, row.neg ? "#ff7070" : "#8ae0a8", row.text);
   }
+  appendItemExtraTooltipLines(def, fonts, measurePush, pushWrapped);
   const meta = collectItemMetaLines(def, itemId, metaOpts);
   for (const m of meta) measurePush(fonts.meta, "#c0d0f0", m);
   pushWrapped(def.desc || "", fonts.desc, "#b4c0dc");
@@ -678,6 +1134,35 @@ function drawItemIcon(ctx, itemId, x, y, size) {
       ctx.fillStyle = "#a0a0a0"; ctx.save(); ctx.translate(cx, cy); ctx.rotate(-0.7);
       ctx.fillRect(-s*0.22, -s*0.35, s*0.3, s*0.2); ctx.restore();
       break;
+    case "spear_epic": {
+      ctx.save();
+      ctx.strokeStyle = "#4a3058";
+      ctx.lineWidth = Math.max(1.5, s * 0.08);
+      ctx.beginPath();
+      ctx.moveTo(cx, cy - s * 0.38);
+      ctx.lineTo(cx, cy + s * 0.36);
+      ctx.stroke();
+      ctx.fillStyle = "#6a6a78";
+      ctx.beginPath();
+      ctx.moveTo(cx, cy - s * 0.42);
+      ctx.lineTo(cx - s * 0.07, cy - s * 0.26);
+      ctx.lineTo(cx + s * 0.07, cy - s * 0.26);
+      ctx.closePath();
+      ctx.fill();
+      const pg = ctx.createRadialGradient(cx, cy - s * 0.32, 0, cx, cy - s * 0.26, s * 0.22);
+      pg.addColorStop(0, "rgba(220,120,255,0.95)");
+      pg.addColorStop(0.45, "rgba(120,60,180,0.5)");
+      pg.addColorStop(1, "rgba(40,20,80,0)");
+      ctx.fillStyle = pg;
+      ctx.beginPath();
+      ctx.arc(cx, cy - s * 0.29, s * 0.16, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = "#a070d0";
+      ctx.lineWidth = 0.8;
+      ctx.stroke();
+      ctx.restore();
+      break;
+    }
     case "sword":
     case "sword_rusty":
     case "sword_steel":
@@ -911,7 +1396,7 @@ const SHOP_SPECIAL_POOLS = {
   ],
   desert: [
     "sword_steel", "bow_hunter", "helm_epic", "chest_epic", "boots_epic",
-    "merchants_ring", "amulet_wisdom", "sword_elven", "lucky_charm", "ring_power",
+    "merchants_ring", "sword_elven", "spear_epic", "lucky_charm", "ring_power", "gloves_archer",
   ],
   island: [
     "bow_long", "helm_epic", "chest_epic", "gloves_archer", "explorer_band",
@@ -1178,8 +1663,9 @@ const EQ_GRID = [
   ],
 ];
 
-const INV_COLS = 5, INV_ROWS = 4, INV_SLOTS = INV_COLS * INV_ROWS;
+const INV_COLS = 7, INV_ROWS = 5, INV_SLOTS = INV_COLS * INV_ROWS;
 const HOTBAR_SLOTS = 5;
+const PLAYER_MAX_CARRY_WEIGHT = 1330;
 const SLOT_SIZE = 48, SLOT_GAP = 4;
 const INV_LONG_PRESS_EQUIP_MS = 450;
 const INV_PRESS_MOVE_CANCEL = 16;
@@ -1226,7 +1712,7 @@ class Inventory {
           if (!def || !def.stackable) continue;
           for (let j = i + 1; j < container.length; j++) {
             const b = container[j];
-            if (!b || b.id !== a.id) continue;
+            if (!b || b.id !== a.id || !stackUpgradesMatch(a, b)) continue;
             const space = def.maxStack - a.count;
             if (space <= 0) break;
             const mv = Math.min(space, b.count);
@@ -1240,9 +1726,10 @@ class Inventory {
     }
   }
 
-  addItem(itemId, count = 1) {
+  addItem(itemId, count = 1, upgradeLevel = 0) {
     const def = ITEMS[itemId];
     if (!def) return count;
+    const u = upgradeLevel | 0;
 
     if (itemId === "coin") {
       this.gold += count;
@@ -1253,10 +1740,11 @@ class Inventory {
     if (def.stackable) {
       for (const container of [this.hotbar, this.slots]) {
         for (let i = 0; i < container.length; i++) {
-          if (container[i] && container[i].id === itemId && container[i].count < def.maxStack) {
-            const space = def.maxStack - container[i].count;
+          const s = container[i];
+          if (s && s.id === itemId && stackUpgradesMatch(s, { upgrade: u }) && s.count < def.maxStack) {
+            const space = def.maxStack - s.count;
             const add = Math.min(count, space);
-            container[i].count += add;
+            s.count += add;
             count -= add;
             if (count <= 0) {
               this._scanAutoEquipAllEmpty();
@@ -1271,7 +1759,9 @@ class Inventory {
       for (let i = 0; i < container.length; i++) {
         if (!container[i]) {
           const add = Math.min(count, def.maxStack);
-          container[i] = { id: itemId, count: add };
+          const stack = { id: itemId, count: add };
+          if (u > 0) stack.upgrade = u;
+          container[i] = stack;
           count -= add;
           if (count <= 0) {
             this._scanAutoEquipAllEmpty();
@@ -1375,7 +1865,7 @@ class Inventory {
 
   _dropHeld() {
     if (!this.heldItem) return;
-    const left = this.addItem(this.heldItem.id, this.heldItem.count);
+    const left = this.addItem(this.heldItem.id, this.heldItem.count, getStackUpgradeLv(this.heldItem));
     this.heldItem = null;
     return left;
   }
@@ -1389,17 +1879,20 @@ class Inventory {
    * Yerden tek par\u00e7a giy. Slotta eski e\u015fya varsa \u00f6nce onu envantere al\u0131r, sonra yenisini ku\u015fan\u0131r
    * (envelope doluysa hata; ayn\u0131 e\u015fya zaten giyiliyse hata).
    */
-  tryEquipOneFromId(itemId) {
+  tryEquipOneFromId(itemId, upgradeOpt) {
     const def = ITEMS[itemId];
     if (!def || !def.equipSlot) return "Giyilebilir bir e\u015fya de\u011fil.";
     const sk = def.equipSlot;
+    const uWant = upgradeOpt | 0;
     const prev = this.equipped[sk];
-    if (prev && prev.id === itemId) return "Zaten bu e\u015fya giyili.";
+    if (prev && prev.id === itemId && getStackUpgradeLv(prev) === uWant) return "Zaten bu e\u015fya giyili.";
     if (prev) {
-      const left = this.addItem(prev.id, 1);
+      const left = this.addItem(prev.id, 1, getStackUpgradeLv(prev));
       if (left > 0) return "Eski e\u015fya i\u00e7in envanterde yer yok; \u00f6nce yer a\u00e7.";
     }
-    this.equipped[sk] = { id: itemId, count: 1 };
+    const eq = { id: itemId, count: 1 };
+    if (uWant > 0) eq.upgrade = uWant;
+    this.equipped[sk] = eq;
     this._scanAutoEquipAllEmpty();
     return null;
   }
@@ -1415,15 +1908,18 @@ class Inventory {
     if (!def || !def.equipSlot) return "Giyilebilir bir e\u015fya de\u011fil.";
     const sk = def.equipSlot;
     const id = slot.id;
-    if (this.equipped[sk] && this.equipped[sk].id === id) return "Zaten bu e\u015fya giyili.";
+    const uNew = getStackUpgradeLv(slot);
+    if (this.equipped[sk] && this.equipped[sk].id === id && stackUpgradesMatch(this.equipped[sk], slot)) return "Zaten bu e\u015fya giyili.";
     if (this.equipped[sk]) {
       const old = this.equipped[sk];
-      const left = this.addItem(old.id, 1);
+      const left = this.addItem(old.id, 1, getStackUpgradeLv(old));
       if (left > 0) return "Eski e\u015fya i\u00e7in envanterde yer yok; \u00f6nce yer a\u00e7.";
     }
     slot.count--;
     if (slot.count <= 0) container[idx] = null;
-    this.equipped[sk] = { id, count: 1 };
+    const eq = { id, count: 1 };
+    if (uNew > 0) eq.upgrade = uNew;
+    this.equipped[sk] = eq;
     this._scanAutoEquipAllEmpty();
     return null;
   }
@@ -1584,8 +2080,13 @@ class Inventory {
   _equipSlotClick(slotKey, rightClick) {
     if (inventorySlotInspect) closeInventorySlotInspect();
     const cur = this.equipped[slotKey];
+    const packEq = (id, u) => {
+      const o = { id, count: 1 };
+      if ((u | 0) > 0) o.upgrade = u | 0;
+      return o;
+    };
     if (rightClick && cur && !this.heldItem) {
-      this.heldItem = { id: cur.id, count: 1 };
+      this.heldItem = packEq(cur.id, getStackUpgradeLv(cur));
       this.equipped[slotKey] = null;
       return;
     }
@@ -1594,21 +2095,22 @@ class Inventory {
       if (!def || !def.equipSlot) return;
       if (def.equipSlot !== slotKey) return;
       const oneId = this.heldItem.id;
+      const uHeld = getStackUpgradeLv(this.heldItem);
       this.heldItem.count--;
       if (this.heldItem.count <= 0) this.heldItem = null;
       if (cur) {
-        const left = this.addItem(cur.id, 1);
+        const left = this.addItem(cur.id, 1, getStackUpgradeLv(cur));
         if (left > 0) {
-          if (!this.heldItem) this.heldItem = { id: oneId, count: 1 };
+          if (!this.heldItem) this.heldItem = packEq(oneId, uHeld);
           else this.heldItem.count++;
           return;
         }
       }
-      this.equipped[slotKey] = { id: oneId, count: 1 };
+      this.equipped[slotKey] = packEq(oneId, uHeld);
       return;
     }
     if (cur && !this.heldItem) {
-      this.heldItem = { id: cur.id, count: 1 };
+      this.heldItem = packEq(cur.id, getStackUpgradeLv(cur));
       this.equipped[slotKey] = null;
     }
   }
@@ -1618,21 +2120,28 @@ class Inventory {
     if (rightClick && slot && slot.id === "boss_chest" && slot.count > 0) {
       slot.count--;
       if (slot.count <= 0) container[idx] = null;
-      const pool = ["helm_epic", "chest_epic", "boots_epic", "ring_power", "helm_legendary", "chest_legendary", "amulet_wisdom", "helm_iron", "chest_steel", "sword_elven", "bow_long", "sword_steel", "bow_hunter", "potion_mana", "potion"];
+      const pool = ["helm_epic", "chest_epic", "boots_epic", "ring_power", "gloves_archer", "helm_iron", "chest_steel", "sword_elven", "spear_epic", "bow_long", "sword_steel", "bow_hunter", "merchants_ring", "explorer_band", "potion_mana", "potion"];
       this.addItem(pool[Math.floor(Math.random() * pool.length)], 1);
       return;
     }
     if (rightClick) {
+      const packOne = (src) => {
+        const o = { id: src.id, count: 1 };
+        const u = getStackUpgradeLv(src);
+        if (u > 0) o.upgrade = u;
+        return o;
+      };
       if (this.heldItem && !slot) {
-        container[idx] = { id: this.heldItem.id, count: 1 };
+        container[idx] = packOne(this.heldItem);
         this.heldItem.count--;
         if (this.heldItem.count <= 0) this.heldItem = null;
-      } else if (this.heldItem && slot && slot.id === this.heldItem.id) {
+      } else if (this.heldItem && slot && slot.id === this.heldItem.id && stackUpgradesMatch(slot, this.heldItem)) {
         const def = ITEMS[slot.id];
         if (slot.count < def.maxStack) { slot.count++; this.heldItem.count--; if (this.heldItem.count <= 0) this.heldItem = null; }
       } else if (!this.heldItem && slot && slot.count > 1) {
         const half = Math.ceil(slot.count / 2);
-        this.heldItem = { id: slot.id, count: half };
+        const u = getStackUpgradeLv(slot);
+        this.heldItem = { id: slot.id, count: half, ...(u > 0 ? { upgrade: u } : {}) };
         slot.count -= half;
         if (slot.count <= 0) container[idx] = null;
       } else {
@@ -1656,7 +2165,7 @@ class Inventory {
     } else if (!slot) {
       container[idx] = this.heldItem;
       this.heldItem = null;
-    } else if (slot.id === this.heldItem.id && ITEMS[slot.id].stackable) {
+    } else if (slot.id === this.heldItem.id && ITEMS[slot.id].stackable && stackUpgradesMatch(slot, this.heldItem)) {
       const def = ITEMS[slot.id];
       const space = def.maxStack - slot.count;
       const add = Math.min(this.heldItem.count, space);
@@ -1704,38 +2213,45 @@ class Inventory {
     let ss = SLOT_SIZE;
     let sg = SLOT_GAP;
     let eqCellSize = 44;
+    let previewW = touchState.mobileUI ? 86 : 108;
+    const previewGap = 10;
 
     const compute = () => {
       const eqInnerW = EQ_GRID_COLS * eqCellSize + (EQ_GRID_COLS - 1) * eqGridGap;
       const eqInnerH = EQ_GRID_ROWS * eqCellSize + (EQ_GRID_ROWS - 1) * eqGridGap;
       const eqGridW = eqInnerW + eqFramePad * 2;
       const eqGridH = eqInnerH + eqFramePad * 2;
-      const eqColW = eqGridW + 18;
-      const panelW = eqColW + INV_COLS * (ss + sg) - sg + 32;
+      const leftColW = previewW + previewGap + eqGridW + 18;
+      const panelW = leftColW + INV_COLS * (ss + sg) - sg + 32;
       const eqPanelH = eqGridH + 22;
       const gridH = (INV_ROWS + 1) * (ss + sg) - sg + (touchState.mobileUI ? 64 : 80);
       const panelH = Math.max(gridH, eqPanelH + (touchState.mobileUI ? 72 : 88));
-      return { eqColW, panelW, panelH, eqPanelH, gridH, eqGridW, eqGridH, eqInnerW, eqInnerH };
+      return { leftColW, panelW, panelH, eqPanelH, gridH, eqGridW, eqGridH, eqInnerW, eqInnerH };
     };
 
-    let { eqColW, panelW, panelH, eqGridW, eqGridH, eqInnerW, eqInnerH } = compute();
+    let { leftColW, panelW, panelH, eqGridW, eqGridH, eqInnerW, eqInnerH } = compute();
     while ((panelH > b.maxH || panelW > b.maxW) && ss > 28) {
       ss -= 2;
       sg = Math.max(2, sg - 1);
       eqCellSize = Math.min(eqCellSize, Math.max(30, ss + 2));
-      ({ eqColW, panelW, panelH, eqGridW, eqGridH, eqInnerW, eqInnerH } = compute());
+      if (panelW > b.maxW && previewW > 72) previewW -= 6;
+      ({ leftColW, panelW, panelH, eqGridW, eqGridH, eqInnerW, eqInnerH } = compute());
     }
 
     const px = Math.floor((canvasW - panelW) / 2);
     const py = Math.max(b.top, Math.min(canvasH - panelH - b.bottom, Math.floor((canvasH - panelH) / 2)));
-    const eqGridX = px + 12;
+    const previewX = px + 12;
+    const eqGridX = previewX + previewW + previewGap;
     const eqGridY = py + 52;
+    const previewY = eqGridY;
+    const previewH = eqGridH;
     const eqInnerX = eqGridX + eqFramePad;
     const eqInnerY = eqGridY + eqFramePad;
-    const slotsX = px + eqColW + 8, slotsY = py + 40;
-    const hbX = px + eqColW + 8, hbY = slotsY + INV_ROWS * (ss + sg) + 16;
+    const slotsX = px + leftColW + 8, slotsY = py + 40;
+    const hbX = px + leftColW + 8, hbY = slotsY + INV_ROWS * (ss + sg) + 16;
     return {
-      px, py, panelW, panelH, slotsX, slotsY, hbX, hbY, eqColW,
+      px, py, panelW, panelH, slotsX, slotsY, hbX, hbY, eqColW: leftColW,
+      previewX, previewY, previewW, previewH,
       eqGridX, eqGridY, eqGridW, eqGridH, eqInnerX, eqInnerY, eqCellSize, eqGridGap, eqFramePad,
       slotSize: ss, slotGap: sg,
     };
@@ -1782,11 +2298,21 @@ class Inventory {
     roundRect(ctx, layout.px, layout.py, layout.panelW, layout.panelH, 10);
     ctx.fill(); ctx.stroke();
 
-    ctx.fillStyle = "#f0d050"; ctx.font = "bold 16px monospace";
-    ctx.fillText("Envanter", layout.px + layout.eqColW + 4, layout.py + 26);
+    ctx.fillStyle = "#d4a848"; ctx.font = "bold 17px monospace";
+    ctx.textAlign = "center";
+    ctx.fillText("Envanter", layout.px + layout.panelW / 2, layout.py + 26);
+    ctx.textAlign = "start";
 
     ctx.fillStyle = "#888"; ctx.font = "11px monospace";
     ctx.fillText("[I] Kapat", layout.px + layout.panelW - 80, layout.py + 26);
+
+    drawInventoryCharacterPreview(ctx, this, layout.previewX, layout.previewY, layout.previewW, layout.previewH);
+
+    const statY = layout.previewY + layout.previewH + 6;
+    ctx.fillStyle = "#b8c8e8"; ctx.font = "11px monospace";
+    ctx.fillText("A\u011f\u0131rl\u0131k: " + inventoryTotalWeight(this) + " / " + PLAYER_MAX_CARRY_WEIGHT, layout.previewX, statY);
+    ctx.fillStyle = "#ffd078"; ctx.font = "bold 12px monospace";
+    ctx.fillText("Alt\u0131n: " + formatGold(this.gold), layout.previewX, statY + 16);
     ctx.fillStyle = "#6a6a88"; ctx.font = touchState.mobileUI ? "8px monospace" : "9px monospace";
     if (touchState.mobileUI) {
       ctx.fillText("Uygun e\u015fya otomatik giyilir. Uzun bas: bo\u015f slota giy.", layout.px + layout.eqColW + 4, layout.py + 44);
@@ -1797,7 +2323,7 @@ class Inventory {
 
     ctx.fillStyle = "#a0c0ff"; ctx.font = "bold 11px monospace";
     ctx.fillStyle = "#6a7090"; ctx.font = "9px monospace";
-    ctx.fillText("Knight Online tarz\u0131 3\u00d75 slot", layout.eqGridX + 2, layout.eqGridY - 16);
+    ctx.fillText("3\u00d75 ekipman (\u015famand\u0131ra)", layout.eqGridX + 2, layout.eqGridY - 16);
     ctx.fillStyle = "#a0c0ff"; ctx.font = "bold 11px monospace";
     ctx.fillText("Ekipman", layout.eqGridX + 2, layout.eqGridY - 4);
 
@@ -1850,6 +2376,14 @@ class Inventory {
               ctx.stroke();
             }
             drawItemIconFancy(ctx, es.id, sx + padI, sy + padI, cell - padI * 2, { equipped: true });
+            const ul = getStackUpgradeLv(es);
+            if (ul > 0) {
+              ctx.font = "bold " + Math.max(8, Math.floor(cell * 0.22)) + "px monospace";
+              ctx.strokeStyle = "#000"; ctx.lineWidth = 3; ctx.fillStyle = "#ffd0a0";
+              const ut = "+" + ul;
+              ctx.strokeText(ut, sx + padI, sy + cell - padI - 1);
+              ctx.fillText(ut, sx + padI, sy + cell - padI - 1);
+            }
           } else {
             ctx.strokeStyle = "rgba(100,120,160,0.35)";
             ctx.setLineDash([3, 3]);
@@ -1909,7 +2443,7 @@ class Inventory {
       if (def) {
         const mob = touchState.mobileUI;
         ctx.save();
-        const layoutTt = buildItemTooltipLayout(ctx, def, this.tooltipSlot.id, canvasW, mob, {});
+        const layoutTt = buildItemTooltipLayout(ctx, def, this.tooltipSlot.id, canvasW, mob, { stackRef: this.tooltipSlot });
         const pos = placeTooltipPosition(mouseX, mouseY, layoutTt.tw, layoutTt.th, canvasW, canvasH);
         drawItemTooltipFromLayout(ctx, pos.tx, pos.ty, layoutTt, mob);
         ctx.restore();
@@ -1930,6 +2464,14 @@ class Inventory {
 
   _renderSlotContent(ctx, slot, sx, sy, slotSz = SLOT_SIZE) {
     drawItemIconFancy(ctx, slot.id, sx, sy, slotSz, {});
+    const ul = getStackUpgradeLv(slot);
+    if (ul > 0) {
+      ctx.font = "bold " + Math.max(9, Math.floor(slotSz * 0.2)) + "px monospace";
+      ctx.strokeStyle = "#000"; ctx.lineWidth = 3; ctx.fillStyle = "#ffd0a0";
+      const ut = "+" + ul;
+      ctx.strokeText(ut, sx + 3, sy + slotSz - 4);
+      ctx.fillText(ut, sx + 3, sy + slotSz - 4);
+    }
     if (slot.count > 1) {
       ctx.fillStyle = "#000"; ctx.font = "bold 11px monospace";
       ctx.fillText(String(slot.count), sx + slotSz - 15, sy + slotSz - 5);
@@ -1950,6 +2492,7 @@ class WorldItem {
     this.itemId = itemId;
     this.count = count;
     this.maxCount = count;
+    this.upgrade = 0;
     this.alive = true;
     this.respawnable = respawnable;
     this.bobTimer = Math.random() * Math.PI * 2;
@@ -1980,7 +2523,8 @@ class WorldItem {
     if (!this.alive) return false;
     const before = Math.max(0, Math.floor(Number(this.count)) || 0);
     if (before <= 0) return false;
-    const left = inventory.addItem(this.itemId, before);
+    const u = this.upgrade | 0;
+    const left = inventory.addItem(this.itemId, before, u);
     const moved = before - left;
     if (moved <= 0) return false;
     this.count = left;
@@ -2256,6 +2800,8 @@ class Player {
     this.angle = Math.PI / 2;
     this.direction = DIR.DOWN;
     this.animTimer = 0; this.animFrame = 0; this.moving = false;
+    /** Sürekli yürüyüş / kanat çırpma fazı (dt ile büyür). */
+    this.walkPhase = 0;
     this.shootCooldown = 0;
     this.shootAnim = 0;
     this.meleeCooldown = 0;
@@ -2288,6 +2834,13 @@ class Player {
     this._eqWis = 0;
     this._eqMeleeDmg = 0;
     this._eqRangedDmg = 0;
+    this._eqDefense = 0;
+    this._eqResFire = 0;
+    this._eqResGlacier = 0;
+    this._eqResLightning = 0;
+    this._eqResMagic = 0;
+    this._eqResPoison = 0;
+    this._eqResCurse = 0;
     this._pendingFullHeal = false;
 
     this.manaCostShoot = 3;
@@ -2301,6 +2854,8 @@ class Player {
     this.statPoints = 0;
     this.skills = Object.create(null);
     this.poisonTimer = 0;
+    this.activeSkillCd = [0, 0, 0, 0, 0, 0, 0, 0];
+    this.skillAuraT = 0;
   }
 
   gainXP(amount) {
@@ -2320,28 +2875,23 @@ class Player {
   }
 
   applyEquipmentBonus(inv) {
-    let eqStr = 0, eqAgi = 0, eqWis = 0, eqHp = 0, eqMana = 0, eqMeleeDmg = 0, eqRangedDmg = 0;
-    if (inv && inv.equipped) {
-      for (let i = 0; i < EQ_SLOTS.length; i++) {
-        const es = inv.equipped[EQ_SLOTS[i]];
-        if (!es) continue;
-        const d = ITEMS[es.id];
-        if (d && d.stats) {
-          eqStr += d.stats.str || 0;
-          eqAgi += d.stats.agi || 0;
-          eqWis += d.stats.wis || 0;
-          eqHp += d.stats.maxHp || 0;
-          eqMana += d.stats.maxMana || 0;
-          eqMeleeDmg += d.stats.meleeDmg || 0;
-          eqRangedDmg += d.stats.rangedDmg || 0;
-        }
-      }
-    }
-    this._eqStr = eqStr;
-    this._eqAgi = eqAgi;
-    this._eqWis = eqWis;
-    this._eqMeleeDmg = eqMeleeDmg;
-    this._eqRangedDmg = eqRangedDmg;
+    const sum = sumEquipmentEffective(inv);
+    const st = sum.stats;
+    const adv = sum.advanced;
+    this._eqStr = st.str || 0;
+    this._eqAgi = st.agi || 0;
+    this._eqWis = st.wis || 0;
+    this._eqMeleeDmg = st.meleeDmg || 0;
+    this._eqRangedDmg = st.rangedDmg || 0;
+    this._eqDefense = adv.defense || 0;
+    this._eqResFire = adv.resFire || 0;
+    this._eqResGlacier = adv.resGlacier || 0;
+    this._eqResLightning = adv.resLightning || 0;
+    this._eqResMagic = adv.resMagic || 0;
+    this._eqResPoison = adv.resPoison || 0;
+    this._eqResCurse = adv.resCurse || 0;
+    const eqHp = st.maxHp || 0;
+    const eqMana = st.maxMana || 0;
     let skHp = 0, skMana = 0;
     if (this.skills.vitality) skHp += 25;
     if (this.skills.arcane) skMana += 22;
@@ -2357,9 +2907,28 @@ class Player {
     }
   }
 
-  takeDamage(amount) {
+  takeDamage(amount, opts) {
+    opts = opts || {};
     let a = amount;
     if (this.skills.ward) a *= 0.92;
+    const kind = opts.kind || "physical";
+    if (kind === "physical") {
+      const defn = this._eqDefense || 0;
+      a *= 1 - Math.min(0.72, defn / (defn + 95));
+    } else if (kind === "fire" || kind === "meteor") {
+      a *= 1 - Math.min(0.82, (this._eqResFire || 0) / 130);
+    } else if (kind === "ice") {
+      a *= 1 - Math.min(0.82, (this._eqResGlacier || 0) / 130);
+    } else if (kind === "lightning") {
+      a *= 1 - Math.min(0.82, (this._eqResLightning || 0) / 130);
+    } else if (kind === "poison") {
+      a *= 1 - Math.min(0.82, (this._eqResPoison || 0) / 130);
+    } else if (kind === "magic") {
+      a *= 1 - Math.min(0.82, (this._eqResMagic || 0) / 130);
+    } else if (kind === "curse") {
+      a *= 1 - Math.min(0.82, (this._eqResCurse || 0) / 130);
+    }
+    a = Math.max(0.35, a);
     this.hp = Math.max(0, this.hp - a);
     this.dmgFlashTimer = 0.3;
   }
@@ -2406,6 +2975,10 @@ class Player {
     if (this.shootAnim > 0) this.shootAnim -= dt;
     if (this.meleeCooldown > 0) this.meleeCooldown -= dt;
     if (this.swingAnim > 0) this.swingAnim -= dt;
+    if (this.skillAuraT > 0) this.skillAuraT -= dt;
+    for (let si = 0; si < this.activeSkillCd.length; si++) {
+      if (this.activeSkillCd[si] > 0) this.activeSkillCd[si] -= dt;
+    }
     if (this.dmgFlashTimer > 0) this.dmgFlashTimer -= dt;
     if (this.levelUpTimer > 0) this.levelUpTimer -= dt;
     if (this.inBoat) this.boatWaveTimer += dt;
@@ -2415,7 +2988,7 @@ class Player {
 
     if (this.poisonTimer > 0) {
       this.poisonTimer -= dt;
-      this.takeDamage(4.5 * dt);
+      this.takeDamage(4.5 * dt, { kind: "poison" });
     }
 
     if (this.powerCharging) {
@@ -2437,6 +3010,7 @@ class Player {
 
       this.animTimer += dt;
       if (this.animTimer >= 0.15) { this.animTimer = 0; this.animFrame = (this.animFrame + 1) % 4; }
+      this.walkPhase += dt * 9.2;
 
       const newX = this.x + dx * spd * dt;
       const newY = this.y + dy * spd * dt;
@@ -2445,6 +3019,7 @@ class Player {
       if (!this._collides(this.x, newY, map, margin)) this.y = newY;
     } else {
       this.animFrame = 0; this.animTimer = 0;
+      this.walkPhase += dt * 1.35;
     }
   }
 
@@ -2483,9 +3058,12 @@ class Player {
   }
 
   _appearanceFromEquipment(inv) {
-    const shirt = { main: "#2a6030", dark: "#1e4d26", trim: "#c0a060", pants: "#3a3a2a", skin: "#e0c060" };
+    const shirt = { main: "#ebe4dc", dark: "#d4c8bc", trim: "#c8b8a8", pants: "#b0a090", skin: "#e8d0a8" };
     let mx = 0;
+    let armorMx = 0;
     let powerSum = 0;
+    let armorPowerSum = 0;
+    const ARMOR_SLOTS = ["head", "chest", "hands", "feet"];
     const bump = (d) => {
       if (d && d.rarity) mx = Math.max(mx, rarityRank(d.rarity));
     };
@@ -2495,37 +3073,52 @@ class Player {
         if (es && ITEMS[es.id]) {
           const d = ITEMS[es.id];
           bump(d);
-          powerSum += itemStatPowerScore(d);
+          const ps = itemStatPowerScore(d);
+          powerSum += ps;
+          if (ARMOR_SLOTS.includes(sk)) {
+            if (d.rarity) armorMx = Math.max(armorMx, rarityRank(d.rarity));
+            armorPowerSum += ps;
+          }
         }
       }
     }
+    const hasChest = !!(inv?.equipped?.chest && ITEMS[inv.equipped.chest.id]);
+    const hasHead = !!(inv?.equipped?.head && ITEMS[inv.equipped.head.id]);
+    const hasFeet = !!(inv?.equipped?.feet && ITEMS[inv.equipped.feet.id]);
+    const helmId = hasHead ? inv.equipped.head.id : null;
+    const handsId = inv?.equipped?.hands ? inv.equipped.hands.id : null;
+    const hasJewelry = !!(inv?.equipped?.ring || inv?.equipped?.amulet);
+    const showFantasyBack = hasChest || hasHead;
+
     let aura = null;
-    if (mx >= 4) {
-      Object.assign(shirt, { main: "#2a2838", dark: "#14101c", trim: "#ffd080", pants: "#222030", skin: "#f0d8a8" });
-      aura = "gold";
-    } else if (mx >= 3) {
-      Object.assign(shirt, { main: "#4a2068", dark: "#280838", trim: "#e8a8ff", pants: "#301848", skin: "#e8c8e8" });
-      aura = "violet";
-    } else if (mx >= 2) {
-      Object.assign(shirt, { main: "#2e5880", dark: "#183858", trim: "#a0d8ff", pants: "#243848", skin: "#d8e8f0" });
-      aura = "blue";
+    if (hasChest) {
+      if (armorMx >= 4) {
+        Object.assign(shirt, { main: "#2a2838", dark: "#14101c", trim: "#ffd080", pants: shirt.pants, skin: "#f0d8a8" });
+        aura = "gold";
+      } else if (armorMx >= 3) {
+        Object.assign(shirt, { main: "#4a2068", dark: "#280838", trim: "#e8a8ff", pants: shirt.pants, skin: "#e8c8e8" });
+        aura = "violet";
+      } else if (armorMx >= 2) {
+        Object.assign(shirt, { main: "#2e5880", dark: "#183858", trim: "#a0d8ff", pants: shirt.pants, skin: "#d8e8f0" });
+        aura = "blue";
+      }
     }
-    const chest = inv?.equipped?.chest && ITEMS[inv.equipped.chest.id];
+    const chest = hasChest ? ITEMS[inv.equipped.chest.id] : null;
     if (chest) {
       if (chest.id === "chest_leather") Object.assign(shirt, { main: "#5a5038", dark: "#3a3828", trim: "#c8a878" });
       else if (chest.id === "chest_steel") Object.assign(shirt, { main: "#3a4a60", dark: "#283040", trim: "#c0d0e8" });
       else if (chest.id === "chest_epic") Object.assign(shirt, { main: "#1a5028", dark: "#0e3018", trim: "#70ffa8" });
       else if (chest.id === "chest_legendary") Object.assign(shirt, { main: "#1a1830", dark: "#0a0818", trim: "#b8a0ff" });
     }
-    const feet = inv?.equipped?.feet && ITEMS[inv.equipped.feet.id];
+    const feet = hasFeet ? ITEMS[inv.equipped.feet.id] : null;
     if (feet) {
       if (feet.id === "boots_swift") shirt.pants = "#284858";
       else if (feet.id === "boots_epic") shirt.pants = "#203848";
     }
-    const helmId = inv?.equipped?.head ? inv.equipped.head.id : null;
-    const handsId = inv?.equipped?.hands ? inv.equipped.hands.id : null;
-    const hasJewelry = !!(inv?.equipped?.ring || inv?.equipped?.amulet);
-    return { shirt, mx, aura, helmId, handsId, hasJewelry, powerSum };
+    return {
+      shirt, mx, armorMx, aura, helmId, handsId, hasJewelry, powerSum, armorPowerSum,
+      hasChest, hasFeet, showFantasyBack,
+    };
   }
 
   _drawHelmDecoration(ctx, helmId, d, bounce) {
@@ -2582,11 +3175,131 @@ class Player {
     }
   }
 
+  /**
+   * MMORPG tarzı yarasaları kanatlar: pembe-turuncu zar, mor kemik, turkuaz damar.
+   * Bakış yönüne göre "sırt" ekseninde açılır; yürüyünce çırpma genişler.
+   */
+  _drawFantasyWings(ctx, cx, cy, d, bounce) {
+    const t = performance.now() * 0.0011;
+    const flap = Math.sin(t) * 0.08;
+
+    const drawOneWing = (side) => {
+      ctx.save();
+      ctx.rotate(side * 0.52 + flap);
+      const gx = ctx.createLinearGradient(0, 0, side * 28, -18);
+      gx.addColorStop(0, "rgba(255, 80, 150, 0.95)");
+      gx.addColorStop(0.45, "rgba(255, 120, 72, 0.92)");
+      gx.addColorStop(1, "rgba(255, 200, 96, 0.88)");
+      ctx.fillStyle = gx;
+      ctx.beginPath();
+      ctx.moveTo(0, -3);
+      ctx.quadraticCurveTo(side * 14, -12, side * 26, -20);
+      ctx.lineTo(side * 29, 0);
+      ctx.quadraticCurveTo(side * 16, 6, 0, 4);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = "rgba(72, 220, 200, 0.5)";
+      ctx.lineWidth = 0.9;
+      ctx.beginPath();
+      ctx.moveTo(0, -2);
+      ctx.quadraticCurveTo(side * 13, -9, side * 22, -16);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(side * 8, 0);
+      ctx.quadraticCurveTo(side * 18, -6, side * 24, -12);
+      ctx.stroke();
+      ctx.strokeStyle = "#3d2060";
+      ctx.lineWidth = 2.2;
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.quadraticCurveTo(side * 12, -10, side * 24, -18);
+      ctx.stroke();
+      ctx.fillStyle = "#f2ebe4";
+      ctx.beginPath();
+      ctx.moveTo(side * 26, -20);
+      ctx.lineTo(side * 30, -24);
+      ctx.lineTo(side * 27, -14);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    };
+
+    ctx.save();
+    ctx.translate(cx, cy - bounce * 0.35);
+    if (d === DIR.UP) ctx.rotate(Math.PI);
+    else if (d === DIR.LEFT) ctx.rotate(-Math.PI / 2);
+    else if (d === DIR.RIGHT) ctx.rotate(Math.PI / 2);
+    drawOneWing(-1);
+    drawOneWing(1);
+    ctx.restore();
+  }
+
+  /** Arkadaki pembe hale içinde minik peri silüeti. */
+  _drawBackFairyOrb(ctx, cx, cy, d, bounce) {
+    let ox = 0, oy = -6;
+    if (d === DIR.DOWN) { ox = 0; oy = -14; }
+    else if (d === DIR.UP) { ox = 0; oy = 6; }
+    else if (d === DIR.LEFT) { ox = 10; oy = -6; }
+    else if (d === DIR.RIGHT) { ox = -10; oy = -6; }
+    const fx = cx + ox;
+    const fy = cy + oy - bounce * 0.4;
+    const pulse = 0.65 + 0.35 * Math.sin(performance.now() * 0.0035);
+    const bob = Math.sin(performance.now() * 0.0019) * 0.65;
+    ctx.save();
+    ctx.globalAlpha = 0.42 * pulse;
+    const rg = ctx.createRadialGradient(fx, fy + bob, 2, fx, fy + bob, 14);
+    rg.addColorStop(0, "rgba(255, 140, 220, 0.9)");
+    rg.addColorStop(0.55, "rgba(180, 80, 255, 0.35)");
+    rg.addColorStop(1, "rgba(80, 40, 120, 0)");
+    ctx.fillStyle = rg;
+    ctx.beginPath();
+    ctx.arc(fx, fy + bob, 14, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 0.55 * pulse;
+    ctx.fillStyle = "rgba(255, 200, 255, 0.75)";
+    ctx.beginPath();
+    ctx.ellipse(fx, fy + bob - 1, 2.2, 3.2, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "rgba(200, 160, 255, 0.9)";
+    ctx.beginPath();
+    ctx.moveTo(fx - 3, fy + bob);
+    ctx.lineTo(fx - 7, fy + bob - 2);
+    ctx.lineTo(fx - 5, fy + bob + 1);
+    ctx.closePath();
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(fx + 3, fy + bob);
+    ctx.lineTo(fx + 7, fy + bob - 2);
+    ctx.lineTo(fx + 5, fy + bob + 1);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
+
+  _drawBareHair(ctx, d, bounce) {
+    ctx.fillStyle = "#4a3220";
+    if (d === DIR.DOWN || d === DIR.UP) {
+      ctx.beginPath();
+      ctx.arc(0, -11 - bounce, 8, Math.PI * 1.08, Math.PI * 1.92);
+      ctx.fill();
+      ctx.fillRect(-7, -14 - bounce, 14, 4);
+    } else if (d === DIR.LEFT) {
+      ctx.beginPath();
+      ctx.ellipse(-5, -10 - bounce, 6, 8, -0.2, 0, Math.PI * 2);
+      ctx.fill();
+    } else {
+      ctx.beginPath();
+      ctx.ellipse(5, -10 - bounce, 6, 8, 0.2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
   _drawEquipmentAura(ctx, cx, cy, vis) {
-    const pw = vis.powerSum || 0;
+    const pw = vis.armorPowerSum != null ? vis.armorPowerSum : 0;
     const tier = Math.min(1, pw / 130);
-    const showJewelGlow = vis.hasJewelry && vis.mx < 2;
-    if (!vis.aura && vis.mx < 2 && !showJewelGlow && tier < 0.06) return;
+    const amx = vis.armorMx != null ? vis.armorMx : vis.mx;
+    const showJewelGlow = vis.hasJewelry && amx < 2;
+    if (!vis.aura && amx < 2 && !showJewelGlow && tier < 0.06) return;
     const tMs = performance.now();
     const t = tMs / 700;
     let col = "#90b8e0";
@@ -2595,16 +3308,16 @@ class Player {
     else if (vis.aura === "blue") col = "#80c0ff";
     else if (vis.hasJewelry) col = "#a8c8f0";
     const pulse = 0.72 + 0.28 * Math.sin(t);
-    const rings = vis.mx >= 4 ? 5 : vis.mx >= 3 ? 4 : vis.mx >= 2 ? 3 : (showJewelGlow ? 2 : 1 + Math.floor(tier * 3));
-    const baseR = 13 + tier * 12 + (vis.mx >= 4 ? 8 : vis.mx >= 3 ? 5 : vis.mx >= 2 ? 3 : 0);
+    const rings = amx >= 4 ? 5 : amx >= 3 ? 4 : amx >= 2 ? 3 : (showJewelGlow ? 2 : 1 + Math.floor(tier * 3));
+    const baseR = 13 + tier * 12 + (amx >= 4 ? 8 : amx >= 3 ? 5 : amx >= 2 ? 3 : 0);
     ctx.save();
     for (let i = 0; i < rings; i++) {
       const r = baseR + i * 6.5 + Math.sin(t * 1.35 + i * 0.55) * 2.2;
-      const a = Math.min(0.52, (0.1 + tier * 0.22 + vis.mx * 0.045) * pulse / (i * 0.32 + 1));
+      const a = Math.min(0.52, (0.1 + tier * 0.22 + amx * 0.045) * pulse / (i * 0.32 + 1));
       ctx.globalAlpha = a;
       ctx.strokeStyle = col;
-      ctx.lineWidth = vis.mx >= 4 ? 2.4 : vis.mx >= 3 ? 2 : 1.5;
-      ctx.setLineDash(i === 0 && vis.mx >= 3 ? [5, 5] : []);
+      ctx.lineWidth = amx >= 4 ? 2.4 : amx >= 3 ? 2 : 1.5;
+      ctx.setLineDash(i === 0 && amx >= 3 ? [5, 5] : []);
       ctx.beginPath();
       ctx.arc(cx, cy - 4, r, 0, Math.PI * 2);
       ctx.stroke();
@@ -2619,13 +3332,13 @@ class Player {
     ctx.beginPath();
     ctx.arc(cx, cy - 4, baseR + 26, 0, Math.PI * 2);
     ctx.fill();
-    if (vis.mx >= 4 || tier > 0.5) {
-      const sparkN = vis.mx >= 4 ? 7 : 5;
+    if (amx >= 4 || tier > 0.5) {
+      const sparkN = amx >= 4 ? 7 : 5;
       for (let k = 0; k < sparkN; k++) {
         const ang = tMs * 0.0019 + k * (Math.PI * 2 / sparkN);
         const pr = baseR + 6 + Math.sin(tMs * 0.0028 + k * 1.1) * 4;
         ctx.globalAlpha = 0.2 + tier * 0.35;
-        ctx.fillStyle = vis.mx >= 4 ? "#fff8c8" : "#e8e0ff";
+        ctx.fillStyle = amx >= 4 ? "#fff8c8" : "#e8e0ff";
         ctx.beginPath();
         ctx.arc(cx + Math.cos(ang) * pr, cy - 4 + Math.sin(ang) * pr, 1.2 + tier * 2.2, 0, Math.PI * 2);
         ctx.fill();
@@ -2647,38 +3360,86 @@ class Player {
 
     const cx = Math.round(this.x + this.w / 2);
     const cy = Math.round(this.y + this.h / 2);
-    const bounce = this.moving ? Math.sin(this.animFrame * Math.PI / 2) * 2 : 0;
-    const legOff = this.moving ? Math.sin(this.animFrame * Math.PI) * 2 : 0;
-    const pull = this.shootAnim > 0 ? Math.sin(this.shootAnim * Math.PI / 0.25) * 3 : 0;
+    const bounce = this.moving ? Math.sin(this.animFrame * Math.PI / 2) * 2.2 : 0;
+    const legDrive = this.moving ? 1 : 0;
+    const walkCycle = this.walkPhase * 2;
+    const lStride = Math.sin(walkCycle) * 3.4 * legDrive;
+    const rStride = Math.sin(walkCycle + Math.PI) * 3.4 * legDrive;
+    const armBob = Math.sin(walkCycle + Math.PI / 2) * 1.5 * legDrive;
+    const shootT = this.shootAnim > 0 ? Math.min(1, this.shootAnim / 0.3) : 0;
+    const pull = shootT > 0 ? Math.sin(shootT * Math.PI / 2) * 7.5 : 0;
     const d = this.direction;
     const a = this.angle;
     const bowInFront = this._isBowInFront(d, a);
     const S = vis.shirt;
 
     this._drawEquipmentAura(ctx, cx, cy, vis);
+    if (vis.showFantasyBack) {
+      this._drawFantasyWings(ctx, cx, cy, d, bounce);
+      this._drawBackFairyOrb(ctx, cx, cy, d, bounce);
+    }
 
-    if (showBow && !bowInFront) this._drawBowAndArms(ctx, cx, cy, bounce, pull, bowId);
+    if (showBow && !bowInFront) this._drawBowAndArms(ctx, cx, cy, bounce, pull, bowId, armBob, shootT);
 
     ctx.save();
     ctx.translate(cx, cy);
 
+    const greave = "#c4a035";
     ctx.fillStyle = S.pants;
-    if (this.moving) {
-      if (d === DIR.LEFT || d === DIR.RIGHT) {
-        ctx.fillRect(-3 + legOff, 4 - bounce, 3, 6);
-        ctx.fillRect(0 - legOff, 4 - bounce, 3, 6);
-      } else {
-        ctx.fillRect(-6 + legOff, 4 - bounce, 4, 6);
-        ctx.fillRect(2 - legOff, 4 - bounce, 4, 6);
+    if (d === DIR.LEFT || d === DIR.RIGHT) {
+      ctx.save();
+      ctx.translate(-2.5 + lStride * 0.08, 4 - bounce);
+      ctx.rotate(lStride * 0.045);
+      ctx.fillRect(0, 0, 3.2, 6.5);
+      if (vis.hasFeet) {
+        ctx.fillStyle = greave;
+        ctx.fillRect(0, 1, 3.2, 2.2);
+        ctx.fillRect(0, 4.5, 3.2, 1.4);
       }
+      ctx.restore();
+      ctx.fillStyle = S.pants;
+      ctx.save();
+      ctx.translate(0.5 - lStride * 0.08, 4 - bounce);
+      ctx.rotate(-lStride * 0.045);
+      ctx.fillRect(0, 0, 3.2, 6.5);
+      if (vis.hasFeet) {
+        ctx.fillStyle = greave;
+        ctx.fillRect(0, 1, 3.2, 2.2);
+        ctx.fillRect(0, 4.5, 3.2, 1.4);
+      }
+      ctx.restore();
     } else {
-      if (d === DIR.LEFT || d === DIR.RIGHT) {
-        ctx.fillRect(-2, 5, 3, 5);
-        ctx.fillRect(0, 5, 3, 5);
-      } else {
-        ctx.fillRect(-5, 5, 4, 5);
-        ctx.fillRect(1, 5, 4, 5);
+      if (d === DIR.DOWN && vis.hasChest) {
+        ctx.fillStyle = "rgba(90, 40, 120, 0.85)";
+        ctx.beginPath();
+        ctx.moveTo(-3, 3 - bounce);
+        ctx.lineTo(0, 9 - bounce);
+        ctx.lineTo(3, 3 - bounce);
+        ctx.closePath();
+        ctx.fill();
       }
+      ctx.fillStyle = S.pants;
+      ctx.save();
+      ctx.translate(-5.5 + lStride, 4 - bounce);
+      ctx.rotate(lStride * 0.055);
+      ctx.fillRect(0, 0, 4.2, 6.5);
+      if (vis.hasFeet) {
+        ctx.fillStyle = greave;
+        ctx.fillRect(0, 1.2, 4.2, 2.2);
+        ctx.fillRect(0, 5, 4.2, 1.4);
+      }
+      ctx.restore();
+      ctx.fillStyle = S.pants;
+      ctx.save();
+      ctx.translate(1.5 + rStride, 4 - bounce);
+      ctx.rotate(rStride * 0.055);
+      ctx.fillRect(0, 0, 4.2, 6.5);
+      if (vis.hasFeet) {
+        ctx.fillStyle = greave;
+        ctx.fillRect(0, 1.2, 4.2, 2.2);
+        ctx.fillRect(0, 5, 4.2, 1.4);
+      }
+      ctx.restore();
     }
 
     if (d === DIR.LEFT || d === DIR.RIGHT) {
@@ -2690,15 +3451,24 @@ class Player {
       ctx.fillRect(-5, 2 - bounce, 10, 5);
 
       const qSide = d === DIR.LEFT ? 1 : -1;
-      ctx.fillStyle = "#6b4226";
-      ctx.fillRect(qSide * 2, -5 - bounce, 3, 7);
-      ctx.fillStyle = S.trim;
-      ctx.fillRect(qSide * 2 + 1, -7 - bounce, 2, 3);
-      ctx.fillRect(qSide * 2 + 1, 2 - bounce, 2, 2);
+      const ab = armBob * 0.35;
+      if (vis.hasChest) {
+        ctx.fillStyle = "#b8942a";
+        ctx.fillRect(-7 + qSide * 5, -10 - bounce + ab, 4, 5);
+        ctx.fillStyle = "#f0d878";
+        ctx.fillRect(-6.5 + qSide * 5, -9 - bounce + ab, 3, 1.5);
+      }
+      if (hasBowEquipped) {
+        ctx.fillStyle = "#6b4226";
+        ctx.fillRect(qSide * 2, -5 - bounce + ab, 3, 7);
+        ctx.fillStyle = S.trim;
+        ctx.fillRect(qSide * 2 + 1, -7 - bounce + ab, 2, 3);
+        ctx.fillRect(qSide * 2 + 1, 2 - bounce + ab, 2, 2);
+      }
       if (vis.handsId) {
         ctx.fillStyle = "#d0dce8";
-        ctx.fillRect(qSide * 2 - 1, -6 - bounce, 5, 3);
-        ctx.fillRect(qSide * 2 - 1, 0 - bounce, 5, 3);
+        ctx.fillRect(qSide * 2 - 1, -6 - bounce + ab, 5, 3);
+        ctx.fillRect(qSide * 2 - 1, 0 - bounce + ab, 5, 3);
       }
     } else {
       ctx.fillStyle = S.dark;
@@ -2708,24 +3478,32 @@ class Player {
       ctx.fillRect(-8, -7 - bounce, 16, 11);
       ctx.fillStyle = S.dark;
       ctx.fillRect(-8, -7 - bounce, 16, 3);
+      if (vis.hasChest) {
+        ctx.fillStyle = "#b8942a";
+        ctx.fillRect(-12, -9 - bounce, 4, 5);
+        ctx.fillRect(8, -9 - bounce, 4, 5);
+        ctx.fillStyle = "#f0d878";
+        ctx.fillRect(-11.5, -8 - bounce, 3, 1.5);
+        ctx.fillRect(8.5, -8 - bounce, 3, 1.5);
+      }
 
-      if (d === DIR.DOWN) {
+      if (d === DIR.DOWN && hasBowEquipped) {
+        const ab = armBob * 0.4;
         ctx.fillStyle = "#6b4226";
-        ctx.fillRect(-8, -6 - bounce, 3, 8);
+        ctx.fillRect(-8, -6 - bounce + ab, 3, 8);
         ctx.fillStyle = S.trim;
-        ctx.fillRect(-8, -8 - bounce, 2, 3);
-        ctx.fillRect(-8, 2 - bounce, 2, 3);
+        ctx.fillRect(-8, -8 - bounce + ab, 2, 3);
+        ctx.fillRect(-8, 2 - bounce + ab, 2, 3);
         if (vis.handsId) {
           ctx.fillStyle = "#d0dce8";
-          ctx.fillRect(-10, -5 - bounce, 3, 4);
-          ctx.fillRect(-10, 1 - bounce, 3, 4);
+          ctx.fillRect(-10, -5 - bounce + ab, 3, 4);
+          ctx.fillRect(-10, 1 - bounce + ab, 3, 4);
         }
       }
     }
 
     ctx.fillStyle = S.skin;
     ctx.beginPath(); ctx.arc(0, -8 - bounce, 6, 0, Math.PI * 2); ctx.fill();
-
     if (d === DIR.DOWN) {
       ctx.fillStyle = "#222";
       ctx.fillRect(-2, -9 - bounce, 2, 2);
@@ -2737,20 +3515,10 @@ class Player {
       ctx.fillStyle = "#222";
       ctx.fillRect(1, -9 - bounce, 2, 2);
     }
-
     if (vis.helmId) {
       this._drawHelmDecoration(ctx, vis.helmId, d, bounce);
     } else {
-      ctx.fillStyle = S.main;
-      ctx.beginPath();
-      ctx.moveTo(-5, -11 - bounce);
-      ctx.lineTo(0, -16 - bounce);
-      ctx.lineTo(5, -11 - bounce);
-      ctx.lineTo(5, -8 - bounce);
-      ctx.lineTo(-5, -8 - bounce);
-      ctx.fill();
-      ctx.fillStyle = S.dark;
-      ctx.fillRect(-4, -14 - bounce, 8, 2);
+      this._drawBareHair(ctx, d, bounce);
     }
 
     if (inv && inv.equipped && inv.equipped.amulet) {
@@ -2769,7 +3537,7 @@ class Player {
 
     ctx.restore();
 
-    if (showBow && bowInFront) this._drawBowAndArms(ctx, cx, cy, bounce, pull, bowId);
+    if (showBow && bowInFront) this._drawBowAndArms(ctx, cx, cy, bounce, pull, bowId, armBob, shootT);
     if (showBladeVisual) {
       this._drawEquippedBlade(ctx, cx, cy, bounce, a, bladeId);
     }
@@ -2819,10 +3587,12 @@ class Player {
     return a > Math.PI * 0.5 || a < -Math.PI * 0.5;
   }
 
-  _drawBowAndArms(ctx, cx, cy, bounce, pull, bowId) {
+  _drawBowAndArms(ctx, cx, cy, bounce, pull, bowId, armBob, shootT) {
     const a = this.angle;
-    const shoulderX = cx, shoulderY = cy - 2 - bounce;
-    let wood = "#7a5030", stringCol = "#c8c8c8", limb = "#8B6B3D";
+    const bob = (armBob || 0) * 0.22;
+    const shoulderX = cx;
+    const shoulderY = cy - 2 - bounce + bob;
+    let wood = "#8a7028", stringCol = "#e8e8e8", limb = "#8B6B3D";
     if (bowId === "bow_hunter") { wood = "#5a6048"; stringCol = "#a0c890"; limb = "#4a5038"; }
     if (bowId === "bow_long") { wood = "#504060"; stringCol = "#d0b0ff"; limb = "#403050"; }
 
@@ -2833,9 +3603,46 @@ class Player {
     const rkB = bdef && bdef.rarity ? rarityRank(bdef.rarity) : 0;
     const pwB = itemStatPowerScore(bdef || {});
     const pulseB = 0.6 + 0.4 * Math.sin(performance.now() / 310);
+    const tMs = performance.now();
+    const drawFx = true;
     if (rkB >= 2 || pwB > 4) {
       ctx.shadowColor = rkB >= 4 ? "rgba(255,215,130,0.95)" : rkB >= 3 ? "rgba(210,175,255,0.9)" : "rgba(150,205,255,0.88)";
       ctx.shadowBlur = Math.min(22, 4 + rkB * 3 + Math.min(11, pwB / 5.5)) * pulseB;
+    }
+
+    const drawStr = Math.max(0.4, 1 - (shootT || 0)) * 0.35;
+    if (drawFx) {
+      ctx.save();
+      ctx.globalAlpha = 0.55 + (shootT || 0) * 0.35;
+      const g0 = ctx.createRadialGradient(19, 5, 0, 19, 5, 14);
+      g0.addColorStop(0, "rgba(60, 255, 120, 0.9)");
+      g0.addColorStop(0.5, "rgba(40, 180, 90, 0.35)");
+      g0.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.fillStyle = g0;
+      ctx.beginPath();
+      ctx.arc(19, 5, 12 + Math.sin(tMs * 0.008) * 2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+      ctx.save();
+      ctx.globalAlpha = 0.5 + pulseB * 0.35;
+      const g1 = ctx.createRadialGradient(11, 0, 0, 11, 0, 11);
+      g1.addColorStop(0, "rgba(160, 220, 255, 0.95)");
+      g1.addColorStop(0.45, "rgba(100, 140, 255, 0.4)");
+      g1.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.fillStyle = g1;
+      ctx.beginPath();
+      ctx.arc(11, 0, 9 + (shootT || 0) * 4, 0, Math.PI * 2);
+      ctx.fill();
+      for (let i = 0; i < 5; i++) {
+        const j = (tMs * 0.012 + i * 1.7) % 3;
+        ctx.strokeStyle = "rgba(220, 240, 255, " + (0.35 + j * 0.15) + ")";
+        ctx.lineWidth = 0.8;
+        ctx.beginPath();
+        ctx.moveTo(6 + i * 2.2, -4 + (i % 2) * 8);
+        ctx.lineTo(14 + j * 3, 3 - j * 2);
+        ctx.stroke();
+      }
+      ctx.restore();
     }
 
     ctx.fillStyle = "#e0c060";
@@ -2843,26 +3650,31 @@ class Player {
     ctx.fillStyle = "#d4b050";
     ctx.beginPath(); ctx.arc(11, 0, 2, 0, Math.PI * 2); ctx.fill();
 
-    ctx.strokeStyle = wood; ctx.lineWidth = 2.5;
+    ctx.strokeStyle = wood; ctx.lineWidth = 2.8;
     ctx.beginPath(); ctx.arc(13, 0, 8, -Math.PI * 0.6, Math.PI * 0.6); ctx.stroke();
 
-    ctx.strokeStyle = stringCol; ctx.lineWidth = 1;
+    ctx.strokeStyle = stringCol; ctx.lineWidth = 1.1;
     const topX = 13 + Math.cos(-Math.PI * 0.6) * 8;
     const topY = Math.sin(-Math.PI * 0.6) * 8;
     const botX = 13 + Math.cos(Math.PI * 0.6) * 8;
     const botY = Math.sin(Math.PI * 0.6) * 8;
+    const nockX = 13 - pull;
     ctx.beginPath();
     ctx.moveTo(topX, topY);
-    ctx.lineTo(13 - pull, 0);
-    ctx.lineTo(botX, botY);
+    ctx.quadraticCurveTo(nockX - 2, drawStr * 4, nockX, 0);
+    ctx.quadraticCurveTo(nockX - 2, -drawStr * 4, botX, botY);
     ctx.stroke();
 
-    ctx.fillStyle = "#e0c060";
-    ctx.fillRect(1, -1.5 + 3, 6 - pull * 0.6, 3);
-    ctx.fillStyle = "#d4b050";
-    ctx.beginPath(); ctx.arc(7 - pull * 0.6, 1.5, 2, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "#c9a227";
+    ctx.fillRect(0.5, -2.2, 4, 4.4);
+    ctx.fillRect(-0.5 + pull * 0.08, 1.6, 3.2, 2.8);
 
-    if (pull > 0) {
+    ctx.fillStyle = "#e0c060";
+    ctx.fillRect(1, -1.5 + 3, 6 - pull * 0.65, 3);
+    ctx.fillStyle = "#d4b050";
+    ctx.beginPath(); ctx.arc(7 - pull * 0.65, 1.5, 2, 0, Math.PI * 2); ctx.fill();
+
+    if (pull > 0.2) {
       ctx.fillStyle = limb;
       ctx.fillRect(9 - pull, -1, 14, 2);
       ctx.fillStyle = "#c0c0c0";
@@ -2997,6 +3809,8 @@ class Arrow {
     this.damage = 10;
     this.power = false;
     this.trail = [];
+    /** "fire" | "ice" | null \u2014 beceri c\u00f6mle\u011fi g\u00f6r\u00fcn\u00fcm\u00fc */
+    this.element = null;
   }
 
   update(dt, map) {
@@ -3040,11 +3854,19 @@ class Arrow {
       ctx.shadowBlur = 8;
     }
 
-    ctx.fillStyle = this.power ? "#b060e0" : "#8B6B3D";
+    let shaft = "#8B6B3D", tip = "#c0c0c0", feather = "#d04040";
+    if (this.element === "fire") {
+      shaft = "#c86018"; tip = "#ffe0a0"; feather = "#ff4010";
+      ctx.shadowColor = "#ff8040"; ctx.shadowBlur = 6;
+    } else if (this.element === "ice") {
+      shaft = "#5090b8"; tip = "#e8f8ff"; feather = "#4080c0";
+      ctx.shadowColor = "#a0d8ff"; ctx.shadowBlur = 5;
+    }
+    ctx.fillStyle = this.power ? "#b060e0" : shaft;
     ctx.fillRect(-8, -1, 16, 2);
-    ctx.fillStyle = this.power ? "#f0c0ff" : "#c0c0c0";
+    ctx.fillStyle = this.power ? "#f0c0ff" : tip;
     ctx.beginPath(); ctx.moveTo(8, 0); ctx.lineTo(5, -3); ctx.lineTo(5, 3); ctx.fill();
-    ctx.fillStyle = this.power ? "#a040d0" : "#d04040";
+    ctx.fillStyle = this.power ? "#a040d0" : feather;
     ctx.fillRect(-8, -2, 1.5, 4);
     ctx.fillRect(-6.5, -1.5, 1, 3);
 
@@ -3125,7 +3947,8 @@ class MonSpell {
         dm = Math.floor(dm * 0.45);
         player.poisonTimer = Math.max(player.poisonTimer || 0, 2.8);
       }
-      player.takeDamage(dm);
+      const dk = this.kind === "meteor" ? "fire" : this.kind;
+      player.takeDamage(dm, { kind: dk });
       this.alive = false;
     }
   }
@@ -3304,17 +4127,17 @@ const MONSTER_TYPES = {
   golem:    { name: "Golem",    hp: 200, dmg: 30, speed: 30,  xp: 60, aggroRange: TILE_SIZE*8,  atkRange: TILE_SIZE*1.1, atkCd: 2.0,
               rangedKind: "meteor", rangedMax: TILE_SIZE*5, loot: [{id:"coin",c:20,ch:1},{id:"stone",c:10,ch:0.6},{id:"potion",c:2,ch:0.4},{id:"potion_mana",c:1,ch:0.2},{id:"sword_steel",c:1,ch:0.1},{id:"bow_long",c:1,ch:0.04}] },
   forest_treant: { name: "Kadim K\u00f6k", hp: 900, dmg: 38, speed: 22, xp: 280, aggroRange: TILE_SIZE*10, atkRange: TILE_SIZE*1.3, atkCd: 1.5,
-              boss: true, rangedKind: "poison", rangedMax: TILE_SIZE*8, loot: [{id:"coin",c:90,ch:1},{id:"wood",c:25,ch:0.7},{id:"helm_epic",c:1,ch:0.15},{id:"sword_elven",c:1,ch:0.12},{id:"bow_long",c:1,ch:0.1}] },
+              boss: true, rangedKind: "poison", rangedMax: TILE_SIZE*8, loot: [{id:"coin",c:90,ch:1},{id:"wood",c:25,ch:0.7},{id:"helm_epic",c:1,ch:0.15},{id:"spear_epic",c:1,ch:0.1},{id:"sword_elven",c:1,ch:0.12},{id:"bow_long",c:1,ch:0.1}] },
   desert_titan: { name: "Kum Titan\u0131", hp: 1100, dmg: 42, speed: 28, xp: 320, aggroRange: TILE_SIZE*10, atkRange: TILE_SIZE*1.2, atkCd: 1.4,
               boss: true, rangedKind: "fire", rangedMax: TILE_SIZE*10, loot: [{id:"coin",c:120,ch:1},{id:"stone",c:30,ch:0.8},{id:"chest_epic",c:1,ch:0.12},{id:"sword_steel",c:1,ch:0.1},{id:"bow_hunter",c:1,ch:0.1}] },
   rock_warden: { name: "Kayal\u0131k Bek\u00e7isi", hp: 850, dmg: 44, speed: 18, xp: 300, aggroRange: TILE_SIZE*9, atkRange: TILE_SIZE*1.25, atkCd: 1.8,
               boss: true, rangedKind: "meteor", rangedMax: TILE_SIZE*8, loot: [{id:"coin",c:100,ch:1},{id:"stone",c:40,ch:1},{id:"gloves_archer",c:1,ch:0.2},{id:"sword_steel",c:1,ch:0.14}] },
   flower_queen: { name: "\u00c7i\u00e7ek Krali\u00e7esi", hp: 650, dmg: 32, speed: 40, xp: 260, aggroRange: TILE_SIZE*10, atkRange: TILE_SIZE*1.0, atkCd: 1.2,
               boss: true, rangedKind: "poison", rangedMax: TILE_SIZE*7, loot: [{id:"coin",c:70,ch:1},{id:"flower",c:20,ch:1},{id:"boots_epic",c:1,ch:0.18},{id:"bow_long",c:1,ch:0.12}] },
-  north_frost: { name: "Buz Dev", hp: 1000, dmg: 40, speed: 25, xp: 310, aggroRange: TILE_SIZE*10, atkRange: TILE_SIZE*1.2, atkCd: 1.5,
-              boss: true, rangedKind: "ice", rangedMax: TILE_SIZE*9, loot: [{id:"coin",c:110,ch:1},{id:"potion",c:5,ch:0.9},{id:"helm_legendary",c:1,ch:0.08},{id:"sword_elven",c:1,ch:0.1}] },
+  north_frost: { name: "Buz Trol\u00fc", hp: 1000, dmg: 40, speed: 25, xp: 310, aggroRange: TILE_SIZE*10, atkRange: TILE_SIZE*1.2, atkCd: 1.5,
+              boss: true, rangedKind: "ice", rangedMax: TILE_SIZE*9, loot: [{id:"coin",c:110,ch:1},{id:"potion",c:5,ch:0.9},{id:"helm_epic",c:1,ch:0.12},{id:"sword_elven",c:1,ch:0.1}] },
   south_shadow: { name: "G\u00f6lge Lord", hp: 950, dmg: 41, speed: 55, xp: 300, aggroRange: TILE_SIZE*11, atkRange: TILE_SIZE*1.0, atkCd: 1.1,
-              boss: true, rangedKind: "lightning", rangedMax: TILE_SIZE*10, loot: [{id:"coin",c:95,ch:1},{id:"chest_legendary",c:1,ch:0.06},{id:"amulet_wisdom",c:1,ch:0.05},{id:"sword_elven",c:1,ch:0.08},{id:"bow_long",c:1,ch:0.09}] },
+              boss: true, rangedKind: "lightning", rangedMax: TILE_SIZE*10, loot: [{id:"coin",c:95,ch:1},{id:"chest_epic",c:1,ch:0.14},{id:"merchants_ring",c:1,ch:0.1},{id:"sword_elven",c:1,ch:0.08},{id:"bow_long",c:1,ch:0.09}] },
   dark_knight: { name: "Karanl\u0131k \u015e\u00f6valye", hp: 520, dmg: 44, speed: 48, xp: 95, aggroRange: TILE_SIZE*8, atkRange: TILE_SIZE, atkCd: 1.0,
               loot: [{id:"coin",c:25,ch:1},{id:"potion",c:2,ch:0.5},{id:"sword_steel",c:1,ch:0.12},{id:"helm_iron",c:1,ch:0.08}] },
   frost_spirit: { name: "Buz Ruhu", hp: 260, dmg: 26, speed: 62, xp: 55, aggroRange: TILE_SIZE*7, atkRange: TILE_SIZE*0.85, atkCd: 0.9,
@@ -3332,23 +4155,32 @@ const MONSTER_TYPES = {
   storm_wraith: { name: "F\u0131rt\u0131na Hortla\u011f\u0131", hp: 480, dmg: 40, speed: 95, xp: 110, aggroRange: TILE_SIZE*10, atkRange: TILE_SIZE*0.9, atkCd: 0.7,
               rangedKind: "lightning", rangedMax: TILE_SIZE*7, loot: [{id:"coin",c:28,ch:1},{id:"arrow",c:12,ch:0.55},{id:"potion",c:2,ch:0.5}] },
   ice_queen: { name: "Buz Krali\u00e7e", hp: 2400, dmg: 58, speed: 42, xp: 520, aggroRange: TILE_SIZE*12, atkRange: TILE_SIZE*1.25, atkCd: 1.2,
-              boss: true, rangedKind: "ice", rangedMax: TILE_SIZE*12, loot: [{id:"coin",c:140,ch:1},{id:"potion",c:6,ch:0.95},{id:"helm_legendary",c:1,ch:0.1},{id:"sword_elven",c:1,ch:0.12},{id:"amulet_wisdom",c:1,ch:0.04}] },
+              boss: true, rangedKind: "ice", rangedMax: TILE_SIZE*12, loot: [{id:"coin",c:140,ch:1},{id:"potion",c:6,ch:0.95},{id:"helm_epic",c:1,ch:0.14},{id:"sword_elven",c:1,ch:0.12},{id:"boots_epic",c:1,ch:0.1}] },
   dune_king: { name: "Kum Kral\u0131", hp: 2800, dmg: 62, speed: 36, xp: 600, aggroRange: TILE_SIZE*12, atkRange: TILE_SIZE*1.3, atkCd: 1.15,
-              boss: true, rangedKind: "fire", rangedMax: TILE_SIZE*11, loot: [{id:"coin",c:160,ch:1},{id:"stone",c:40,ch:1},{id:"chest_legendary",c:1,ch:0.08},{id:"bow_long",c:1,ch:0.1},{id:"ring_power",c:1,ch:0.06}] },
+              boss: true, rangedKind: "fire", rangedMax: TILE_SIZE*11, loot: [{id:"coin",c:160,ch:1},{id:"stone",c:40,ch:1},{id:"chest_epic",c:1,ch:0.16},{id:"bow_long",c:1,ch:0.1},{id:"ring_power",c:1,ch:0.06}] },
   jungle_behemoth: { name: "Muson Dev", hp: 2200, dmg: 54, speed: 48, xp: 560, aggroRange: TILE_SIZE*11, atkRange: TILE_SIZE*1.2, atkCd: 1.05,
               boss: true, rangedKind: "poison", rangedMax: TILE_SIZE*10, loot: [{id:"coin",c:130,ch:1},{id:"wood",c:40,ch:0.9},{id:"chest_epic",c:1,ch:0.14},{id:"boots_epic",c:1,ch:0.1},{id:"gloves_archer",c:1,ch:0.1}] },
   thunder_lord: { name: "G\u00f6k G\u00fcc\u00fc", hp: 3200, dmg: 68, speed: 52, xp: 720, aggroRange: TILE_SIZE*13, atkRange: TILE_SIZE*1.15, atkCd: 0.95,
-              boss: true, rangedKind: "lightning", rangedMax: TILE_SIZE*12, loot: [{id:"coin",c:200,ch:1},{id:"potion",c:8,ch:1},{id:"helm_epic",c:1,ch:0.12},{id:"sword_elven",c:1,ch:0.12},{id:"amulet_wisdom",c:1,ch:0.06}] },
+              boss: true, rangedKind: "lightning", rangedMax: TILE_SIZE*12, loot: [{id:"coin",c:200,ch:1},{id:"potion",c:8,ch:1},{id:"helm_epic",c:1,ch:0.14},{id:"sword_elven",c:1,ch:0.12},{id:"gloves_archer",c:1,ch:0.1}] },
   abyss_crab: { name: "U\u00e7urum Yengeci", hp: 3600, dmg: 56, speed: 28, xp: 680, aggroRange: TILE_SIZE*10, atkRange: TILE_SIZE*1.35, atkCd: 1.4,
-              boss: true, rangedKind: "ice", rangedMax: TILE_SIZE*9, loot: [{id:"coin",c:180,ch:1},{id:"fish",c:30,ch:0.8},{id:"chest_legendary",c:1,ch:0.07},{id:"ring_power",c:1,ch:0.08},{id:"bow_long",c:1,ch:0.1}] },
+              boss: true, rangedKind: "ice", rangedMax: TILE_SIZE*9, loot: [{id:"coin",c:180,ch:1},{id:"fish",c:30,ch:0.8},{id:"chest_epic",c:1,ch:0.12},{id:"ring_power",c:1,ch:0.08},{id:"bow_long",c:1,ch:0.1}] },
   volcanic_titan: { name: "Lav Titan\u0131", hp: 4000, dmg: 72, speed: 30, xp: 800, aggroRange: TILE_SIZE*12, atkRange: TILE_SIZE*1.4, atkCd: 1.35,
-              boss: true, rangedKind: "meteor", rangedMax: TILE_SIZE*12, loot: [{id:"coin",c:220,ch:1},{id:"stone",c:50,ch:1},{id:"helm_legendary",c:1,ch:0.09},{id:"chest_legendary",c:1,ch:0.07},{id:"sword_elven",c:1,ch:0.1}] },
+              boss: true, rangedKind: "meteor", rangedMax: TILE_SIZE*12, loot: [{id:"coin",c:220,ch:1},{id:"stone",c:50,ch:1},{id:"helm_epic",c:1,ch:0.12},{id:"chest_epic",c:1,ch:0.12},{id:"sword_elven",c:1,ch:0.1}] },
   godzilla: { name: "Kaiju Titan (Godzilla)", hp: 5200, dmg: 78, speed: 20, xp: 960, aggroRange: TILE_SIZE*14, atkRange: TILE_SIZE*1.35, atkCd: 1.2,
-              boss: true, rangedKind: "meteor", rangedMax: TILE_SIZE*13, loot: [{id:"coin",c:250,ch:1},{id:"stone",c:55,ch:0.9},{id:"chest_legendary",c:1,ch:0.12},{id:"helm_legendary",c:1,ch:0.08},{id:"sword_elven",c:1,ch:0.11},{id:"ring_power",c:1,ch:0.07}] },
+              boss: true, rangedKind: "meteor", rangedMax: TILE_SIZE*13, loot: [{id:"coin",c:250,ch:1},{id:"stone",c:55,ch:0.9},{id:"chest_epic",c:1,ch:0.16},{id:"helm_epic",c:1,ch:0.12},{id:"sword_elven",c:1,ch:0.11},{id:"ring_power",c:1,ch:0.07}] },
   scorpion_king: { name: "Akrep Kral", hp: 4000, dmg: 66, speed: 36, xp: 820, aggroRange: TILE_SIZE*13, atkRange: TILE_SIZE*1.15, atkCd: 0.88,
               boss: true, rangedKind: "poison", rangedMax: TILE_SIZE*11, loot: [{id:"coin",c:200,ch:1},{id:"stone",c:35,ch:0.9},{id:"chest_epic",c:1,ch:0.2},{id:"gloves_archer",c:1,ch:0.12},{id:"sword_steel",c:1,ch:0.1}] },
   giant_bee_queen: { name: "Dev E\u015fek Ar\u0131s\u0131", hp: 3600, dmg: 55, speed: 68, xp: 720, aggroRange: TILE_SIZE*13, atkRange: TILE_SIZE*0.95, atkCd: 0.62,
-              boss: true, rangedKind: "poison", rangedMax: TILE_SIZE*12, loot: [{id:"coin",c:180,ch:1},{id:"flower",c:50,ch:0.7},{id:"chest_legendary",c:1,ch:0.08},{id:"potion",c:8,ch:0.6},{id:"amulet_wisdom",c:1,ch:0.05}] },
+              boss: true, rangedKind: "poison", rangedMax: TILE_SIZE*12, loot: [{id:"coin",c:180,ch:1},{id:"flower",c:50,ch:0.7},{id:"chest_epic",c:1,ch:0.14},{id:"potion",c:8,ch:0.6},{id:"ring_power",c:1,ch:0.08}] },
+  ancient_root: { name: "A\u011fa\u00e7 Adam", hp: 220, dmg: 26, speed: 19, xp: 58, aggroRange: TILE_SIZE*7, atkRange: TILE_SIZE*1.05, atkCd: 1.35,
+              loot: [{id:"coin",c:14,ch:1},{id:"wood",c:8,ch:0.75},{id:"potion",c:1,ch:0.28},{id:"helm_leather",c:1,ch:0.06}] },
+  bog_troll: { name: "Batakl\u0131k Trol\u00fc", hp: 320, dmg: 32, speed: 30, xp: 78, aggroRange: TILE_SIZE*7, atkRange: TILE_SIZE*1.15, atkCd: 1.25,
+              loot: [{id:"coin",c:20,ch:1},{id:"flower",c:6,ch:0.5},{id:"potion",c:2,ch:0.35},{id:"sword",c:1,ch:0.07}] },
+  spore_creeper: { name: "Spor Bitkisi", hp: 240, dmg: 22, speed: 26, xp: 52, aggroRange: TILE_SIZE*6, atkRange: TILE_SIZE*0.95, atkCd: 1.1,
+              rangedKind: "poison", rangedMax: TILE_SIZE*5.5, loot: [{id:"coin",c:12,ch:1},{id:"flower",c:10,ch:0.65},{id:"potion_mana",c:1,ch:0.22},{id:"seed",c:4,ch:0.4}] },
+  skywing_dragon: { name: "G\u00f6k Kanatl\u0131 Ejderha", hp: 16500, dmg: 92, speed: 42, xp: 3200, aggroRange: TILE_SIZE*18, atkRange: TILE_SIZE*2.0, atkCd: 0.78,
+              boss: true, rangedKind: "fire", rangedMax: TILE_SIZE*15, rangedMin: TILE_SIZE*1.4,
+              loot: [{id:"coin",c:900,ch:1},{id:"coin",c:500,ch:0.9},{id:"helm_legendary",c:1,ch:0.52},{id:"chest_legendary",c:1,ch:0.52},{id:"amulet_wisdom",c:1,ch:0.48},{id:"boss_chest",c:1,ch:0.4},{id:"sword_elven",c:1,ch:0.22},{id:"bow_long",c:1,ch:0.22},{id:"spear_epic",c:1,ch:0.18}] },
 };
 
 function drawMonsterSprite(ctx, type, x, y, dir, frame, hitFlash, atkAnim, bw, bh, mstate) {
@@ -3454,26 +4286,96 @@ function drawMonsterSprite(ctx, type, x, y, dir, frame, hitFlash, atkAnim, bw, b
       ctx.fillRect(cx + 1, cy + 9, 6, 6);
       break;
     }
+    case "ancient_root":
     case "forest_treant": {
-      ctx.fillStyle = hitFlash > 0 ? "#ff6060" : "#3a5020";
-      ctx.fillRect(cx - 11, cy - 14, 22, 26);
-      ctx.fillStyle = hitFlash > 0 ? "#ff8080" : "#5a7030";
-      ctx.beginPath(); ctx.arc(cx, cy - 16, 10, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = "#2a4018";
-      for (let i = -1; i <= 1; i++) ctx.fillRect(cx + i * 6 - 2, cy - 22, 4, 10);
-      ctx.fillStyle = "#f0d040";
-      ctx.fillRect(cx - 3, cy - 4, 2, 2); ctx.fillRect(cx + 1, cy - 4, 2, 2);
+      const mst = mstate || "idle";
+      const stride = mst === "chase" || mst === "attack" ? 1 : 0.4;
+      const leg = Math.sin(frame * Math.PI / 2) * 4.2 * stride;
+      const sway = Math.sin(frame * Math.PI * 0.35) * 2.5;
+      const armS = Math.cos(frame * Math.PI / 2) * 3 * stride;
+      const isBoss = type === "forest_treant";
+      const sc = isBoss ? 1.12 : 1;
+      ctx.save();
+      ctx.translate(cx + sway, cy);
+      ctx.scale(sc, sc);
+      ctx.translate(-cx - sway, -cy);
+      const bark = hitFlash > 0 ? "#6a3020" : "#2a4018";
+      const barkL = hitFlash > 0 ? "#ff8080" : "#4a6028";
+      ctx.fillStyle = "rgba(0,0,0,0.18)";
+      ctx.beginPath();
+      ctx.ellipse(cx + sway, cy + 14, 14 * sc, 4, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = bark;
+      ctx.fillRect(cx - 9 + sway + leg * 0.08, cy + 4, 5, 10 + leg * 0.12);
+      ctx.fillRect(cx + 4 + sway - leg * 0.08, cy + 4, 5, 10 - leg * 0.12);
+      const gT = ctx.createLinearGradient(cx - 12 + sway, cy - 18, cx + 12 + sway, cy + 12);
+      gT.addColorStop(0, barkL);
+      gT.addColorStop(0.5, bark);
+      gT.addColorStop(1, "#1a3010");
+      ctx.fillStyle = gT;
+      ctx.fillRect(cx - 11 + sway, cy - 10, 22, 22);
+      ctx.fillStyle = "#1a2808";
+      for (let i = -2; i <= 2; i++) {
+        const bob = Math.sin(frame * 0.8 + i * 0.7) * 2 * stride;
+        ctx.fillRect(cx + i * 5.5 + sway - 1.5, cy - 24 + bob, 3, 12 + (isBoss ? 4 : 0));
+      }
+      ctx.strokeStyle = "#3a5020";
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.moveTo(cx - 14 + sway + armS, cy - 2);
+      ctx.quadraticCurveTo(cx - 22 + sway + armS * 1.2, cy + 2, cx - 18 + sway + armS, cy + 10);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(cx + 14 + sway - armS, cy - 2);
+      ctx.quadraticCurveTo(cx + 22 + sway - armS * 1.2, cy + 2, cx + 18 + sway - armS, cy + 10);
+      ctx.stroke();
+      ctx.fillStyle = hitFlash > 0 ? "#ff4040" : "#60a030";
+      ctx.beginPath();
+      ctx.arc(cx + sway, cy - 14, isBoss ? 11 : 9, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#f8e888";
+      ctx.fillRect(cx - 5 + sway, cy - 16, 3, 3);
+      ctx.fillRect(cx + 2 + sway, cy - 16, 3, 3);
+      ctx.fillStyle = "#102008";
+      ctx.fillRect(cx - 4 + sway, cy - 15, 1.5, 2);
+      ctx.fillRect(cx + 3 + sway, cy - 15, 1.5, 2);
+      if (atkAnim > 0) {
+        ctx.strokeStyle = "rgba(120,200,80,0.55)";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(cx + sway, cy, 22, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      ctx.restore();
       break;
     }
     case "desert_titan": {
-      ctx.fillStyle = hitFlash > 0 ? "#ff6060" : "#c0a060";
-      ctx.fillRect(cx - 12, cy - 12, 24, 24);
-      ctx.fillStyle = hitFlash > 0 ? "#ff8080" : "#e8d090";
-      ctx.beginPath(); ctx.arc(cx, cy - 14, 9, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = "#705020";
-      ctx.fillRect(cx - 10, cy + 10, 6, 5); ctx.fillRect(cx + 4, cy + 10, 6, 5);
-      ctx.fillStyle = "#a02020";
-      ctx.fillRect(cx - 4, cy - 8, 2, 2); ctx.fillRect(cx + 2, cy - 8, 2, 2);
+      const mst = mstate || "idle";
+      const stride = mst === "chase" || mst === "attack" ? 1 : 0.38;
+      const stomp = Math.sin(frame * Math.PI / 2) * 3.5 * stride;
+      const club = atkAnim > 0 ? 14 : 0;
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.fillStyle = "rgba(0,0,0,0.15)";
+      ctx.beginPath();
+      ctx.ellipse(0, 12, 16, 4, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = hitFlash > 0 ? "#ff6060" : "#8a7048";
+      ctx.fillRect(-11, -8 + stomp * 0.08, 22, 20);
+      ctx.fillStyle = hitFlash > 0 ? "#ffd0a0" : "#d8c090";
+      ctx.beginPath();
+      ctx.arc(0, -12 + stomp * 0.06, 10, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#504018";
+      ctx.fillRect(-12, 6 + stomp, 5, 5);
+      ctx.fillRect(7, 6 - stomp, 5, 5);
+      ctx.fillStyle = "#3a3020";
+      ctx.fillRect(-4, -16, 3, 3);
+      ctx.fillRect(1, -16, 3, 3);
+      ctx.fillStyle = "#6a5040";
+      ctx.fillRect(10 - club * 0.3, -10, 4, 18 + club);
+      ctx.fillRect(8 - club * 0.3, -12 - club * 0.2, 8, 5);
+      ctx.restore();
       break;
     }
     case "rock_warden": {
@@ -3486,26 +4388,57 @@ function drawMonsterSprite(ctx, type, x, y, dir, frame, hitFlash, atkAnim, bw, b
       break;
     }
     case "flower_queen": {
-      ctx.fillStyle = hitFlash > 0 ? "#ff6060" : "#d060a0";
-      for (let a = 0; a < 6; a++) {
-        const ang = a * Math.PI / 3;
-        ctx.beginPath(); ctx.arc(cx + Math.cos(ang) * 8, cy + Math.sin(ang) * 6, 6, 0, Math.PI * 2); ctx.fill();
+      const spin = frame * 0.42;
+      const pulse = 0.85 + Math.sin(frame * Math.PI / 2) * 0.12;
+      ctx.fillStyle = hitFlash > 0 ? "#5a2040" : "#1a5020";
+      ctx.fillRect(cx - 4, cy + 4, 8, 14);
+      for (let a = 0; a < 8; a++) {
+        const ang = a * Math.PI / 4 + spin;
+        const px = cx + Math.cos(ang) * 11 * pulse;
+        const py = cy + Math.sin(ang) * 8 * pulse;
+        const gP = ctx.createRadialGradient(px, py, 0, px, py, 7);
+        gP.addColorStop(0, hitFlash > 0 ? "#ff9090" : "#f070c0");
+        gP.addColorStop(1, hitFlash > 0 ? "#ff4040" : "#903070");
+        ctx.fillStyle = gP;
+        ctx.beginPath();
+        ctx.ellipse(px, py, 6.5, 9, ang, 0, Math.PI * 2);
+        ctx.fill();
       }
       ctx.fillStyle = "#f0e080";
-      ctx.beginPath(); ctx.arc(cx, cy, 5, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath();
+      ctx.arc(cx, cy, 5, 0, Math.PI * 2);
+      ctx.fill();
       ctx.fillStyle = "#222";
-      ctx.fillRect(cx - 2, cy - 1, 2, 2); ctx.fillRect(cx + 0, cy - 1, 2, 2);
+      ctx.fillRect(cx - 2, cy - 1, 2, 2);
+      ctx.fillRect(cx + 0, cy - 1, 2, 2);
       break;
     }
     case "north_frost": {
-      ctx.fillStyle = hitFlash > 0 ? "#ff6060" : "#a0d8f0";
-      ctx.fillRect(cx - 10, cy - 14, 20, 26);
-      ctx.fillStyle = "#e8f8ff";
-      ctx.beginPath(); ctx.arc(cx, cy - 16, 8, 0, Math.PI * 2); ctx.fill();
+      const mst = mstate || "idle";
+      const stride = mst === "chase" || mst === "attack" ? 1 : 0.35;
+      const stomp = Math.sin(frame * Math.PI / 2) * 3.2 * stride;
+      const shiver = Math.sin(frame * Math.PI * 1.8) * 0.8 * stride;
+      ctx.save();
+      ctx.translate(cx + shiver, cy);
+      ctx.fillStyle = "rgba(0,0,0,0.12)";
+      ctx.beginPath();
+      ctx.ellipse(0, 14, 14, 4, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = hitFlash > 0 ? "#ff6060" : "#80b8d8";
+      ctx.fillRect(-11, -10 + stomp * 0.06, 22, 24);
+      ctx.fillStyle = hitFlash > 0 ? "#ffe0e0" : "#e8f8ff";
+      ctx.beginPath();
+      ctx.arc(0, -14 + stomp * 0.05, 9, 0, Math.PI * 2);
+      ctx.fill();
       ctx.fillStyle = "#4080c0";
-      ctx.fillRect(cx - 12, cy + 2, 24, 8);
+      ctx.fillRect(-13, 2, 26, 9);
       ctx.fillStyle = "#102030";
-      ctx.fillRect(cx - 3, cy - 18, 2, 2); ctx.fillRect(cx + 1, cy - 18, 2, 2);
+      ctx.fillRect(-4, -18, 2, 2);
+      ctx.fillRect(1, -18, 2, 2);
+      ctx.fillStyle = "rgba(200,240,255,0.5)";
+      ctx.fillRect(-8, 4, 4, 3);
+      ctx.fillRect(4, 4, 4, 3);
+      ctx.restore();
       break;
     }
     case "south_shadow": {
@@ -3550,15 +4483,103 @@ function drawMonsterSprite(ctx, type, x, y, dir, frame, hitFlash, atkAnim, bw, b
       ctx.fillRect(cx - 3, cy - 10, 2, 2); ctx.fillRect(cx + 1, cy - 10, 2, 2);
       break;
     }
+    case "bog_troll": {
+      const mst = mstate || "idle";
+      const stride = mst === "chase" || mst === "attack" ? 1 : 0.36;
+      const bob = Math.sin(frame * Math.PI / 2) * 2.8 * stride;
+      const club = atkAnim > 0 ? 12 : 0;
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.fillStyle = "rgba(0,0,0,0.14)";
+      ctx.beginPath();
+      ctx.ellipse(0, 11, 13, 3.5, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = hitFlash > 0 ? "#ff6060" : "#3a5038";
+      ctx.fillRect(-10, -6 + bob * 0.05, 20, 17);
+      ctx.fillStyle = hitFlash > 0 ? "#ffd0a0" : "#6a8060";
+      ctx.beginPath();
+      ctx.arc(0, -11 + bob * 0.04, 9, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#203018";
+      ctx.fillRect(-11, 5 + bob, 5, 5);
+      ctx.fillRect(6, 5 - bob, 5, 5);
+      ctx.fillStyle = "#f0e0a0";
+      ctx.fillRect(-3, -14, 2, 3);
+      ctx.fillRect(1, -14, 2, 3);
+      ctx.fillStyle = "#2a1810";
+      ctx.fillRect(-3, -12, 2, 2);
+      ctx.fillRect(1, -12, 2, 2);
+      ctx.fillStyle = "#4a3830";
+      ctx.translate(-12 - club * 0.15, -4);
+      ctx.fillRect(0, 0, 5, 16 + club);
+      ctx.fillRect(-2, -3 - club * 0.2, 9, 5);
+      ctx.restore();
+      break;
+    }
     case "vine_horror": {
-      ctx.fillStyle = hitFlash > 0 ? "#ff6060" : "#2a5020";
-      ctx.fillRect(cx - 8, cy - 4, 16, 18);
-      for (let i = 0; i < 5; i++) {
-        ctx.fillStyle = "#408030";
-        ctx.fillRect(cx - 10 + i * 4, cy - 12 - i, 3, 12 + i * 2);
+      const mst = mstate || "idle";
+      const stride = mst === "chase" || mst === "attack" ? 1 : 0.42;
+      const wv = (i) => Math.sin(frame * 0.9 + i * 0.85) * 4 * stride;
+      ctx.fillStyle = hitFlash > 0 ? "#ff6060" : "#1a4018";
+      ctx.beginPath();
+      ctx.ellipse(cx, cy + 6, 10, 8, 0, 0, Math.PI * 2);
+      ctx.fill();
+      for (let i = 0; i < 7; i++) {
+        const px = cx - 14 + i * 4.2;
+        const h = 16 + (i % 3) * 3;
+        ctx.strokeStyle = hitFlash > 0 ? "#ff9090" : "#3a7830";
+        ctx.lineWidth = 3.2;
+        ctx.lineCap = "round";
+        ctx.beginPath();
+        ctx.moveTo(px, cy + 4);
+        ctx.quadraticCurveTo(px + wv(i) * 0.8, cy - h * 0.5, px + wv(i), cy - h);
+        ctx.stroke();
       }
+      ctx.fillStyle = hitFlash > 0 ? "#ff8080" : "#306028";
+      ctx.fillRect(cx - 7, cy - 2, 14, 14);
       ctx.fillStyle = "#d04060";
-      ctx.fillRect(cx - 2, cy + 2, 4, 3);
+      ctx.beginPath();
+      ctx.arc(cx, cy + 2, 4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#ff3050";
+      ctx.fillRect(cx - 2, cy + 1, 4, 2);
+      break;
+    }
+    case "spore_creeper": {
+      const mst = mstate || "idle";
+      const stride = mst === "chase" || mst === "attack" ? 1 : 0.33;
+      const sp = Math.sin(frame * Math.PI / 2) * 2 * stride;
+      const capPulse = 0.92 + Math.sin(frame * 0.7) * 0.08;
+      ctx.fillStyle = hitFlash > 0 ? "#ff6060" : "#2a3820";
+      ctx.fillRect(cx - 5, cy + 2, 10, 12);
+      for (let i = 0; i < 6; i++) {
+        const a = (i / 6) * Math.PI * 2 + frame * 0.15;
+        ctx.strokeStyle = hitFlash > 0 ? "#ff9090" : "#4a6038";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(cx + Math.cos(a) * 3, cy + 10);
+        ctx.quadraticCurveTo(cx + Math.cos(a) * 10, cy + 14 + sp, cx + Math.cos(a) * 12, cy + 18);
+        ctx.stroke();
+      }
+      const capR = 11 * capPulse;
+      const gM = ctx.createRadialGradient(cx, cy - 6, 0, cx, cy - 6, capR);
+      gM.addColorStop(0, hitFlash > 0 ? "#ffb0b0" : "#c07090");
+      gM.addColorStop(0.55, hitFlash > 0 ? "#ff6060" : "#703850");
+      gM.addColorStop(1, hitFlash > 0 ? "#a02020" : "#402018");
+      ctx.fillStyle = gM;
+      ctx.beginPath();
+      ctx.arc(cx, cy - 4, capR, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "rgba(200,255,120,0.35)";
+      for (let k = 0; k < 5; k++) {
+        const u = frame * 0.4 + k * 1.2;
+        ctx.beginPath();
+        ctx.arc(cx + Math.cos(u) * 14, cy - 4 + Math.sin(u * 0.8) * 6, 1.2, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.fillStyle = "#f8f8b0";
+      ctx.fillRect(cx - 2, cy - 6, 2, 2);
+      ctx.fillRect(cx + 0, cy - 6, 2, 2);
       break;
     }
     case "crystalline": {
@@ -3912,6 +4933,126 @@ function drawMonsterSprite(ctx, type, x, y, dir, frame, hitFlash, atkAnim, bw, b
       ctx.restore();
       break;
     }
+    case "skywing_dragon": {
+      const mst = mstate || "idle";
+      const stride = mst === "chase" || mst === "attack" ? 1 : 0.45;
+      const walk = Math.sin(frame * Math.PI / 2) * 5 * stride;
+      const wingFlap = Math.sin(frame * Math.PI * 1.25) * 0.55 * stride;
+      const tailW = Math.sin(frame * 0.55) * 8 * stride;
+      const face = dir === DIR.LEFT ? -1 : 1;
+      const hx = hitFlash > 0;
+      const bodyC = hx ? "#4a2020" : "#2a1810";
+      const scale = Math.min(bww, bhh) / 52;
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.scale(face * scale, scale);
+      ctx.translate(0, walk * 0.12);
+      ctx.fillStyle = "rgba(0,0,0,0.22)";
+      ctx.beginPath();
+      ctx.ellipse(0, 38, 42, 10, 0, 0, Math.PI * 2);
+      ctx.fill();
+      for (const side of [-1, 1]) {
+        ctx.fillStyle = hx ? "rgba(255,80,60,0.45)" : "rgba(120,20,30,0.55)";
+        ctx.beginPath();
+        ctx.moveTo(side * 8, -8);
+        ctx.quadraticCurveTo(side * 52, -28 - wingFlap * 12, side * 62, 4);
+        ctx.quadraticCurveTo(side * 36, 8, side * 10, 6);
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = hx ? "#ff8060" : "#501018";
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.fillStyle = hx ? "rgba(255,200,120,0.25)" : "rgba(180,40,50,0.2)";
+        ctx.beginPath();
+        ctx.moveTo(side * 12, -4);
+        ctx.quadraticCurveTo(side * 40, -18, side * 48, 2);
+        ctx.lineTo(side * 14, 4);
+        ctx.closePath();
+        ctx.fill();
+      }
+      ctx.fillStyle = hx ? "#5a3020" : bodyC;
+      ctx.beginPath();
+      ctx.ellipse(-6, 8, 22, 14, -0.08, 0, Math.PI * 2);
+      ctx.fill();
+      const gB = ctx.createLinearGradient(-20, -10, 20, 20);
+      gB.addColorStop(0, hx ? "#6a3530" : "#3a2220");
+      gB.addColorStop(0.5, hx ? "#8a5040" : "#5a3028");
+      gB.addColorStop(1, hx ? "#4a2020" : "#1a1008");
+      ctx.fillStyle = gB;
+      ctx.beginPath();
+      ctx.ellipse(4, 2, 28, 18, 0.05, 0, Math.PI * 2);
+      ctx.fill();
+      for (let s = 0; s < 5; s++) {
+        const sx = -8 + s * 7;
+        ctx.fillStyle = hx ? "#a07050" : "#4a3020";
+        ctx.beginPath();
+        ctx.moveTo(sx, -4);
+        ctx.lineTo(sx - 2, -14);
+        ctx.lineTo(sx + 2, -4);
+        ctx.closePath();
+        ctx.fill();
+      }
+      ctx.strokeStyle = hx ? "#ff8060" : "#2a1810";
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(28, 4);
+      ctx.quadraticCurveTo(48 + tailW * 0.1, -4 + tailW * 0.05, 62 + tailW, 8 + tailW * 0.12);
+      ctx.stroke();
+      ctx.fillStyle = hx ? "#3a1510" : "#1a0c08";
+      ctx.beginPath();
+      ctx.moveTo(28, 4);
+      ctx.quadraticCurveTo(48, 0, 62 + tailW, 8);
+      ctx.lineTo(58 + tailW, 14);
+      ctx.quadraticCurveTo(40, 12, 24, 10);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = hx ? "#5a2520" : "#2a1410";
+      ctx.beginPath();
+      ctx.ellipse(-22, -2, 16, 14, -0.15, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = hx ? "#ff5050" : "#c02020";
+      ctx.beginPath();
+      ctx.moveTo(-34, 2);
+      ctx.lineTo(-48, -4);
+      ctx.lineTo(-38, 8);
+      ctx.closePath();
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(-34, 6);
+      ctx.lineTo(-46, 12);
+      ctx.lineTo(-36, 14);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = "#0a0604";
+      ctx.beginPath();
+      ctx.ellipse(-28, -4, 3.5, 3.5, 0, 0, Math.PI * 2);
+      ctx.ellipse(-18, -2, 3, 3, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#ffd040";
+      ctx.beginPath();
+      ctx.arc(-28, -4, 1.1, 0, Math.PI * 2);
+      ctx.arc(-18, -2, 0.9, 0, Math.PI * 2);
+      ctx.fill();
+      if (atkAnim > 0) {
+        const gF = ctx.createRadialGradient(-40, 4, 0, -40, 4, 28);
+        gF.addColorStop(0, "rgba(255,240,120,0.95)");
+        gF.addColorStop(0.35, "rgba(255,120,40,0.65)");
+        gF.addColorStop(1, "rgba(255,40,0,0)");
+        ctx.fillStyle = gF;
+        ctx.beginPath();
+        ctx.arc(-42, 2, 24, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      const legO = walk * 0.4;
+      ctx.fillStyle = hx ? "#3a1810" : "#1a0c08";
+      ctx.beginPath();
+      ctx.ellipse(8, 18 + legO, 5, 7, 0.1, 0, Math.PI * 2);
+      ctx.ellipse(-4, 18 - legO, 5, 7, -0.1, 0, Math.PI * 2);
+      ctx.ellipse(20, 16 - legO * 0.6, 5, 6, 0.12, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+      break;
+    }
     default: {
       ctx.fillStyle = hitFlash > 0 ? "#ff6060" : "#804080";
       ctx.beginPath(); ctx.arc(cx, cy + 2, 10, 0, Math.PI * 2); ctx.fill();
@@ -3933,6 +5074,11 @@ class Monster {
     if (type === "godzilla") { this.w = 36; this.h = 32; }
     else if (type === "scorpion_king") { this.w = 30; this.h = 26; }
     else if (type === "giant_bee_queen") { this.w = 28; this.h = 24; }
+    else if (type === "skywing_dragon") { this.w = 96; this.h = 82; }
+    else if (type === "forest_treant") { this.w = 30; this.h = 34; }
+    else if (type === "ancient_root") { this.w = 24; this.h = 30; }
+    else if (type === "bog_troll") { this.w = 26; this.h = 30; }
+    else if (type === "spore_creeper") { this.w = 22; this.h = 26; }
     const s = levelScale || 1;
     this.maxHp = Math.floor(mt.hp * s);
     this.hp = this.maxHp;
@@ -4071,10 +5217,10 @@ class Monster {
           const canRanged = this.rangedKind && !inMelee && dist < rMax3 && dist > (this.rangedMin != null ? this.rangedMin : 0);
           if (canRanged) {
             monsterSpells.push(new MonSpell(this.cx, this.cy, player.centerX, player.centerY, this.dmg, this.rangedKind));
-            if (this.boss) addScreenShake(3.5);
+            if (this.boss) addScreenShake(this.type === "skywing_dragon" ? 6.5 : 3.5);
           } else {
-            player.takeDamage(this.dmg);
-            if (this.boss) addScreenShake(1.1);
+            player.takeDamage(this.dmg, { kind: "physical" });
+            if (this.boss) addScreenShake(this.type === "skywing_dragon" ? 2.8 : 1.1);
           }
         }
         return "hit";
@@ -5966,12 +7112,12 @@ class HUD {
     ctx.fillStyle = "#f0f0f0"; ctx.font = "11px monospace";
     if (touchState.mobileUI) {
       ctx.fillText(
-        "Mobil: sol y\u00f6n \u2014 joystick | \u2694 Q/R | sa\u011f E/C/I/P/M/B/F | \u00d7 kapat",
+        "Mobil: joystick | beceri yay\u0131 + \u2694 | SWAP / HEDEF | \u00fcst men\u00fc | Q/R iksir | \u00d7 kapat",
         10,
         canvasH - 10
       );
     } else {
-      ctx.fillText("WASD: Hareket | E: Etkile\u015fim | C: Karakter | I: Envanter | Q/R: \u0130ksir | Shift: G\u00fc\u00e7 | B: Tekne | M: Harita", 10, canvasH - 10);
+      ctx.fillText("WASD | E etkile\u015fim | Z/X/V/N beceri | Tab beceri \u00e7ubu\u011fu | C I Q R Shift B M", 10, canvasH - 10);
     }
   }
 }
@@ -6208,7 +7354,7 @@ function handleWorldItemInspectClick(mx, my, cw, ch) {
   }
   if (inR(L.btnEquip)) {
     const hadEq = !!(def0 && def0.equipSlot && inventory.equipped[def0.equipSlot]);
-    const err = inventory.tryEquipOneFromId(wi.itemId);
+    const err = inventory.tryEquipOneFromId(wi.itemId, wi.upgrade | 0);
     if (err) {
       pickupMsgText = err;
       pickupMsgTimer = 1.6;
@@ -6257,14 +7403,15 @@ function renderWorldItemInspect(ctx, cw, ch) {
   drawItemIconFancy(ctx, wi.itemId, ix, iy, iconS, { floorDrop: true, timeMs: performance.now() });
   ctx.fillStyle = "#f0d050";
   ctx.font = "bold 14px monospace";
-  ctx.fillText(def.name + (wi.count > 1 ? "  x" + wi.count : ""), ix + iconS + 14, iy + 18);
+  const uWiPre = wi.upgrade | 0;
+  ctx.fillText(def.name + (uWiPre > 0 ? "(+" + uWiPre + ")" : "") + (wi.count > 1 ? "  x" + wi.count : ""), ix + iconS + 14, iy + 18);
   if (def.rarity && def.rarity !== "common") {
     ctx.fillStyle = getItemRarityColor(wi.itemId);
     ctx.font = "bold 11px monospace";
     ctx.fillText(RARITY_LABEL_TR[def.rarity] || def.rarity, ix + iconS + 14, iy + 38);
   }
 
-  const layoutTt = buildItemTooltipLayout(ctx, def, wi.itemId, cw, touchState.mobileUI, { omitPrices: true, omitIdentity: true }, []);
+  const layoutTt = buildItemTooltipLayout(ctx, def, wi.itemId, cw, touchState.mobileUI, { omitPrices: true, omitIdentity: true, upgradeLv: uWiPre }, []);
   let ty = iy + iconS + 12;
   const maxY = L.btnEquip.y - 8;
   for (const ln of layoutTt.lines) {
@@ -6276,7 +7423,7 @@ function renderWorldItemInspect(ctx, cw, ch) {
   }
 
   const curW0 = def.equipSlot ? inventory.equipped[def.equipSlot] : null;
-  const canEq = !!(def.equipSlot && (!curW0 || curW0.id !== wi.itemId));
+  const canEq = !!(def.equipSlot && (!curW0 || curW0.id !== wi.itemId || getStackUpgradeLv(curW0) !== uWiPre));
   ctx.fillStyle = canEq ? "rgba(45,90,55,0.92)" : "rgba(45,45,58,0.75)";
   ctx.strokeStyle = canEq ? "#70c080" : "#505060";
   roundRect(ctx, L.btnEquip.x, L.btnEquip.y, L.btnEquip.w, L.btnEquip.h, 6);
@@ -6347,13 +7494,13 @@ const ORIG_DETAIL = [-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1
 
 const ISLANDS = [
   { cx: 72,  cy: 64,  rx: 32, ry: 24, r: 26, biome: "forest", name: "Derin Orman Adas\u0131",
-    monsters: ["wolf","wolf","vine_horror","dark_knight","slime","frost_spirit"], scale: 1.15, boss: "forest_treant" },
+    monsters: ["wolf","ancient_root","vine_horror","bog_troll","slime","spore_creeper"], scale: 1.15, boss: "forest_treant" },
   { cx: 342, cy: 72,  rx: 36, ry: 22, r: 28, biome: "desert", name: "K\u0131z\u0131l Kum Adas\u0131",
     monsters: ["dune_raider","skeleton","orc","crystalline","dune_raider","void_hound"], scale: 1.65, boss: "desert_titan" },
   { cx: 58,  cy: 248, rx: 28, ry: 30, r: 28, biome: "barren", name: "Granit Kayal\u0131k",
     monsters: ["golem","iron_behemoth","skeleton","crystalline","orc"], scale: 1.85, boss: "rock_warden" },
   { cx: 352, cy: 242, rx: 30, ry: 26, r: 26, biome: "forest", name: "\u00c7i\u00e7ek Adas\u0131",
-    monsters: ["vine_horror","wolf","slime","vine_horror","frost_spirit"], scale: 0.95, boss: "flower_queen" },
+    monsters: ["spore_creeper","vine_horror","slime","ancient_root","wolf"], scale: 0.95, boss: "flower_queen" },
   { cx: 210, cy: 42,  rx: 38, ry: 16, r: 22, biome: "snow", name: "Buz Tac\u0131 Adas\u0131",
     monsters: ["frost_spirit","frost_spirit","crystalline","dark_knight","void_hound"], scale: 1.9, boss: "ice_queen" },
   { cx: 210, cy: 268, rx: 34, ry: 18, r: 24, biome: "mesa", name: "G\u00fcney K\u0131ran\u0131",
@@ -6361,13 +7508,13 @@ const ISLANDS = [
   { cx: 118, cy: 150, rx: 42, ry: 18, r: 28, biome: "mesa", name: "Uzun Mesa Adas\u0131",
     monsters: ["dune_raider","crystalline","iron_behemoth","void_hound","storm_wraith"], scale: 2.0, boss: "dune_king" },
   { cx: 300, cy: 160, rx: 28, ry: 36, r: 30, biome: "rain", name: "Muson Orman\u0131",
-    monsters: ["vine_horror","vine_horror","wolf","storm_wraith","crystalline","dark_knight"], scale: 1.75, boss: "jungle_behemoth" },
+    monsters: ["vine_horror","spore_creeper","ancient_root","storm_wraith","bog_troll","dark_knight"], scale: 1.75, boss: "jungle_behemoth" },
   { cx: 380, cy: 160, rx: 22, ry: 22, r: 20, biome: "storm", name: "F\u0131rt\u0131na Kayas\u0131",
     monsters: ["storm_wraith","void_hound","crystalline","frost_spirit","iron_behemoth"], scale: 2.2, boss: "thunder_lord" },
   { cx: 40,  cy: 140, rx: 24, ry: 28, r: 24, biome: "barren", name: "U\u00e7urum Resifi",
     monsters: ["void_hound","crystalline","golem","iron_behemoth","storm_wraith"], scale: 2.1, boss: "abyss_crab" },
   { cx: 320, cy: 28,  rx: 26, ry: 20, r: 22, biome: "volcanic", name: "Lav Dilimi",
-    monsters: ["iron_behemoth","orc","crystalline","dune_raider","dark_knight"], scale: 2.35, boss: "volcanic_titan" },
+    monsters: ["iron_behemoth","crystalline","dune_raider","dark_knight","orc"], scale: 2.35, boss: "skywing_dragon" },
   { cx: 90,  cy: 300, rx: 28, ry: 22, r: 24, biome: "barren", name: "Kaiju K\u0131y\u0131s\u0131",
     monsters: ["void_hound","golem","iron_behemoth","storm_wraith","crystalline"], scale: 2.0, boss: "godzilla" },
   { cx: 420, cy: 58,  rx: 26, ry: 22, r: 22, biome: "desert", name: "K\u0131ska\u00e7l\u0131 \u00c7\u00f6l",
@@ -6986,7 +8133,7 @@ const WORLD_ITEMS_DATA = [
   { col: 422, row: 58,  item: "stone", count: 12 },
   { col: 450, row: 236, item: "flower", count: 15 },
   { col: 200, row: 322, item: "chest_steel", count: 1 },
-  { col: 198, row: 325, item: "amulet_wisdom", count: 1 },
+  { col: 198, row: 325, item: "merchants_ring", count: 1 },
   { col: 32,  row: 40,  item: "chest_leather", count: 1 },
   { col: 465, row: 100, item: "wood", count: 12 },
   { col: 30,  row: 28,  item: "potion_mana", count: 2 },
@@ -7038,6 +8185,28 @@ function closeInventorySlotInspect() {
   inventorySlotInspect = null;
 }
 
+function tryAttemptInventoryUpgrade(slot, def) {
+  if (!slot || !def) return { ok: false, msg: "Ge\u00e7ersiz." };
+  const lv = getStackUpgradeLv(slot);
+  if (!itemCanUpgrade(def)) return { ok: false, msg: "Bu e\u015fya y\u00fckseltilemez." };
+  if (lv >= MAX_ITEM_UPGRADE) return { ok: false, msg: "Maksimum g\u00fc\u00e7lendirme (+" + MAX_ITEM_UPGRADE + ")." };
+  const cost = upgradeGoldCost(def, lv);
+  if (inventory.gold < cost) {
+    return { ok: false, msg: formatGold(cost) + " alt\u0131n gerekli." };
+  }
+  inventory.gold -= cost;
+  const pct = upgradeSuccessPct(lv);
+  if (Math.random() >= pct) {
+    return {
+      ok: false,
+      fail: true,
+      msg: "Ba\u015far\u0131s\u0131z! (bir sonraki: %" + Math.round(pct * 100) + " \u015fans)",
+    };
+  }
+  slot.upgrade = lv + 1;
+  return { ok: true, msg: "Y\u00fckseltme ba\u015far\u0131l\u0131! (+" + (lv + 1) + ")" };
+}
+
 function openInventorySlotInspect(kind, idx) {
   const container = kind === "slots" ? inventory.slots : inventory.hotbar;
   const slot = container[idx];
@@ -7057,7 +8226,10 @@ function dropInventorySlotStackToWorld(kind, idx) {
     const c = baseCol + dx, r = baseRow + dy;
     if (c < 0 || r < 0 || c >= map.cols || r >= map.rows) continue;
     if (map.isSolid(c, r, player.inBoat)) continue;
-    worldItems.push(new WorldItem(c, r, slot.id, slot.count, false));
+    const wi = new WorldItem(c, r, slot.id, slot.count, false);
+    const u = getStackUpgradeLv(slot);
+    if (u > 0) wi.upgrade = u;
+    worldItems.push(wi);
     container[idx] = null;
     return true;
   }
@@ -7069,7 +8241,7 @@ function dropInventorySlotStackToWorld(kind, idx) {
 function inventorySlotInspectLayout(cw, ch) {
   const b = uiModalBounds(cw, ch);
   const pw = Math.min(320, b.maxW);
-  const ph = Math.min(380, b.maxH);
+  const ph = Math.min(430, b.maxH);
   const px = Math.floor((cw - pw) / 2);
   const py = Math.max(b.top, Math.min(ch - ph - b.bottom, Math.floor((ch - ph) / 2)));
   const btnH = 34;
@@ -7080,7 +8252,8 @@ function inventorySlotInspectLayout(cw, ch) {
   const btnEquip = { x: px + 16, y: btnY, w: bw, h: btnH };
   const btnDrop = { x: px + 16 + bw + gap, y: btnY, w: bw, h: btnH };
   const btnClose = { x: px + 16 + (bw + gap) * 2, y: btnY, w: bw, h: btnH };
-  return { px, py, pw, ph, btnEquip, btnDrop, btnClose };
+  const btnUpgrade = { x: px + 16, y: btnY - btnH - 10, w: pw - 32, h: btnH };
+  return { px, py, pw, ph, btnEquip, btnDrop, btnClose, btnUpgrade };
 }
 
 function handleInventorySlotInspectClick(mx, my, cw, ch) {
@@ -7101,6 +8274,15 @@ function handleInventorySlotInspectClick(mx, my, cw, ch) {
   if (mx < L.px || mx >= L.px + L.pw || my < L.py || my >= L.py + L.ph) {
     closeInventorySlotInspect();
     return false;
+  }
+  if (inR(L.btnUpgrade)) {
+    const defU = ITEMS[slot.id];
+    const res = tryAttemptInventoryUpgrade(slot, defU);
+    pickupMsgText = res.msg;
+    pickupMsgTimer = 1.85;
+    if (res.ok) player.applyEquipmentBonus(inventory);
+    if (!res.ok && res.fail) { /* gold already spent */ }
+    return true;
   }
   if (inR(L.btnDrop)) {
     if (dropInventorySlotStackToWorld(kind, idx)) {
@@ -7166,16 +8348,17 @@ function renderInventorySlotInspect(ctx, cw, ch) {
   drawItemIconFancy(ctx, slot.id, ix, iy, iconS, { timeMs: performance.now() });
   ctx.fillStyle = "#f0d050";
   ctx.font = "bold 14px monospace";
-  ctx.fillText(def.name + (slot.count > 1 ? "  x" + slot.count : ""), ix + iconS + 14, iy + 18);
+  const slv = getStackUpgradeLv(slot);
+  ctx.fillText(def.name + (slv > 0 ? "(+" + slv + ")" : "") + (slot.count > 1 ? "  x" + slot.count : ""), ix + iconS + 14, iy + 18);
   if (def.rarity && def.rarity !== "common") {
     ctx.fillStyle = getItemRarityColor(slot.id);
     ctx.font = "bold 11px monospace";
     ctx.fillText(RARITY_LABEL_TR[def.rarity] || def.rarity, ix + iconS + 14, iy + 38);
   }
 
-  const layoutTt = buildItemTooltipLayout(ctx, def, slot.id, cw, touchState.mobileUI, { omitPrices: true, omitIdentity: true }, []);
+  const layoutTt = buildItemTooltipLayout(ctx, def, slot.id, cw, touchState.mobileUI, { omitPrices: true, omitIdentity: true, stackRef: slot }, []);
   let ty = iy + iconS + 12;
-  const maxY = L.btnEquip.y - 8;
+  const maxY = L.btnUpgrade.y - 6;
   for (const ln of layoutTt.lines) {
     if (ty > maxY) break;
     ctx.font = ln.font;
@@ -7185,7 +8368,7 @@ function renderInventorySlotInspect(ctx, cw, ch) {
   }
 
   const curI = def.equipSlot ? inventory.equipped[def.equipSlot] : null;
-  const canEq = !!(def.equipSlot && (!curI || curI.id !== slot.id));
+  const canEq = !!(def.equipSlot && (!curI || curI.id !== slot.id || getStackUpgradeLv(curI) !== getStackUpgradeLv(slot)));
   ctx.fillStyle = canEq ? "rgba(45,90,55,0.92)" : "rgba(45,45,58,0.75)";
   ctx.strokeStyle = canEq ? "#70c080" : "#505060";
   roundRect(ctx, L.btnEquip.x, L.btnEquip.y, L.btnEquip.w, L.btnEquip.h, 6);
@@ -7216,9 +8399,28 @@ function renderInventorySlotInspect(ctx, cw, ch) {
   const tCl = "Kapat";
   ctx.fillText(tCl, L.btnClose.x + (L.btnClose.w - ctx.measureText(tCl).width) / 2, L.btnClose.y + 22);
 
+  const canUp = itemCanUpgrade(def) && getStackUpgradeLv(slot) < MAX_ITEM_UPGRADE;
+  const lv = getStackUpgradeLv(slot);
+  const cost = canUp ? upgradeGoldCost(def, lv) : 0;
+  const pct = canUp ? upgradeSuccessPct(lv) : 0;
+  if (canUp) {
+    ctx.fillStyle = "#9ad8a8";
+    ctx.font = "10px monospace";
+    ctx.fillText("Maliyet: " + formatGold(cost) + "  |  Ba\u015far\u0131: %" + Math.round(pct * 100), L.px + 16, L.btnUpgrade.y - 4);
+  }
+  ctx.fillStyle = canUp ? "rgba(35,85,55,0.92)" : "rgba(40,40,52,0.55)";
+  ctx.strokeStyle = canUp ? "#5ec080" : "#404050";
+  roundRect(ctx, L.btnUpgrade.x, L.btnUpgrade.y, L.btnUpgrade.w, L.btnUpgrade.h, 6);
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = canUp ? "#e8fff0" : "#606068";
+  ctx.font = "bold 11px monospace";
+  const tUp = canUp ? "Y\u00fckselt (craft)" : "Y\u00fcksetilemez";
+  ctx.fillText(tUp, L.btnUpgrade.x + (L.btnUpgrade.w - ctx.measureText(tUp).width) / 2, L.btnUpgrade.y + 22);
+
   ctx.fillStyle = "#707890";
   ctx.font = "9px monospace";
-  ctx.fillText("Sol t\u0131k art\u0131k ta\u015f\u0131maz; giy veya yere b\u0131rak\u0131r.", L.px + 16, L.py + L.ph - 6);
+  ctx.fillText("Sol t\u0131k: panel; ba\u015far\u0131s\u0131z y\u00fckseltmelerde alt\u0131n harcan\u0131r.", L.px + 16, L.py + L.ph - 6);
 }
 const petPanel = new PetPanel();
 const shop = new Shop();
@@ -7247,6 +8449,9 @@ const MAINLAND_MONSTERS = [
   { col: 32,  row: 165, type: "void_hound" }, { col: 268, row: 55, type: "void_hound" },
   { col: 148, row: 118, type: "iron_behemoth" }, { col: 285, row: 75, type: "iron_behemoth" },
   { col: 360, row: 200, type: "storm_wraith" }, { col: 175, row: 185, type: "storm_wraith" },
+  { col: 98,  row: 128, type: "ancient_root" }, { col: 212, row: 132, type: "ancient_root" },
+  { col: 72,  row: 160, type: "bog_troll" }, { col: 238, row: 175, type: "bog_troll" },
+  { col: 130, row: 190, type: "spore_creeper" }, { col: 190, row: 95, type: "spore_creeper" },
   { col: 115, row: 210, type: "golem" }, { col: 200, row: 40, type: "crystalline" },
   { col: 52,  row: 72,  type: "wolf" }, { col: 380, row: 88, type: "skeleton" },
 ];
@@ -7280,6 +8485,8 @@ function dropMonsterLoot(m, worldItems) {
   const lo = m.loot || [];
   const tc = Math.floor(m.cx / TILE_SIZE), tr = Math.floor(m.cy / TILE_SIZE);
   for (const entry of lo) {
+    const defL = ITEMS[entry.id];
+    if (defL && defL.rarity === "legendary" && !m.boss) continue;
     if (Math.random() < (entry.ch !== undefined ? entry.ch : 1)) {
       const cnt = entry.c || 1;
       worldItems.push(new WorldItem(tc, tr, entry.id, cnt, false));
@@ -7339,7 +8546,8 @@ function tryPlayerMeleeAttack(player, inventory, monsters) {
     if (dist < bestD) { bestD = dist; best = m; }
   }
   if (!best) return false;
-  best.takeDamage(player.getMeleeDamage());
+  const rawMelee = player.getMeleeDamage();
+  best.takeDamage(applyOutgoingPlayerDamage(rawMelee, player, inventory, { monster: best }));
   player.meleeCooldown = 0.48;
   player.swingAnim = 0.28;
   player.gainXP(2);
@@ -7361,7 +8569,7 @@ function tryReleasePowerShotClick() {
     const aimAng = arrowLaunchAngleTowardNearestInRange(sx, sy, player.angle, monsters);
     const pa = new Arrow(sx, sy, aimAng);
     pa.power = true;
-    pa.damage = player.getPowerDamage();
+    pa.damage = applyOutgoingPlayerDamage(player.getPowerDamage(), player, inventory, {});
     pa.speed *= 1.5;
     arrows.push(pa);
     player.gainXP(3);
@@ -7388,7 +8596,7 @@ function tryMeleeOrRangedClick() {
       const sy = player.centerY + Math.sin(player.angle) * 14;
       const aimAng = arrowLaunchAngleTowardNearestInRange(sx, sy, player.angle, monsters);
       const na = new Arrow(sx, sy, aimAng);
-      na.damage = player.getRangedDamage();
+      na.damage = applyOutgoingPlayerDamage(player.getRangedDamage(), player, inventory, {});
       arrows.push(na);
       player.gainXP(1);
       return true;
@@ -7405,6 +8613,186 @@ function tryMeleeOrRangedClick() {
 
 function combatPanelsBlockAutoAttack() {
   return inventory.open || petPanel.open || dialog.active || shop.open || craftPanel.open || charPanel.open || !!worldItemInspect || !!inventorySlotInspect;
+}
+
+function snapAimToNearestMonster() {
+  const px = player.centerX, py = player.centerY;
+  let best = null, bestD = Infinity;
+  for (const m of monsters) {
+    if (!m.alive || m.state === "dying") continue;
+    const d = m.distTo(px, py);
+    if (d < 10 || d > ARROW_AIM_ASSIST_RANGE) continue;
+    if (d < bestD) { bestD = d; best = m; }
+  }
+  if (!best) {
+    pickupMsgText = "Yak\u0131nda hedef yok";
+    pickupMsgTimer = 0.75;
+    return;
+  }
+  player.aimAt(best.cx, best.cy);
+}
+
+function skillCastWhirl() {
+  const px = player.centerX, py = player.centerY, R = 78;
+  let n = 0;
+  for (const m of monsters) {
+    if (!m.alive || m.state === "dying") continue;
+    if (m.distTo(px, py) > R) continue;
+    const raw = player.getMeleeDamage() * 0.62;
+    m.takeDamage(applyOutgoingPlayerDamage(raw, player, inventory, { monster: m }));
+    n++;
+  }
+  player.swingAnim = Math.max(player.swingAnim, 0.38);
+  if (n) addScreenShake(2.2);
+  player.gainXP(Math.min(3, n));
+  return true;
+}
+
+function skillCastNova() {
+  const px = player.centerX, py = player.centerY, R = 132;
+  let n = 0;
+  for (const m of monsters) {
+    if (!m.alive || m.state === "dying") continue;
+    if (m.distTo(px, py) > R) continue;
+    const raw = player.getRangedDamage() * 0.95;
+    m.takeDamage(applyOutgoingPlayerDamage(raw, player, inventory, { monster: m }));
+    n++;
+  }
+  player.skillAuraT = Math.max(player.skillAuraT || 0, 0.48);
+  addScreenShake(n ? 3 : 1);
+  player.gainXP(Math.min(4, n));
+  return true;
+}
+
+function spawnSkillBolt(element) {
+  const sx = player.centerX + Math.cos(player.angle) * 14;
+  const sy = player.centerY + Math.sin(player.angle) * 14;
+  const aimAng = arrowLaunchAngleTowardNearestInRange(sx, sy, player.angle, monsters);
+  const a = new Arrow(sx, sy, aimAng);
+  a.damage = applyOutgoingPlayerDamage(
+    player.getRangedDamage() * (element === "fire" ? 1.15 : 1.05),
+    player, inventory, {}
+  );
+  a.element = element;
+  if (element === "ice") a.speed = 245;
+  arrows.push(a);
+  player.shootAnim = 0.22;
+  return true;
+}
+
+function skillCastDash() {
+  const step = 52;
+  const dx = Math.cos(player.angle), dy = Math.sin(player.angle);
+  let moved = false;
+  const margin = 3;
+  const newX = player.x + dx * step;
+  const newY = player.y + dy * step;
+  if (!player._collides(newX, player.y, map, margin)) { player.x = newX; moved = true; }
+  if (!player._collides(player.x, newY, map, margin)) { player.y = newY; moved = true; }
+  if (moved) {
+    addScreenShake(1.2);
+    return true;
+  }
+  pickupMsgText = "\u0130leri \u00e7\u0131kam\u0131yorsun";
+  pickupMsgTimer = 0.55;
+  return false;
+}
+
+function skillCastThunder() {
+  const px = player.centerX, py = player.centerY;
+  const list = [];
+  for (const m of monsters) {
+    if (!m.alive || m.state === "dying") continue;
+    const d = m.distTo(px, py);
+    if (d < 10 || d > 142) continue;
+    list.push({ m, d });
+  }
+  list.sort((a, b) => a.d - b.d);
+  const hits = list.slice(0, 2);
+  if (!hits.length) {
+    pickupMsgText = "Yak\u0131nda hedef yok";
+    pickupMsgTimer = 0.65;
+    return false;
+  }
+  const raw = player.getRangedDamage() * 1.25;
+  for (const { m } of hits) {
+    m.takeDamage(applyOutgoingPlayerDamage(raw, player, inventory, { monster: m }));
+  }
+  addScreenShake(3.5);
+  player.gainXP(2 * hits.length);
+  return true;
+}
+
+function skillCastMend() {
+  const h = Math.max(8, Math.floor(player.maxHp * 0.14));
+  player.heal(h);
+  player.skillAuraT = Math.max(player.skillAuraT || 0, 0.35);
+  return true;
+}
+
+function skillCastVolley() {
+  if (!playerHasBowEquipped(inventory)) {
+    pickupMsgText = "Salvo i\u00e7in yay gerekli!";
+    pickupMsgTimer = 1;
+    return false;
+  }
+  if (inventory.countItem("arrow") < 3) {
+    pickupMsgText = "En az 3 ok gerekli!";
+    pickupMsgTimer = 0.9;
+    return false;
+  }
+  const base = player.angle;
+  const spread = 0.24;
+  for (let k = -1; k <= 1; k++) {
+    inventory.removeItem("arrow", 1);
+    const ang = base + k * spread;
+    const sx = player.centerX + Math.cos(base) * 14;
+    const sy = player.centerY + Math.sin(base) * 14;
+    const a = new Arrow(sx, sy, ang);
+    a.damage = applyOutgoingPlayerDamage(player.getRangedDamage() * 0.72, player, inventory, {});
+    arrows.push(a);
+  }
+  player.shootAnim = 0.32;
+  player.gainXP(2);
+  return true;
+}
+
+function tryCastActiveSkill(slotIndex) {
+  if (player.inBoat) {
+    pickupMsgText = "Teknede beceri kullan\u0131lamaz";
+    pickupMsgTimer = 0.8;
+    return false;
+  }
+  if (combatPanelsBlockAutoAttack()) return false;
+  const def = ACTIVE_SKILL_DEFS[slotIndex];
+  if (!def) return false;
+  if ((player.activeSkillCd[slotIndex] || 0) > 0) {
+    pickupMsgText = "Beceri \u015farj oluyor (" + player.activeSkillCd[slotIndex].toFixed(1) + "sn)";
+    pickupMsgTimer = 0.45;
+    return false;
+  }
+  if (player.mana < def.mana) {
+    pickupMsgText = "Yeterli mana yok";
+    pickupMsgTimer = 0.9;
+    return false;
+  }
+  let ok = false;
+  switch (def.id) {
+    case "whirl": ok = skillCastWhirl(); break;
+    case "nova": ok = skillCastNova(); break;
+    case "fire": ok = spawnSkillBolt("fire"); break;
+    case "frost": ok = spawnSkillBolt("ice"); break;
+    case "dash": ok = skillCastDash(); break;
+    case "thunder": ok = skillCastThunder(); break;
+    case "mend": ok = skillCastMend(); break;
+    case "volley": ok = skillCastVolley(); break;
+    default: ok = false;
+  }
+  if (ok) {
+    player.mana -= def.mana;
+    player.activeSkillCd[slotIndex] = def.cooldown;
+  }
+  return ok;
 }
 
 /** Sol t\u0131k veya mobil sald\u0131r\u0131 bas\u0131l\u0131 tutuldu\u011funda cooldown/mana izin verdik\u00e7e otomatik vuru\u015f/ok. */
@@ -7575,11 +8963,16 @@ function handleCanvasTouchStart(e) {
 
     const br = hitMobileButton(mx, my, canvasW, canvasH);
     if (br) {
-      if (br.key === "attack") {
+      if (br.kind === "attack") {
         touchState.attackId = id;
         touchState.attackT0 = performance.now();
       } else {
-        touchState.btnDown.set(id, { key: br.key, ox: mx, oy: my });
+        touchState.btnDown.set(id, {
+          key: br.key,
+          kind: br.kind,
+          skillSlot: br.skillSlot,
+          ox: mx, oy: my,
+        });
       }
       continue;
     }
@@ -7640,6 +9033,16 @@ function handleCanvasTouchMove(e) {
 }
 
 function pulseMobileButtonKey(key) {
+  if (key === "swap") {
+    touchState.skillBarPage = 1 - (touchState.skillBarPage | 0);
+    pickupMsgText = (touchState.skillBarPage ? "Beceri \u00e7ubu\u011fu B" : "Beceri \u00e7ubu\u011fu A");
+    pickupMsgTimer = 0.65;
+    return;
+  }
+  if (key === "target") {
+    snapAimToNearestMonster();
+    return;
+  }
   if (key === "KeyE") {
     if (actionCooldown <= 0) handleInteraction();
     return;
@@ -7684,7 +9087,10 @@ function handleCanvasTouchEnd(e) {
     if (bd) {
       touchState.btnDown.delete(id);
       const moved = Math.hypot(mx - bd.ox, my - bd.oy);
-      if (moved < 22) pulseMobileButtonKey(bd.key);
+      if (moved < 22) {
+        if (bd.skillSlot != null && bd.skillSlot !== undefined) tryCastActiveSkill(bd.skillSlot);
+        else pulseMobileButtonKey(bd.key);
+      }
     }
   }
   e.preventDefault();
@@ -7722,19 +9128,19 @@ function renderTouchOverlay(ctx) {
 
   if (touchState.joyId >= 0) {
     const J = touchState;
-    ctx.globalAlpha = 0.38;
-    ctx.fillStyle = "rgba(40,40,70,0.92)";
+    ctx.globalAlpha = 0.42;
+    ctx.fillStyle = "rgba(255,255,255,0.28)";
     ctx.beginPath();
     ctx.arc(J.joyCx, J.joyCy, J.joyR, 0, Math.PI * 2);
     ctx.fill();
-    ctx.globalAlpha = 0.6;
-    ctx.strokeStyle = "#8090c0";
+    ctx.globalAlpha = 0.72;
+    ctx.strokeStyle = "rgba(120,130,170,0.85)";
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.arc(J.joyCx, J.joyCy, J.joyR, 0, Math.PI * 2);
     ctx.stroke();
     const kx = J.joyOx + J.joyDx * J.joyR * 0.88, ky = J.joyOy + J.joyDy * J.joyR * 0.88;
-    ctx.fillStyle = "rgba(200,210,255,0.9)";
+    ctx.fillStyle = "rgba(255,255,255,0.82)";
     ctx.beginPath();
     ctx.arc(kx, ky, J.joyR * 0.32, 0, Math.PI * 2);
     ctx.fill();
@@ -7743,17 +9149,67 @@ function renderTouchOverlay(ctx) {
 
   const btns = mobileButtonsLayout(cw, ch);
   for (const b of btns) {
-    const onAttack = b.key === "attack" && touchState.attackId >= 0;
-    ctx.fillStyle = onAttack ? "rgba(90,70,120,0.95)" : "rgba(35,35,55,0.88)";
+    if (b.kind === "attack") {
+      const onAttack = touchState.attackId >= 0;
+      ctx.fillStyle = onAttack ? "rgba(110,80,145,0.96)" : "rgba(248,248,252,0.94)";
+      ctx.beginPath();
+      ctx.arc(b.cx, b.cy, b.r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = onAttack ? "#d8b0ff" : "#a0a0c0";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.fillStyle = onAttack ? "#f8f0ff" : "#383850";
+      ctx.font = "bold 19px monospace";
+      ctx.fillText(b.label, b.cx - ctx.measureText(b.label).width / 2, b.cy + 6);
+      continue;
+    }
+    if (b.kind === "skill") {
+      const cd = player.activeSkillCd[b.skillSlot] || 0;
+      const def = ACTIVE_SKILL_DEFS[b.skillSlot];
+      const maxCd = def ? def.cooldown : 1;
+      ctx.fillStyle = "rgba(248,248,255,0.93)";
+      ctx.beginPath();
+      ctx.arc(b.cx, b.cy, b.r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = "#9898b8";
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      if (cd > 0 && maxCd > 0) {
+        const frac = Math.min(1, cd / maxCd);
+        ctx.fillStyle = "rgba(18,18,36,0.5)";
+        ctx.beginPath();
+        ctx.moveTo(b.cx, b.cy);
+        ctx.arc(b.cx, b.cy, b.r, -Math.PI / 2, -Math.PI / 2 + frac * Math.PI * 2);
+        ctx.closePath();
+        ctx.fill();
+      }
+      ctx.fillStyle = "#303048";
+      ctx.font = "bold 15px monospace";
+      ctx.fillText(b.label, b.cx - ctx.measureText(b.label).width / 2, b.cy + 5);
+      continue;
+    }
+    const onRect = touchState.btnDown.size && [...touchState.btnDown.values()].some((v) => v.key === b.key);
+    ctx.fillStyle = onRect ? "rgba(90,70,120,0.92)" : "rgba(36,36,56,0.9)";
     roundRect(ctx, b.x, b.y, b.w, b.h, 6);
     ctx.fill();
-    ctx.strokeStyle = onAttack ? "#d0a0ff" : "#7070a0";
+    ctx.strokeStyle = onRect ? "#d0a0ff" : "#7070a0";
     ctx.lineWidth = 1.5;
     roundRect(ctx, b.x, b.y, b.w, b.h, 6);
     ctx.stroke();
     ctx.fillStyle = "#e8e8f0";
-    ctx.font = b.key === "attack" ? "bold 18px monospace" : "bold 13px monospace";
-    ctx.fillText(b.label, b.x + b.w / 2 - ctx.measureText(b.label).width / 2, b.y + b.h / 2 + (b.key === "attack" ? 6 : 5));
+    ctx.font = b.kind === "menu" ? "bold 12px monospace" : "bold 11px monospace";
+    const ly = b.y + b.h / 2 + (b.kind === "menu" ? 4 : 4);
+    ctx.fillText(b.label, b.x + b.w / 2 - ctx.measureText(b.label).width / 2, ly);
+    if (b.kind === "swap") {
+      ctx.fillStyle = "rgba(200,200,220,0.95)";
+      ctx.font = "8px monospace";
+      ctx.fillText("SWAP", b.x + b.w / 2 - ctx.measureText("SWAP").width / 2, b.y + b.h - 3);
+    } else if (b.key === "target") {
+      ctx.fillStyle = "rgba(200,200,220,0.95)";
+      ctx.font = "7px monospace";
+      const t = "HEDEF";
+      ctx.fillText(t, b.x + b.w / 2 - ctx.measureText(t).width / 2, b.y + b.h - 2);
+    }
   }
 }
 
@@ -7932,6 +9388,7 @@ function playerToSave(p) {
     statPoints: p.statPoints, skills: Object.assign({}, p.skills || {}),
     _pendingFullHeal: !!p._pendingFullHeal,
     poisonTimer: p.poisonTimer || 0,
+    activeSkillCd: (p.activeSkillCd || []).slice(0, 8),
   };
 }
 
@@ -7939,17 +9396,36 @@ function applyPlayerSave(p, d) {
   if (!d) return;
   for (const k of Object.keys(playerToSave(p))) {
     if (k === "skills") p.skills = Object.assign(Object.create(null), d.skills || {});
-    else if (d[k] !== undefined) p[k] = d[k];
+    else if (k === "activeSkillCd") {
+      const arr = d.activeSkillCd;
+      if (Array.isArray(arr) && p.activeSkillCd && p.activeSkillCd.length) {
+        for (let i = 0; i < Math.min(8, p.activeSkillCd.length); i++) {
+          p.activeSkillCd[i] = Math.max(0, +arr[i] || 0);
+        }
+      }
+    } else if (d[k] !== undefined) p[k] = d[k];
   }
   if (d.poisonTimer == null) p.poisonTimer = 0;
+  if (!p.activeSkillCd || p.activeSkillCd.length < 8) p.activeSkillCd = [0, 0, 0, 0, 0, 0, 0, 0];
+}
+
+function slotStackToSave(s) {
+  if (!s || !s.id) return null;
+  const o = { id: s.id, count: s.count | 0 };
+  const u = getStackUpgradeLv(s);
+  if (u > 0) o.upgrade = u;
+  return o;
 }
 
 function inventoryToSave(inv) {
   return {
     gold: inv.gold,
-    slots: inv.slots.map(s => s ? { id: s.id, count: s.count } : null),
-    hotbar: inv.hotbar.map(s => s ? { id: s.id, count: s.count } : null),
-    equipped: Object.fromEntries(EQ_SLOTS.map(sk => [sk, inv.equipped[sk] ? { id: inv.equipped[sk].id, count: inv.equipped[sk].count || 1 } : null])),
+    slots: inv.slots.map(slotStackToSave),
+    hotbar: inv.hotbar.map(slotStackToSave),
+    equipped: Object.fromEntries(EQ_SLOTS.map(sk => {
+      const e = inv.equipped[sk];
+      return [sk, slotStackToSave(e)];
+    })),
     selectedHotbar: inv.selectedHotbar,
   };
 }
@@ -7959,15 +9435,30 @@ function applyInventorySave(inv, d) {
   inv.gold = d.gold | 0;
   for (let i = 0; i < inv.slots.length; i++) {
     const s = d.slots && d.slots[i];
-    inv.slots[i] = s && s.id ? { id: s.id, count: Math.max(1, s.count | 0) } : null;
+    if (s && s.id) {
+      const st = { id: s.id, count: Math.max(1, s.count | 0) };
+      const u = s.upgrade | 0;
+      if (u > 0) st.upgrade = u;
+      inv.slots[i] = st;
+    } else inv.slots[i] = null;
   }
   for (let i = 0; i < inv.hotbar.length; i++) {
     const s = d.hotbar && d.hotbar[i];
-    inv.hotbar[i] = s && s.id ? { id: s.id, count: Math.max(1, s.count | 0) } : null;
+    if (s && s.id) {
+      const st = { id: s.id, count: Math.max(1, s.count | 0) };
+      const u = s.upgrade | 0;
+      if (u > 0) st.upgrade = u;
+      inv.hotbar[i] = st;
+    } else inv.hotbar[i] = null;
   }
   for (const sk of EQ_SLOTS) {
     const e = d.equipped && d.equipped[sk];
-    inv.equipped[sk] = e && e.id ? { id: e.id, count: 1 } : null;
+    if (e && e.id) {
+      const st = { id: e.id, count: Math.max(1, e.count | 0) };
+      const u = e.upgrade | 0;
+      if (u > 0) st.upgrade = u;
+      inv.equipped[sk] = st;
+    } else inv.equipped[sk] = null;
   }
   inv.selectedHotbar = Math.max(0, Math.min(inv.hotbar.length - 1, d.selectedHotbar | 0));
   inv.heldItem = null;
@@ -7976,11 +9467,14 @@ function applyInventorySave(inv, d) {
 }
 
 function worldItemToSave(wi) {
-  return {
+  const o = {
     col: wi.col, row: wi.row, itemId: wi.itemId, count: wi.count, maxCount: wi.maxCount,
     alive: wi.alive, respawnable: wi.respawnable, bobTimer: wi.bobTimer,
     respawnTimer: wi.respawnTimer, respawnTime: wi.respawnTime,
   };
+  const u = wi.upgrade | 0;
+  if (u > 0) o.upgrade = u;
+  return o;
 }
 
 function loadWorldItemsFromSave(arr) {
@@ -7989,6 +9483,7 @@ function loadWorldItemsFromSave(arr) {
   for (const o of arr) {
     const wi = new WorldItem(o.col, o.row, o.itemId, o.count, o.respawnable !== false);
     wi.maxCount = o.maxCount != null ? o.maxCount : wi.count;
+    wi.upgrade = o.upgrade | 0;
     wi.alive = o.alive !== false;
     wi.bobTimer = o.bobTimer || 0;
     wi.respawnTimer = o.respawnTimer || 0;
@@ -8482,6 +9977,18 @@ function gameLoop(now) {
 
   if (wasJustPressed("KeyQ") && !uiOpen) tryUseHpPotion();
   if (wasJustPressed("KeyR") && !uiOpen) tryUseManaPotion();
+
+  if (!uiOpen && !charPanel.open) {
+    if (wasJustPressed("Tab")) {
+      touchState.skillBarPage = 1 - (touchState.skillBarPage | 0);
+      pickupMsgText = touchState.skillBarPage ? "Beceri \u00e7ubu\u011fu B" : "Beceri \u00e7ubu\u011fu A";
+      pickupMsgTimer = 0.55;
+    }
+    const skKeys = ["KeyZ", "KeyX", "KeyV", "KeyN"];
+    for (let si = 0; si < 4; si++) {
+      if (wasJustPressed(skKeys[si])) tryCastActiveSkill((touchState.skillBarPage | 0) * 4 + si);
+    }
+  }
 
   if (!uiOpen) {
     if (touchState.mobileUI && touchState.aimId >= 0) {
