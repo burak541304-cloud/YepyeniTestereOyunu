@@ -157,19 +157,20 @@ function uiModalBounds(cw, ch) {
   };
 }
 
-/** Beceri d\u00fc\u011fmelerinin sol \u00e7izgisi (iksir \u00e7ak\u0131\u015fmalar\u0131n\u0131 \u00f6nlemek i\u00e7in). */
-function mobileSkillClusterMinLeftPx(cw, ch) {
+/** \u0130ksir y\u00f6r\u00fcngesi (k\u00fcme sol-alt, beceri yay\u0131ndan ayr\u0131). */
+function mobilePotionOrbitCenters(cw, ch) {
   const G = mobileCombatClusterGeom(cw, ch);
-  const ang = mobileSkillSlotAngles();
-  let minL = G.centerX + G.atkR;
-  for (let i = 0; i < 4; i++) {
-    const cx = G.centerX + Math.cos(ang[i]) * G.orbitR;
-    minL = Math.min(minL, cx - G.skillR);
-  }
-  return minL;
+  const potDist = G.orbitR * 0.74;
+  const aHp = Math.PI * 0.64;
+  const aMana = Math.PI * 0.57;
+  return {
+    hp: { cx: G.centerX + Math.cos(aHp) * potDist, cy: G.centerY + Math.sin(aHp) * potDist },
+    mana: { cx: G.centerX + Math.cos(aMana) * potDist, cy: G.centerY + Math.sin(aMana) * potDist },
+    potHalf: 17,
+  };
 }
 
-/** Sa\u011f alt MMORPG k\u00fcmesi: merkez sald\u0131r\u0131 + y\u00f6r\u00fcnge beceriler. */
+/** Sa\u011f alt MMORPG k\u00fcmesi: merkez sald\u0131r\u0131 + y\u00f6r\u00fcnge (beceri, SWAP, HEDEF daireleri). */
 function mobileCombatClusterGeom(cw, ch) {
   const pad = 10;
   const centerX = cw - pad - 72;
@@ -177,36 +178,17 @@ function mobileCombatClusterGeom(cw, ch) {
   const atkR = 40;
   const skillR = 20;
   const orbitR = 92;
-  let swapBtn;
-  let targetBtn;
-  if (touchState.mobileUI && typeof minimap !== "undefined" && minimap && minimap.visible) {
-    const mmPad = 10;
-    const sideReserve = MOBILE_MINIMAP_RIGHT_RESERVE_PX;
-    const mmBottom = mmPad + minimap.h + 8 + 10;
-    const topMenuBottom = 52 + 34 + 10;
-    const rowH = 30;
-    let rowY = Math.max(mmBottom, topMenuBottom);
-    rowY = Math.min(rowY, ch - rowH - 10);
-    rowY = Math.max(rowY, topMenuBottom);
-    const gap = 8;
-    const swapW = 56;
-    const targetW = 76;
-    const rowRight = cw - mmPad - sideReserve;
-    const targetX = rowRight - targetW;
-    const swapX = targetX - gap - swapW;
-    swapBtn = { x: swapX, y: rowY, w: swapW, h: rowH };
-    targetBtn = { x: targetX, y: rowY, w: targetW, h: rowH };
-  } else {
-    swapBtn = { x: centerX - 28, y: centerY - orbitR - 54, w: 56, h: 28 };
-    targetBtn = { x: centerX + 18, y: centerY - orbitR - 40, w: 76, h: 28 };
-  }
-  return { centerX, centerY, atkR, skillR, orbitR, swapBtn, targetBtn, pad };
+  const auxR = 18;
+  return { centerX, centerY, atkR, skillR, orbitR, auxR, pad };
 }
 
-/** Geni\u015f yay: ~120\u00b0\u2013240\u00b0 (ana d\u00fc\u011fmenin solunda, \u00fcstten alta yay\u0131l\u0131r). */
+/**
+ * Beceri yayı: sol yarım halka (iksir / SWAP / HEDEF alanlar\u0131ndan ayr\u0131).
+ * ~158\u00b0 \u2013 256\u00b0
+ */
 function mobileSkillSlotAngles() {
-  const start = (Math.PI * 2) / 3;
-  const end = (Math.PI * 4) / 3;
+  const start = Math.PI * 0.88;
+  const end = Math.PI * 1.42;
   return [0, 1, 2, 3].map((i) => start + ((end - start) * i) / 3);
 }
 
@@ -241,10 +223,29 @@ function mobileButtonsLayout(cw, ch) {
       cx, cy, r: G.skillR,
     });
   }
-  out.push({ key: "swap", kind: "swap", label: "\u21C4", ...G.swapBtn });
-  out.push({ key: "target", kind: "target", label: "\u25CE", ...G.targetBtn });
-  const topY = 52;
-  const topH = 34;
+  const auxR = G.auxR;
+  const tAng = -Math.PI / 2 + 0.38;
+  const tcx = G.centerX + Math.cos(tAng) * G.orbitR;
+  const tcy = G.centerY + Math.sin(tAng) * G.orbitR;
+  out.push({
+    key: "target",
+    kind: "target",
+    label: "\u25CE",
+    cx: tcx, cy: tcy, r: auxR,
+    x: tcx - auxR, y: tcy - auxR, w: auxR * 2, h: auxR * 2,
+  });
+  const sAng = 0.1;
+  const scx = G.centerX + Math.cos(sAng) * G.orbitR;
+  const scy = G.centerY + Math.sin(sAng) * G.orbitR;
+  out.push({
+    key: "swap",
+    kind: "swap",
+    label: "\u21C4",
+    cx: scx, cy: scy, r: auxR,
+    x: scx - auxR, y: scy - auxR, w: auxR * 2, h: auxR * 2,
+  });
+  const topY = 36;
+  const topH = 30;
   const menuItems = [
     { key: "KeyI", label: "\u00c7ant" },
     { key: "KeyC", label: "K" },
@@ -271,7 +272,7 @@ function hitMobileButton(mx, my, cw, ch) {
       if (dx * dx + dy * dy <= G.atkR * G.atkR) return b;
       continue;
     }
-    if (b.kind === "skill") {
+    if (b.kind === "skill" || b.kind === "swap" || b.kind === "target") {
       const dx = mx - b.cx, dy = my - b.cy;
       if (dx * dx + dy * dy <= b.r * b.r) return b;
       continue;
@@ -2080,7 +2081,7 @@ class Inventory {
   handleClick(mx, my, canvasW, canvasH, rightClick = false) {
     if (!this.open) {
       const hbInfo = this._hotbarLayout(canvasW, canvasH);
-      const idx = this._hitTestSlots(mx, my, hbInfo.x, hbInfo.y, HOTBAR_SLOTS, 1);
+      const idx = this._hitTestSlots(mx, my, hbInfo.x, hbInfo.y, HOTBAR_SLOTS, HOTBAR_SLOTS, hbInfo.slotSz, hbInfo.slotGap);
       if (idx >= 0) { this.selectedHotbar = idx; return true; }
       return false;
     }
@@ -2294,10 +2295,13 @@ class Inventory {
   }
 
   _hotbarLayout(canvasW, canvasH) {
-    const totalW = HOTBAR_SLOTS * (SLOT_SIZE + SLOT_GAP) - SLOT_GAP;
+    const mob = touchState.mobileUI;
+    const slotSz = mob ? 34 : SLOT_SIZE;
+    const slotGap = mob ? 3 : SLOT_GAP;
+    const totalW = HOTBAR_SLOTS * (slotSz + slotGap) - slotGap;
     const hx = Math.floor((canvasW - totalW) / 2);
-    const hy = canvasH - SLOT_SIZE - 28;
-    return { x: hx, y: hy };
+    const hy = canvasH - slotSz - (mob ? 20 : 28);
+    return { x: hx, y: hy, slotSz, slotGap };
   }
 
   render(ctx, canvasW, canvasH, mouseX, mouseY) {
@@ -2306,20 +2310,22 @@ class Inventory {
   }
 
   _renderHotbar(ctx, canvasW, canvasH) {
-    const { x, y } = this._hotbarLayout(canvasW, canvasH);
+    const { x, y, slotSz, slotGap } = this._hotbarLayout(canvasW, canvasH);
+    const totalW = HOTBAR_SLOTS * (slotSz + slotGap) - slotGap;
     ctx.fillStyle = "rgba(10, 10, 30, 0.7)";
-    roundRect(ctx, x - 6, y - 6, HOTBAR_SLOTS * (SLOT_SIZE + SLOT_GAP) - SLOT_GAP + 12, SLOT_SIZE + 12, 6);
+    roundRect(ctx, x - 6, y - 6, totalW + 12, slotSz + 12, 6);
     ctx.fill();
+    const numFont = touchState.mobileUI ? "9px monospace" : "10px monospace";
     for (let i = 0; i < HOTBAR_SLOTS; i++) {
-      const sx = x + i * (SLOT_SIZE + SLOT_GAP);
+      const sx = x + i * (slotSz + slotGap);
       const selected = i === this.selectedHotbar;
       ctx.fillStyle = selected ? "rgba(255,255,200,0.25)" : "rgba(40,40,60,0.6)";
       ctx.strokeStyle = selected ? "#f0d050" : "#606080";
       ctx.lineWidth = selected ? 2 : 1;
-      roundRect(ctx, sx, y, SLOT_SIZE, SLOT_SIZE, 4); ctx.fill(); ctx.stroke();
-      if (this.hotbar[i]) this._renderSlotContent(ctx, this.hotbar[i], sx, y);
-      ctx.fillStyle = "#888"; ctx.font = "10px monospace";
-      ctx.fillText(String(i + 1), sx + 3, y + 12);
+      roundRect(ctx, sx, y, slotSz, slotSz, 4); ctx.fill(); ctx.stroke();
+      if (this.hotbar[i]) this._renderSlotContent(ctx, this.hotbar[i], sx, y, slotSz);
+      ctx.fillStyle = "#888"; ctx.font = numFont;
+      ctx.fillText(String(i + 1), sx + 2, y + Math.min(12, slotSz * 0.35));
     }
   }
 
@@ -7148,7 +7154,7 @@ class HUD {
     ctx.fillStyle = "#f0f0f0"; ctx.font = "11px monospace";
     if (touchState.mobileUI) {
       ctx.fillText(
-        "Mobil: joystick | beceri yay\u0131 + \u2694 | SWAP / HEDEF | \u00fcst men\u00fc | Q/R iksir | \u00d7 kapat",
+        "Mobil: joystick | sa\u011f k\u00fcme: \u2694 + beceri + SWAP/HEDEF + Q/R | \u00fcst men\u00fc | \u00d7 kapat",
         10,
         canvasH - 10
       );
@@ -7168,42 +7174,16 @@ function layoutCombatPotions(cw, ch) {
   let y = ch - h - bottomPad;
 
   if (touchState.mobileUI) {
-    const J = joyAnchorForLayout();
-    const atk = mobileAttackButtonRect(cw, ch);
-    const joyRight = J.cx + J.r * 1.55;
-    const skillLeftBound = mobileSkillClusterMinLeftPx(cw, ch);
-    const potRightLimit = skillLeftBound - 14;
-    let potW = 44, potH = 44, g = 5;
-    let manaX = atk.x - g - potW;
-    let hpX = manaX - g - potW;
-    while ((manaX + potW > potRightLimit || hpX < joyRight + 10) && potW >= 30) {
-      potW -= 2;
-      potH -= 2;
-      g = 4;
-      manaX = atk.x - g - potW;
-      hpX = manaX - g - potW;
-    }
-    if (manaX + potW > potRightLimit) {
-      const pairW = potW * 2 + g;
-      hpX = Math.max(joyRight + 10, potRightLimit - pairW);
-      manaX = hpX + potW + g;
-    }
-    if (hpX < joyRight + 10) {
-      hpX = joyRight + 10;
-      manaX = hpX + potW + g;
-    }
-    if (manaX + potW > potRightLimit) {
-      manaX = Math.max(joyRight + potW + g, potRightLimit - potW);
-      hpX = manaX - potW - g;
-    }
-    y = atk.y + (atk.h - potH) / 2;
-    if (manaX + potW > atk.x - 4 || hpX < joyRight + 8) {
-      y = atk.y - potH - 18;
-    }
-    y = Math.max(56, Math.min(ch - potH - bottomPad, y));
+    const pots = mobilePotionOrbitCenters(cw, ch);
+    const potW = pots.potHalf * 2;
+    const potH = potW;
+    const hpX = Math.round(pots.hp.cx - pots.potHalf);
+    const hpY = Math.round(pots.hp.cy - pots.potHalf);
+    const manaX = Math.round(pots.mana.cx - pots.potHalf);
+    const manaY = Math.round(pots.mana.cy - pots.potHalf);
     combatPotionRects = [
-      { kind: "hp", x: hpX, y, w: potW, h: potH, key: "Q" },
-      { kind: "mana", x: manaX, y, w: potW, h: potH, key: "R" },
+      { kind: "hp", x: hpX, y: hpY, w: potW, h: potH, key: "Q" },
+      { kind: "mana", x: manaX, y: manaY, w: potW, h: potH, key: "R" },
     ];
     return combatPotionRects;
   } else {
@@ -9237,6 +9217,24 @@ function renderTouchOverlay(ctx) {
       ctx.fillText(b.label, b.cx - ctx.measureText(b.label).width / 2, b.cy + 5);
       continue;
     }
+    if (b.kind === "swap" || b.kind === "target") {
+      const onAux = touchState.btnDown.size && [...touchState.btnDown.values()].some((v) => v.key === b.key);
+      ctx.fillStyle = onAux ? "rgba(120,95,155,0.96)" : "rgba(248,248,255,0.94)";
+      ctx.beginPath();
+      ctx.arc(b.cx, b.cy, b.r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = onAux ? "#e8c8ff" : "#9090b0";
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      ctx.fillStyle = onAux ? "#fff8ff" : "#383850";
+      ctx.font = "bold 14px monospace";
+      ctx.fillText(b.label, b.cx - ctx.measureText(b.label).width / 2, b.cy + 5);
+      ctx.fillStyle = "rgba(210,210,230,0.95)";
+      ctx.font = "7px monospace";
+      const sub = b.kind === "swap" ? "SWAP" : "HEDEF";
+      ctx.fillText(sub, b.cx - ctx.measureText(sub).width / 2, b.cy + b.r + 10);
+      continue;
+    }
     const onRect = touchState.btnDown.size && [...touchState.btnDown.values()].some((v) => v.key === b.key);
     ctx.fillStyle = onRect ? "rgba(90,70,120,0.92)" : "rgba(36,36,56,0.9)";
     roundRect(ctx, b.x, b.y, b.w, b.h, 6);
@@ -9249,16 +9247,6 @@ function renderTouchOverlay(ctx) {
     ctx.font = b.kind === "menu" ? "bold 12px monospace" : "bold 11px monospace";
     const ly = b.y + b.h / 2 + (b.kind === "menu" ? 4 : 4);
     ctx.fillText(b.label, b.x + b.w / 2 - ctx.measureText(b.label).width / 2, ly);
-    if (b.kind === "swap") {
-      ctx.fillStyle = "rgba(200,200,220,0.95)";
-      ctx.font = "8px monospace";
-      ctx.fillText("SWAP", b.x + b.w / 2 - ctx.measureText("SWAP").width / 2, b.y + b.h - 3);
-    } else if (b.key === "target") {
-      ctx.fillStyle = "rgba(200,200,220,0.95)";
-      ctx.font = "7px monospace";
-      const t = "HEDEF";
-      ctx.fillText(t, b.x + b.w / 2 - ctx.measureText(t).width / 2, b.y + b.h - 2);
-    }
   }
 }
 
