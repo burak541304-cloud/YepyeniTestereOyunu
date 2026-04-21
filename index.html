@@ -110,11 +110,18 @@ const ACTIVE_SKILL_DEFS = [
   { id: "volley", icon: "\u27F3", mana: 14, cooldown: 9 },
 ];
 
-/**
- * Mobil: mini harita sa\u011f \u00fcstte; yan s\u00fctun (E, C, I, M, B, sald\u0131r\u0131) ile \u00e7ak\u0131\u015fmamas\u0131 i\u00e7in haritay\u0131 solda ka\u00e7 piksel kayd\u0131r.
- * Gerekirse konsoldan veya kodda art\u0131r\u0131p azaltabilirsin (varsay\u0131lan ~bir yan s\u00fctun geni\u015fli\u011fi).
- */
+/** Masa\u00fcst\u00fcnde minimap ile sa\u011f UI \u00e7ak\u0131\u015fmas\u0131 i\u00e7in bo\u015fluk (mobilde kullan\u0131lmaz). */
 let MOBILE_MINIMAP_RIGHT_RESERVE_PX = 68;
+
+/** Mobil: sald\u0131r\u0131 bas\u0131l\u0131 tutunca bu s\u00fcre boyunca (ms) \u00f6nce Etkile\u015fim aday\u0131 kontrol\u00fc; NPC/a\u011fa\u00e7 vb. varsa ok/vuru\u015f ba\u015flamaz. */
+const MOBILE_ATTACK_INTERACT_MS = 240;
+
+/** Mobil otomatik iksir: e\u015fikler (0\u20131) ve tekrar kullan\u0131m bekleme (sn). */
+const MOBILE_AUTO_POT_HP_BELOW = 0.42;
+const MOBILE_AUTO_POT_MP_BELOW = 0.32;
+const MOBILE_AUTO_POT_COOLDOWN = 1.35;
+
+let mobileAutoPotionCooldown = 0;
 
 function refreshMobileUI() {
   const narrow = Math.min(window.innerWidth, window.innerHeight) <= 1080;
@@ -145,7 +152,7 @@ function joyAnchorForLayout() {
 /** Mobil modal pencereler i\u00e7in g\u00fcvenli alan (\u00fcstte \u00d7 \u00e7ipi i\u00e7in bo\u015fluk). */
 function uiModalBounds(cw, ch) {
   const mob = touchState.mobileUI;
-  const top = mob ? 56 : 28;
+  const top = mob ? 42 : 28;
   const bottom = mob ? 16 : 22;
   const side = mob ? 8 : 20;
   return {
@@ -154,19 +161,6 @@ function uiModalBounds(cw, ch) {
     side,
     maxW: Math.max(160, cw - side * 2),
     maxH: Math.max(160, ch - top - bottom),
-  };
-}
-
-/** \u0130ksir y\u00f6r\u00fcngesi (k\u00fcme sol-alt, beceri yay\u0131ndan ayr\u0131). */
-function mobilePotionOrbitCenters(cw, ch) {
-  const G = mobileCombatClusterGeom(cw, ch);
-  const potDist = G.orbitR * 0.74;
-  const aHp = Math.PI * 0.64;
-  const aMana = Math.PI * 0.57;
-  return {
-    hp: { cx: G.centerX + Math.cos(aHp) * potDist, cy: G.centerY + Math.sin(aHp) * potDist },
-    mana: { cx: G.centerX + Math.cos(aMana) * potDist, cy: G.centerY + Math.sin(aMana) * potDist },
-    potHalf: 17,
   };
 }
 
@@ -244,12 +238,11 @@ function mobileButtonsLayout(cw, ch) {
     cx: scx, cy: scy, r: auxR,
     x: scx - auxR, y: scy - auxR, w: auxR * 2, h: auxR * 2,
   });
-  const topY = 36;
+  const topY = 4;
   const topH = 30;
   const menuItems = [
     { key: "KeyI", label: "\u00c7ant" },
     { key: "KeyC", label: "K" },
-    { key: "KeyE", label: "E" },
     { key: "KeyM", label: "H" },
     { key: "KeyB", label: "T" },
   ];
@@ -7154,7 +7147,7 @@ class HUD {
     ctx.fillStyle = "#f0f0f0"; ctx.font = "11px monospace";
     if (touchState.mobileUI) {
       ctx.fillText(
-        "Mobil: joystick | sa\u011f k\u00fcme: \u2694 + beceri + SWAP/HEDEF + Q/R | \u00fcst men\u00fc | \u00d7 kapat",
+        "Mobil: joystick | \u2694 sald\u0131r\u0131/Etkile\u015fim | beceri | hotbar yan\u0131 Q/R (oto-iksir) | \u00d7 kapat",
         10,
         canvasH - 10
       );
@@ -7174,16 +7167,27 @@ function layoutCombatPotions(cw, ch) {
   let y = ch - h - bottomPad;
 
   if (touchState.mobileUI) {
-    const pots = mobilePotionOrbitCenters(cw, ch);
-    const potW = pots.potHalf * 2;
-    const potH = potW;
-    const hpX = Math.round(pots.hp.cx - pots.potHalf);
-    const hpY = Math.round(pots.hp.cy - pots.potHalf);
-    const manaX = Math.round(pots.mana.cx - pots.potHalf);
-    const manaY = Math.round(pots.mana.cy - pots.potHalf);
+    const hb = inventory._hotbarLayout(cw, ch);
+    const J = joyAnchorForLayout();
+    const joyRight = J.cx + J.r * 1.7;
+    const potW = 44, potH = 44, innerGap = 12;
+    const pairW = potW * 2 + innerGap;
+    let hpX = hb.x - pairW - 18;
+    const hpY = Math.round(hb.y + (hb.slotSz - potH) / 2);
+    let manaX = hpX + potW + innerGap;
+    if (hpX < joyRight + 8) {
+      hpX = Math.max(joyRight + 8, hb.x - potW - 14);
+      manaX = hpX;
+      const manaY = hpY + potH + innerGap;
+      combatPotionRects = [
+        { kind: "hp", x: hpX, y: hpY, w: potW, h: potH, key: "Q" },
+        { kind: "mana", x: manaX, y: manaY, w: potW, h: potH, key: "R" },
+      ];
+      return combatPotionRects;
+    }
     combatPotionRects = [
       { kind: "hp", x: hpX, y: hpY, w: potW, h: potH, key: "Q" },
-      { kind: "mana", x: manaX, y: manaY, w: potW, h: potH, key: "R" },
+      { kind: "mana", x: manaX, y: hpY, w: potW, h: potH, key: "R" },
     ];
     return combatPotionRects;
   } else {
@@ -7945,10 +7949,11 @@ class Minimap {
 
   render(ctx, canvasW, canvasH, cam, player, npcs, wildPets, activePet) {
     if (!this.visible) return;
-    const pad = 10;
-    const sideReserve = touchState.mobileUI ? MOBILE_MINIMAP_RIGHT_RESERVE_PX : 0;
-    const dx = canvasW - this.w - pad - 4 - sideReserve;
-    const dy = pad;
+    const mob = touchState.mobileUI;
+    const corner = mob ? 2 : 10;
+    const sideReserve = mob ? 0 : MOBILE_MINIMAP_RIGHT_RESERVE_PX;
+    const dx = canvasW - this.w - corner - 4 - sideReserve;
+    const dy = corner;
 
     ctx.fillStyle = "rgba(0,0,0,0.6)";
     roundRect(ctx, dx - 4, dy - 4, this.w + 8, this.h + 8, 6);
@@ -8644,6 +8649,26 @@ function combatPanelsBlockAutoAttack() {
   return inventory.open || petPanel.open || dialog.active || shop.open || craftPanel.open || charPanel.open || !!worldItemInspect || !!inventorySlotInspect;
 }
 
+/** Mobil ana sald\u0131r\u0131 d\u00fc\u011fmesinin Etkile\u015fim (E) olarak davranabilece\u011fi durumlar (canavar g\u00f6stergesi hari\u00e7). */
+function mobileInteractEligible() {
+  if (player.inBoat || combatPanelsBlockAutoAttack()) return false;
+  for (const wi of worldItems) {
+    if (wi.alive && wi.isNear(player)) return true;
+  }
+  if (canChopFacingTree(player, map, inventory)) return true;
+  for (const wp of wildPets) {
+    if (wp.alive && wp.isNear(player)) return true;
+  }
+  for (const npc of npcs) {
+    if (npc.isNearPlayer(player)) return true;
+  }
+  return false;
+}
+
+function interactPromptActionHint() {
+  return touchState.mobileUI ? "\u2694" : "[E]";
+}
+
 function snapAimToNearestMonster() {
   const px = player.centerX, py = player.centerY;
   let best = null, bestD = Infinity;
@@ -8832,6 +8857,10 @@ function tryAutoAttackWhileHeld() {
   const mouseHeld = canvasMouse0Down && !touchState.mobileUI;
   const mobileAttackHeld = touchState.mobileUI && touchState.attackId >= 0;
   if (!mouseHeld && !mobileAttackHeld) return;
+  if (mobileAttackHeld) {
+    const dur = performance.now() - touchState.attackT0;
+    if (dur < MOBILE_ATTACK_INTERACT_MS && mobileInteractEligible()) return;
+  }
   tryMeleeOrRangedClick();
 }
 
@@ -9072,10 +9101,6 @@ function pulseMobileButtonKey(key) {
     snapAimToNearestMonster();
     return;
   }
-  if (key === "KeyE") {
-    if (actionCooldown <= 0) handleInteraction();
-    return;
-  }
   if (key === "KeyQ") pulseJust("KeyQ");
   else if (key === "KeyR") pulseJust("KeyR");
   else if (key === "KeyC") pulseJust("KeyC");
@@ -9105,7 +9130,13 @@ function handleCanvasTouchEnd(e) {
     if (id === touchState.aimId) touchState.aimId = -1;
 
     if (id === touchState.attackId) {
+      const tAttack0 = touchState.attackT0;
       touchState.attackId = -1;
+      const attackDur = performance.now() - tAttack0;
+      if (touchState.mobileUI && attackDur < MOBILE_ATTACK_INTERACT_MS &&
+          !combatPanelsBlockAutoAttack() && !player.inBoat && mobileInteractEligible() && actionCooldown <= 0) {
+        handleInteraction();
+      }
       if (!(isDown("ShiftLeft") || isDown("ShiftRight"))) {
         player.powerCharging = false;
         player.powerCharge = 0;
@@ -10041,6 +10072,20 @@ function gameLoop(now) {
     }
     player.update(dt, map);
     tryAutoAttackWhileHeld();
+    if (touchState.mobileUI) {
+      if (mobileAutoPotionCooldown > 0) mobileAutoPotionCooldown -= dt;
+      if (mobileAutoPotionCooldown <= 0 && !player.inBoat) {
+        const hpR = player.maxHp > 0 ? player.hp / player.maxHp : 1;
+        const mpR = player.maxMana > 0 ? player.mana / player.maxMana : 1;
+        if (hpR < MOBILE_AUTO_POT_HP_BELOW && inventory.countItem("potion") > 0) {
+          tryUseHpPotion();
+          mobileAutoPotionCooldown = MOBILE_AUTO_POT_COOLDOWN;
+        } else if (mpR < MOBILE_AUTO_POT_MP_BELOW && inventory.countItem("potion_mana") > 0) {
+          tryUseManaPotion();
+          mobileAutoPotionCooldown = MOBILE_AUTO_POT_COOLDOWN;
+        }
+      }
+    }
     if (player.inBoat && !playerBoatFullyOnWater(map, player)) {
       player.inBoat = false;
       const ft = map.getGroundTileAtPx(player.feetX, player.feetY);
@@ -10125,7 +10170,7 @@ function gameLoop(now) {
       }
     }
     if (!nearItem && canChopFacingTree(player, map, inventory)) {
-      hud.showInteractPrompt("[E] A\u011fac\u0131 kes (balta)");
+      hud.showInteractPrompt(interactPromptActionHint() + " A\u011fac\u0131 kes (balta)");
       nearTreeChop = true;
     }
     if (!nearItem && !nearTreeChop) {
@@ -10133,7 +10178,7 @@ function gameLoop(now) {
         if (wp.alive && wp.isNear(player)) {
           const pt = PET_TYPES[wp.type];
           const foodName = ITEMS[pt.tameFood] ? ITEMS[pt.tameFood].name : pt.tameFood;
-          hud.showInteractPrompt("[E] " + pt.name + " evcille\u015ftir (" + foodName + " gerekli)");
+          hud.showInteractPrompt(interactPromptActionHint() + " " + pt.name + " evcille\u015ftir (" + foodName + " gerekli)");
           nearWild = true; break;
         }
       }
@@ -10152,8 +10197,8 @@ function gameLoop(now) {
     if (!nearItem && !nearWild && !nearMonster && !nearTreeChop) {
       for (const npc of npcs) {
         if (npc.isNearPlayer(player)) {
-          if (npc.merchant) hud.showInteractPrompt("[E] " + npc.name + " - Market");
-          else hud.showInteractPrompt("[E] " + npc.name + " ile konu\u015f");
+          if (npc.merchant) hud.showInteractPrompt(interactPromptActionHint() + " " + npc.name + " - Market");
+          else hud.showInteractPrompt(interactPromptActionHint() + " " + npc.name + " ile konu\u015f");
           nearNPC = true; break;
         }
       }
