@@ -416,22 +416,22 @@ function uiModalBounds(cw, ch) {
 
 /** Sa\u011f alt MMORPG k\u00fcmesi: merkez sald\u0131r\u0131 + y\u00f6r\u00fcnge (beceri, SWAP, HEDEF daireleri). */
 function mobileCombatClusterGeom(cw, ch) {
-  const pad = 10;
-  const margin = 10;
-  const atkR = 40;
-  const skillR = 20;
-  let orbitR = 92;
-  const auxR = 18;
+  const pad = 6;
+  const margin = 5;
+  const atkR = 32;
+  const skillR = 16;
+  let orbitR = 60;
+  const auxR = 14;
   /** SWAP ~sa\u011fda; merkez + cos(angle)*R + r <= cw - margin olmal\u0131. */
-  const swapAng = 0.1;
+  const swapAng = 0.12;
   if (touchState.mobileUI && cw < 520) {
-    orbitR = Math.max(78, Math.round(92 - (520 - cw) * 0.14));
+    orbitR = Math.max(52, Math.round(60 - (520 - cw) * 0.11));
   }
   const rightExtent = Math.cos(swapAng) * orbitR + auxR;
-  let centerX = cw - pad - 72;
+  let centerX = cw - pad - 52;
   const maxCx = cw - margin - rightExtent;
   if (centerX > maxCx) centerX = maxCx;
-  const centerY = ch - pad - 94;
+  const centerY = ch - pad - 62;
   return { centerX, centerY, atkR, skillR, orbitR, auxR, pad };
 }
 
@@ -440,8 +440,8 @@ function mobileCombatClusterGeom(cw, ch) {
  * ~158\u00b0 \u2013 256\u00b0
  */
 function mobileSkillSlotAngles() {
-  const start = Math.PI * 0.88;
-  const end = Math.PI * 1.42;
+  const start = Math.PI * 0.92;
+  const end = Math.PI * 1.38;
   return [0, 1, 2, 3].map((i) => start + ((end - start) * i) / 3);
 }
 
@@ -9044,7 +9044,8 @@ function drawRangedTargetHpBanner(ctx, cw, ch, m) {
   const bw = Math.min(cw - 24, Math.max(tw + 48, 200));
   const bh = 46;
   const bx = (cw - bw) / 2;
-  const by = 10;
+  /** \u00dcst men\u00fc (\u00c7ant/K/H/T) + minimap \u00fcst\u00fcnde kals\u0131n; mobilde biraz a\u015fa\u011f\u0131. */
+  const by = (typeof touchState !== "undefined" && touchState.mobileUI) ? 40 : 10;
   const pad = 8;
   const barH = 11;
   const barY = by + bh - barH - pad;
@@ -9833,8 +9834,8 @@ function renderTouchOverlay(ctx) {
       ctx.lineWidth = 2;
       ctx.stroke();
       ctx.fillStyle = onAttack ? "#f8f0ff" : "#383850";
-      ctx.font = "bold 19px monospace";
-      ctx.fillText(b.label, b.cx - ctx.measureText(b.label).width / 2, b.cy + 6);
+      ctx.font = "bold 17px monospace";
+      ctx.fillText(b.label, b.cx - ctx.measureText(b.label).width / 2, b.cy + 5);
       continue;
     }
     if (b.kind === "skill") {
@@ -9858,8 +9859,8 @@ function renderTouchOverlay(ctx) {
         ctx.fill();
       }
       ctx.fillStyle = "#303048";
-      ctx.font = "bold 15px monospace";
-      ctx.fillText(b.label, b.cx - ctx.measureText(b.label).width / 2, b.cy + 5);
+      ctx.font = "bold 13px monospace";
+      ctx.fillText(b.label, b.cx - ctx.measureText(b.label).width / 2, b.cy + 4);
       continue;
     }
     if (b.kind === "swap" || b.kind === "target") {
@@ -9872,12 +9873,12 @@ function renderTouchOverlay(ctx) {
       ctx.lineWidth = 1.5;
       ctx.stroke();
       ctx.fillStyle = onAux ? "#fff8ff" : "#383850";
-      ctx.font = "bold 14px monospace";
-      ctx.fillText(b.label, b.cx - ctx.measureText(b.label).width / 2, b.cy + 5);
+      ctx.font = "bold 12px monospace";
+      ctx.fillText(b.label, b.cx - ctx.measureText(b.label).width / 2, b.cy + 4);
       ctx.fillStyle = "rgba(210,210,230,0.95)";
-      ctx.font = "7px monospace";
+      ctx.font = "6px monospace";
       const sub = b.kind === "swap" ? "SWAP" : "HEDEF";
-      ctx.fillText(sub, b.cx - ctx.measureText(sub).width / 2, b.cy + b.r + 10);
+      ctx.fillText(sub, b.cx - ctx.measureText(sub).width / 2, b.cy + b.r + 7);
       continue;
     }
     const onRect = touchState.btnDown.size && [...touchState.btnDown.values()].some((v) => v.key === b.key);
@@ -10966,10 +10967,6 @@ function gameLoop(now) {
 
   camera.resetTransform(ctx);
 
-  if (!inventory.open && !petPanel.open && !shop.open && !craftPanel.open && !charPanel.open) {
-    drawRangedTargetHpBanner(ctx, canvasW, canvasH, rangedFocusMonster);
-  }
-
   if (!inventory.open && !petPanel.open && !shop.open && !craftPanel.open) {
     const hx = 10, hy = 10, hw = 170, barH = 10, gap = 4, pad = 6;
     const extraRageRow = (player.rageBurstTimer > 0 || player.rageMeter > 0.02) ? barH + gap : 0;
@@ -11076,6 +11073,10 @@ function gameLoop(now) {
   if (inventorySlotInspect) renderInventorySlotInspect(ctx, canvasW, canvasH);
 
   renderTouchOverlay(ctx);
+
+  if (!inventory.open && !petPanel.open && !shop.open && !craftPanel.open && !charPanel.open) {
+    drawRangedTargetHpBanner(ctx, canvasW, canvasH, rangedFocusMonster);
+  }
 
   if (player.levelUpTimer > 0) {
     const t = player.levelUpTimer;
