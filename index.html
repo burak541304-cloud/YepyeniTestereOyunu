@@ -567,9 +567,11 @@ function mobileButtonsLayout(cw, ch) {
     });
   }
   const auxR = G.auxR;
+  const targetRad = Math.max(36, G.orbitR - 6);
+  const powerRad = G.orbitR + 16;
   const tAng = -Math.PI / 2 + 0.38;
-  const tcx = G.centerX + Math.cos(tAng) * G.orbitR;
-  const tcy = G.centerY + Math.sin(tAng) * G.orbitR;
+  const tcx = G.centerX + Math.cos(tAng) * targetRad;
+  const tcy = G.centerY + Math.sin(tAng) * targetRad;
   out.push({
     key: "target",
     kind: "target",
@@ -577,9 +579,9 @@ function mobileButtonsLayout(cw, ch) {
     cx: tcx, cy: tcy, r: auxR,
     x: tcx - auxR, y: tcy - auxR, w: auxR * 2, h: auxR * 2,
   });
-  const pAng = -Math.PI / 2 - 0.14;
-  const pcx = G.centerX + Math.cos(pAng) * G.orbitR;
-  const pcy = G.centerY + Math.sin(pAng) * G.orbitR;
+  const pAng = -Math.PI / 2 - 0.24;
+  const pcx = G.centerX + Math.cos(pAng) * powerRad;
+  const pcy = G.centerY + Math.sin(pAng) * powerRad;
   out.push({
     key: MOBILE_POWER_BUTTON_KEY,
     kind: "power",
@@ -2775,10 +2777,7 @@ class Inventory {
       this.equipped[slotKey] = packEq(oneId, uHeld);
       return;
     }
-    if (cur && !this.heldItem) {
-      this.heldItem = packEq(cur.id, getStackUpgradeLv(cur));
-      this.equipped[slotKey] = null;
-    }
+    if (cur && !this.heldItem) openInventorySlotInspect("eq", slotKey);
   }
 
   _slotClick(container, idx, rightClick) {
@@ -7371,6 +7370,11 @@ class Shop {
       ctx.font = "10px monospace";
       const warn = gold < total ? "Yeterli alt\u0131n yok." : "";
       if (warn) ctx.fillText(warn, d.x + 16, d.y + d.h - 58);
+    } else if (maxB <= 0) {
+      ctx.fillStyle = "#c07070";
+      ctx.font = "10px monospace";
+      const warn = (!si.unlimited && si.qty <= 0) ? "Stok t\u00fckendi." : "Envanterde yer yok.";
+      ctx.fillText(warn, d.x + 16, d.y + d.h - 58);
     }
 
     ctx.fillStyle = canBuy ? "rgba(40,110,55,0.95)" : "rgba(45,45,55,0.85)";
@@ -7494,25 +7498,21 @@ class Shop {
             return true;
           }
           const maxB = this._shopMaxBuyable(inventory, siD);
-          if (maxB <= 0) {
-            this.buyPicker = null;
-            return true;
-          }
           const a0 = this.buyPicker.amount != null ? this.buyPicker.amount : 1;
-          if (this._pointInRect(mx, my, B.btnMinus)) {
+          if (maxB > 0 && this._pointInRect(mx, my, B.btnMinus)) {
             this.buyPicker.amount = Math.max(1, a0 - 1);
             return true;
           }
-          if (this._pointInRect(mx, my, B.btnPlus)) {
+          if (maxB > 0 && this._pointInRect(mx, my, B.btnPlus)) {
             this.buyPicker.amount = Math.min(maxB, a0 + 1);
             return true;
           }
-          if (this._pointInRect(mx, my, B.btnMax)) {
+          if (maxB > 0 && this._pointInRect(mx, my, B.btnMax)) {
             this.buyPicker.amount = maxB;
             return true;
           }
           const trackHit = { x: B.track.x - 2, y: B.track.y - 8, w: B.track.w + 4, h: B.track.h + 16 };
-          if (this._pointInRect(mx, my, trackHit)) {
+          if (maxB > 0 && this._pointInRect(mx, my, trackHit)) {
             this.buyPicker.amount = this._sellAmountFromTrackMx(mx, B.track, maxB);
             return true;
           }
@@ -7537,15 +7537,6 @@ class Shop {
           const si = this.stock[i];
           const def = ITEMS[si.id];
           if (!def) return true;
-          if (!si.unlimited && si.qty <= 0) {
-            this._showFeedback("Stok t\u00fckendi!", "#d04040");
-            return true;
-          }
-          const maxB = this._shopMaxBuyable(inventory, si);
-          if (maxB <= 0) {
-            this._showFeedback("Envantere s\u0131\u011fm\u0131yor!", "#d04040");
-            return true;
-          }
           this.buyPicker = { stockIndex: i, itemId: si.id, amount: 1 };
           return true;
         }
@@ -8500,6 +8491,17 @@ function renderWorldItemInspect(ctx, cw, ch) {
     ctx.fillText(ln.text, L.px + 16, ty);
     ty += touchState.mobileUI ? 19 : 15;
   }
+  const cmpLines = buildInspectCompareLines(def, slot, kind, idx);
+  if (cmpLines.length && ty < maxY - 6) {
+    ty += 4;
+    for (const cLn of cmpLines) {
+      if (ty > maxY) break;
+      ctx.font = touchState.mobileUI ? "11px monospace" : "10px monospace";
+      ctx.fillStyle = cLn.color || "#b8c8e8";
+      ctx.fillText(cLn.text, L.px + 16, ty);
+      ty += touchState.mobileUI ? 16 : 13;
+    }
+  }
 
   const eqCands0 = equipSlotsForItemDef(def);
   const canEq = eqCands0.some((sk) => {
@@ -9311,15 +9313,20 @@ function tryAttemptInventoryUpgrade(slot, def) {
 }
 
 function openInventorySlotInspect(kind, idx) {
-  const container = kind === "slots" ? inventory.slots : inventory.hotbar;
-  const slot = container[idx];
+  let slot = null;
+  if (kind === "eq") slot = inventory.equipped[idx];
+  else {
+    const container = kind === "slots" ? inventory.slots : inventory.hotbar;
+    slot = container[idx];
+  }
   if (!slot || slot.count <= 0) return;
   if (worldItemInspect) closeWorldItemInspect();
   inventorySlotInspect = { kind, idx };
 }
 
 function dropInventorySlotStackToWorld(kind, idx) {
-  const container = kind === "slots" ? inventory.slots : inventory.hotbar;
+  const fromEquip = kind === "eq";
+  const container = fromEquip ? inventory.equipped : (kind === "slots" ? inventory.slots : inventory.hotbar);
   const slot = container[idx];
   if (!slot || slot.count <= 0) return false;
   const baseCol = Math.floor(player.centerX / TILE_SIZE);
@@ -9329,11 +9336,13 @@ function dropInventorySlotStackToWorld(kind, idx) {
     const c = baseCol + dx, r = baseRow + dy;
     if (c < 0 || r < 0 || c >= map.cols || r >= map.rows) continue;
     if (map.isSolid(c, r, player.inBoat)) continue;
-    const wi = new WorldItem(c, r, slot.id, slot.count, false);
+    const dropCount = fromEquip ? 1 : slot.count;
+    const wi = new WorldItem(c, r, slot.id, dropCount, false);
     const u = getStackUpgradeLv(slot);
     if (u > 0) wi.upgrade = u;
     worldItems.push(wi);
-    container[idx] = null;
+    if (fromEquip || slot.count <= dropCount) container[idx] = null;
+    else slot.count -= dropCount;
     return true;
   }
   pickupMsgText = "Buraya b\u0131rak\u0131lam\u0131yor!";
@@ -9359,10 +9368,54 @@ function inventorySlotInspectLayout(cw, ch) {
   return { px, py, pw, ph, btnEquip, btnDrop, btnClose, btnUpgrade };
 }
 
+function getInspectCompareSlot(def, kind, idx) {
+  if (!def || !def.equipSlot) return null;
+  const cands = equipSlotsForItemDef(def);
+  if (!cands.length) return null;
+  if (kind === "eq" && idx) return inventory.equipped[idx] || null;
+  let first = null;
+  for (const sk of cands) {
+    const cur = inventory.equipped[sk];
+    if (cur) return { slot: cur, key: sk };
+    if (!first) first = { slot: null, key: sk };
+  }
+  return first;
+}
+
+function buildInspectCompareLines(def, slot, kind, idx) {
+  if (!def || !slot || !def.equipSlot) return [];
+  const base = getEffectiveItemStatsMerged(def, getStackUpgradeLv(slot));
+  const tgt = getInspectCompareSlot(def, kind, idx);
+  if (!tgt || !tgt.slot) return [{ text: "Karsilastirma: uygun slot bos", color: "#8fa0be" }];
+  const tgtDef = ITEMS[tgt.slot.id];
+  if (!tgtDef) return [];
+  const cur = getEffectiveItemStatsMerged(tgtDef, getStackUpgradeLv(tgt.slot));
+  const mk = (label, a, b) => {
+    const d = (a || 0) - (b || 0);
+    if (!d) return null;
+    return { text: label + " " + (d > 0 ? "+" : "") + d, color: d > 0 ? "#8ae0a8" : "#ff9a9a" };
+  };
+  const rows = [];
+  const head = "Karsilastirma (" + (EQ_LABELS[tgt.key] || tgt.key) + ": " + (tgtDef.name || "?") + ")";
+  rows.push({ text: head, color: "#c0d0f0" });
+  const ap = mk("Attack Power", (base.advanced && base.advanced.attackPower) || 0, (cur.advanced && cur.advanced.attackPower) || 0);
+  if (ap) rows.push(ap);
+  const str = mk("Guc", base.stats.str, cur.stats.str); if (str) rows.push(str);
+  const agi = mk("Ceviklik", base.stats.agi, cur.stats.agi); if (agi) rows.push(agi);
+  const wis = mk("Bilgelik", base.stats.wis, cur.stats.wis); if (wis) rows.push(wis);
+  const hp = mk("Max Can", base.stats.maxHp, cur.stats.maxHp); if (hp) rows.push(hp);
+  const mp = mk("Max Mana", base.stats.maxMana, cur.stats.maxMana); if (mp) rows.push(mp);
+  const scoreNow = itemStatPowerScore(def);
+  const scoreCur = itemStatPowerScore(tgtDef);
+  const sc = mk("Genel guc", scoreNow, scoreCur); if (sc) rows.push(sc);
+  return rows.slice(0, 6);
+}
+
 function handleInventorySlotInspectClick(mx, my, cw, ch) {
   if (!inventorySlotInspect) return false;
   const { kind, idx } = inventorySlotInspect;
-  const container = kind === "slots" ? inventory.slots : inventory.hotbar;
+  const fromEquip = kind === "eq";
+  const container = fromEquip ? inventory.equipped : (kind === "slots" ? inventory.slots : inventory.hotbar);
   const slot = container[idx];
   if (!slot || slot.count <= 0) {
     closeInventorySlotInspect();
@@ -9395,6 +9448,20 @@ function handleInventorySlotInspectClick(mx, my, cw, ch) {
     return true;
   }
   if (inR(L.btnEquip)) {
+    if (fromEquip) {
+      const left = inventory.addItem(slot.id, 1, getStackUpgradeLv(slot));
+      if (left > 0) {
+        pickupMsgText = "Envanter dolu!";
+        pickupMsgTimer = 1.3;
+        return true;
+      }
+      inventory.equipped[idx] = null;
+      player.applyEquipmentBonus(inventory);
+      pickupMsgText = "Eşya çıkarıldı.";
+      pickupMsgTimer = 1.1;
+      closeInventorySlotInspect();
+      return true;
+    }
     const defE = ITEMS[slot.id];
     if (!defE || !defE.equipSlot) {
       pickupMsgText = "Bu e\u015fya giyilmez.";
@@ -9420,7 +9487,8 @@ function handleInventorySlotInspectClick(mx, my, cw, ch) {
 function renderInventorySlotInspect(ctx, cw, ch) {
   if (!inventorySlotInspect || !inventory.open) return;
   const { kind, idx } = inventorySlotInspect;
-  const container = kind === "slots" ? inventory.slots : inventory.hotbar;
+  const fromEquip = kind === "eq";
+  const container = fromEquip ? inventory.equipped : (kind === "slots" ? inventory.slots : inventory.hotbar);
   const slot = container[idx];
   if (!slot || slot.count <= 0) {
     closeInventorySlotInspect();
@@ -9471,7 +9539,7 @@ function renderInventorySlotInspect(ctx, cw, ch) {
   }
 
   const eqCands1 = equipSlotsForItemDef(def);
-  const canEq = eqCands1.some((sk) => {
+  const canEq = fromEquip ? true : eqCands1.some((sk) => {
     const curI = inventory.equipped[sk];
     return !curI || curI.id !== slot.id || getStackUpgradeLv(curI) !== getStackUpgradeLv(slot);
   });
@@ -9482,7 +9550,7 @@ function renderInventorySlotInspect(ctx, cw, ch) {
   ctx.stroke();
   ctx.fillStyle = canEq ? "#f0fff0" : "#707080";
   ctx.font = "bold 11px monospace";
-  const tEq = "Giy";
+  const tEq = fromEquip ? "Çıkar" : "Giy";
   ctx.fillText(tEq, L.btnEquip.x + (L.btnEquip.w - ctx.measureText(tEq).width) / 2, L.btnEquip.y + 22);
 
   ctx.fillStyle = "rgba(90,55,45,0.92)";
@@ -9526,7 +9594,7 @@ function renderInventorySlotInspect(ctx, cw, ch) {
 
   ctx.fillStyle = "#707890";
   ctx.font = "9px monospace";
-  ctx.fillText("Sol t\u0131k: panel; ba\u015far\u0131s\u0131z y\u00fckseltmelerde alt\u0131n harcan\u0131r.", L.px + 16, L.py + L.ph - 6);
+  ctx.fillText(fromEquip ? "Takili esya: ozellik gor, cikar veya yere at." : "Sol t\u0131k: panel; ba\u015far\u0131s\u0131z y\u00fckseltmelerde alt\u0131n harcan\u0131r.", L.px + 16, L.py + L.ph - 6);
 }
 const petPanel = new PetPanel();
 const shop = new Shop();
