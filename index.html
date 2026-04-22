@@ -8,7 +8,7 @@
   <title>Chop & Grow – Top-Down RPG</title>
   <style>
     *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body { width: 100%; height: 100%; overflow: hidden; background: #111; touch-action: none; overscroll-behavior: none; -webkit-touch-callout: none; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: radial-gradient(ellipse 85% 70% at 50% 45%, #152028 0%, #0a0c12 55%, #050608 100%); touch-action: none; overscroll-behavior: none; -webkit-touch-callout: none; }
     #game-canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; touch-action: none; -webkit-user-select: none; user-select: none; }
     #save-menu-overlay { display: none; position: fixed; inset: 0; z-index: 100; background: rgba(6, 8, 20, 0.96); overflow: auto; font-family: system-ui, "Segoe UI", sans-serif; color: #e8eaf0; padding: 16px; box-sizing: border-box; }
     #save-menu-overlay h1 { text-align: center; font-size: 1.35rem; margin: 8px 0 4px; color: #f0d050; }
@@ -81,14 +81,14 @@ const RAGE_BURST_DURATION = 6;
 const RAGE_ACTIVATE_MIN = 0.22;
 let damageFloaters = [];
 
-function spawnDamageFloater(wx, wy, value, furyHit) {
+function spawnDamageFloater(wx, wy, value, furyHit, colorOverride) {
   damageFloaters.push({
     x: wx,
     y: wy,
     text: String(value),
     life: 0.95,
     vy: -48,
-    color: furyHit ? "#ff4545" : "#ffe078",
+    color: colorOverride || (furyHit ? "#ff4545" : "#ffe078"),
   });
 }
 
@@ -321,20 +321,13 @@ const touchState = {
   attackT0: 0,
   btnDown: new Map(),
   invSlotPressId: -1,
-  /** 0: beceri \u00e7ubu\u011fu A, 1: B (SWAP ile) */
-  skillBarPage: 0,
 };
 
-/** Mobil / masa\u00fcst\u00fc: 8 aktif beceri (SWAP ile 4+4). */
+/** Mobil / masa\u00fcst\u00fc: sadele\u015ftirilmi\u015f 3 aktif beceri. */
 const ACTIVE_SKILL_DEFS = [
-  { id: "whirl", icon: "\u2694", mana: 8, cooldown: 4.5 },
-  { id: "nova", icon: "\u2726", mana: 15, cooldown: 7 },
-  { id: "fire", icon: "F", mana: 6, cooldown: 3.2 },
-  { id: "frost", icon: "*", mana: 7, cooldown: 3.5 },
-  { id: "dash", icon: "\u21E8", mana: 5, cooldown: 4 },
-  { id: "thunder", icon: "\u26A1", mana: 12, cooldown: 6 },
-  { id: "mend", icon: "\u2764", mana: 10, cooldown: 8 },
-  { id: "volley", icon: "\u27F3", mana: 14, cooldown: 9 },
+  { id: "powerburst", icon: "P", mana: 12, cooldown: 5.2 },
+  { id: "volley", icon: "\u27F3", mana: 14, cooldown: 8.2 },
+  { id: "mend", icon: "\u2764", mana: 10, cooldown: 8.5 },
 ];
 
 /** Masa\u00fcst\u00fcnde minimap ile sa\u011f UI \u00e7ak\u0131\u015fmas\u0131 i\u00e7in bo\u015fluk (mobilde kullan\u0131lmaz). */
@@ -342,10 +335,14 @@ let MOBILE_MINIMAP_RIGHT_RESERVE_PX = 68;
 
 /** Mobil: sald\u0131r\u0131 bas\u0131l\u0131 tutunca bu s\u00fcre boyunca (ms) \u00f6nce Etkile\u015fim aday\u0131 kontrol\u00fc; NPC/a\u011fa\u00e7 vb. varsa ok/vuru\u015f ba\u015flamaz. */
 const MOBILE_ATTACK_INTERACT_MS = 240;
+const DESKTOP_POWER_HOLD_MS = 280;
+const MOBILE_POWER_BUTTON_KEY = "power";
+let mouseAttackT0 = 0;
 
 /** Mobil otomatik iksir tekrar kullan\u0131m bekleme (sn). */
 const MOBILE_AUTO_POT_COOLDOWN = 1.35;
 const AUTO_POT_SETTINGS_KEY = "chopgrow_autopot_v1";
+const LOOT_PRESET_SETTINGS_KEY = "chopgrow_loot_preset_v1";
 
 /** Oyuncu taraf\u0131ndan ayarlanabilir e\u015fikler (%5\u201395); yaln\u0131zca mobil otomatik iksirde kullan\u0131l\u0131r. */
 const autoPotSettings = { hpPct: 42, mpPct: 32 };
@@ -372,6 +369,97 @@ function saveAutoPotSettings() {
 loadAutoPotSettings();
 
 let mobileAutoPotionCooldown = 0;
+
+const LOOT_BALANCE_PANEL = {
+  defaultPresetId: "normal",
+  presetOrder: ["easy", "normal", "hard", "farm", "aggressive"],
+  presets: {
+    easy: {
+      id: "easy",
+      label: "Kolay",
+      allMobEquipChance: 0.24,
+      bossAnyLegendaryChance: 0.34,
+      strongBossHiTierChance: 0.84,
+    },
+    normal: {
+      id: "normal",
+      label: "Orta",
+      allMobEquipChance: 0.18,
+      bossAnyLegendaryChance: 0.26,
+      strongBossHiTierChance: 0.72,
+    },
+    hard: {
+      id: "hard",
+      label: "Zor",
+      allMobEquipChance: 0.12,
+      bossAnyLegendaryChance: 0.18,
+      strongBossHiTierChance: 0.55,
+    },
+    farm: {
+      id: "farm",
+      label: "Farm",
+      allMobEquipChance: 0.29,
+      bossAnyLegendaryChance: 0.4,
+      strongBossHiTierChance: 0.9,
+    },
+    aggressive: {
+      id: "aggressive",
+      label: "Agresif",
+      allMobEquipChance: 0.1,
+      bossAnyLegendaryChance: 0.2,
+      strongBossHiTierChance: 0.63,
+    },
+  },
+  bossRateTable: {
+    forest_treant: { legendMul: 0.92, hiTierMul: 0.96 },
+    desert_titan: { legendMul: 0.95, hiTierMul: 0.98 },
+    rock_warden: { legendMul: 0.95, hiTierMul: 0.97 },
+    flower_queen: { legendMul: 0.9, hiTierMul: 0.94 },
+    north_frost: { legendMul: 0.98, hiTierMul: 1.0 },
+    south_shadow: { legendMul: 1.0, hiTierMul: 1.02 },
+    ice_queen: { legendMul: 1.06, hiTierMul: 1.08 },
+    dune_king: { legendMul: 1.08, hiTierMul: 1.1 },
+    jungle_behemoth: { legendMul: 1.05, hiTierMul: 1.08 },
+    thunder_lord: { legendMul: 1.12, hiTierMul: 1.14 },
+    abyss_crab: { legendMul: 1.06, hiTierMul: 1.1 },
+    volcanic_titan: { legendMul: 1.14, hiTierMul: 1.16 },
+    godzilla: { legendMul: 1.2, hiTierMul: 1.22 },
+    scorpion_king: { legendMul: 1.08, hiTierMul: 1.11 },
+    giant_bee_queen: { legendMul: 1.06, hiTierMul: 1.08 },
+    skywing_dragon: { legendMul: 1.45, hiTierMul: 1.5 },
+  },
+};
+let lootPresetId = LOOT_BALANCE_PANEL.defaultPresetId;
+const STRONG_BOSS_TYPES = new Set([
+  "forest_treant", "desert_titan", "rock_warden", "flower_queen", "north_frost", "south_shadow",
+  "ice_queen", "dune_king", "jungle_behemoth", "thunder_lord", "abyss_crab", "volcanic_titan",
+  "godzilla", "scorpion_king", "giant_bee_queen", "skywing_dragon",
+]);
+function loadLootPresetSettings() {
+  try {
+    const raw = localStorage.getItem(LOOT_PRESET_SETTINGS_KEY);
+    if (!raw) return;
+    const o = JSON.parse(raw);
+    if (o && typeof o.id === "string" && LOOT_BALANCE_PANEL.presets[o.id]) lootPresetId = o.id;
+  } catch (e) {}
+}
+
+function saveLootPresetSettings() {
+  try { localStorage.setItem(LOOT_PRESET_SETTINGS_KEY, JSON.stringify({ id: lootPresetId })); } catch (e) {}
+}
+
+function getLootPreset() {
+  return LOOT_BALANCE_PANEL.presets[lootPresetId] || LOOT_BALANCE_PANEL.presets[LOOT_BALANCE_PANEL.defaultPresetId];
+}
+
+function cycleLootPreset() {
+  const idx = Math.max(0, LOOT_BALANCE_PANEL.presetOrder.indexOf(lootPresetId));
+  lootPresetId = LOOT_BALANCE_PANEL.presetOrder[(idx + 1) % LOOT_BALANCE_PANEL.presetOrder.length];
+  saveLootPresetSettings();
+  return getLootPreset();
+}
+
+loadLootPresetSettings();
 
 function refreshMobileUI() {
   const narrow = Math.min(window.innerWidth, window.innerHeight) <= 1080;
@@ -414,7 +502,7 @@ function uiModalBounds(cw, ch) {
   };
 }
 
-/** Sa\u011f alt MMORPG k\u00fcmesi: merkez sald\u0131r\u0131 + y\u00f6r\u00fcnge (beceri, SWAP, HEDEF daireleri). */
+/** Sa\u011f alt MMORPG k\u00fcmesi: merkez sald\u0131r\u0131 + y\u00f6r\u00fcnge (beceri, HEDEF, POWER). */
 function mobileCombatClusterGeom(cw, ch) {
   const pad = 6;
   const margin = 5;
@@ -422,7 +510,7 @@ function mobileCombatClusterGeom(cw, ch) {
   const skillR = 16;
   let orbitR = 60;
   const auxR = 14;
-  /** SWAP ~sa\u011fda; merkez + cos(angle)*R + r <= cw - margin olmal\u0131. */
+  /** Yard\u0131mc\u0131 butonlar sa\u011f s\u0131n\u0131r\u0131 a\u015fmas\u0131n. */
   const swapAng = 0.12;
   if (touchState.mobileUI && cw < 520) {
     orbitR = Math.max(52, Math.round(60 - (520 - cw) * 0.11));
@@ -436,13 +524,15 @@ function mobileCombatClusterGeom(cw, ch) {
 }
 
 /**
- * Beceri yayı: sol yarım halka (iksir / SWAP / HEDEF alanlar\u0131ndan ayr\u0131).
+ * Beceri yayı: sol yarım halka (iksir / HEDEF / POWER alanlar\u0131ndan ayr\u0131).
  * ~158\u00b0 \u2013 256\u00b0
  */
-function mobileSkillSlotAngles() {
+function mobileSkillSlotAngles(count) {
+  const n = Math.max(1, count | 0);
   const start = Math.PI * 0.92;
   const end = Math.PI * 1.38;
-  return [0, 1, 2, 3].map((i) => start + ((end - start) * i) / 3);
+  if (n === 1) return [(start + end) / 2];
+  return Array.from({ length: n }, (_, i) => start + ((end - start) * i) / (n - 1));
 }
 
 /** Eski iksir yerle\u015fimi i\u00e7in sald\u0131r\u0131 alan\u0131 (dikd\u00f6rtgen yakla\u015f\u0131m\u0131). */
@@ -457,10 +547,10 @@ function mobileButtonsLayout(cw, ch) {
   const out = [];
   const side = G.atkR * 2 + 4;
   out.push({ key: "attack", kind: "attack", label: "\u2694", x: G.centerX - G.atkR - 2, y: G.centerY - G.atkR - 2, w: side, h: side, cx: G.centerX, cy: G.centerY, r: G.atkR });
-  const ang = mobileSkillSlotAngles();
-  const page = touchState.skillBarPage | 0;
-  for (let i = 0; i < 4; i++) {
-    const slot = page * 4 + i;
+  const skillCount = ACTIVE_SKILL_DEFS.length;
+  const ang = mobileSkillSlotAngles(skillCount);
+  for (let i = 0; i < skillCount; i++) {
+    const slot = i;
     const a = ang[i];
     const cx = G.centerX + Math.cos(a) * G.orbitR;
     const cy = G.centerY + Math.sin(a) * G.orbitR;
@@ -487,15 +577,15 @@ function mobileButtonsLayout(cw, ch) {
     cx: tcx, cy: tcy, r: auxR,
     x: tcx - auxR, y: tcy - auxR, w: auxR * 2, h: auxR * 2,
   });
-  const sAng = 0.1;
-  const scx = G.centerX + Math.cos(sAng) * G.orbitR;
-  const scy = G.centerY + Math.sin(sAng) * G.orbitR;
+  const pAng = -Math.PI / 2 - 0.14;
+  const pcx = G.centerX + Math.cos(pAng) * G.orbitR;
+  const pcy = G.centerY + Math.sin(pAng) * G.orbitR;
   out.push({
-    key: "swap",
-    kind: "swap",
-    label: "\u21C4",
-    cx: scx, cy: scy, r: auxR,
-    x: scx - auxR, y: scy - auxR, w: auxR * 2, h: auxR * 2,
+    key: MOBILE_POWER_BUTTON_KEY,
+    kind: "power",
+    label: "P",
+    cx: pcx, cy: pcy, r: auxR,
+    x: pcx - auxR, y: pcy - auxR, w: auxR * 2, h: auxR * 2,
   });
   const topY = 4;
   const topH = 30;
@@ -503,7 +593,7 @@ function mobileButtonsLayout(cw, ch) {
     { key: "KeyI", label: "\u00c7ant" },
     { key: "KeyC", label: "K" },
     { key: "KeyM", label: "H" },
-    { key: "KeyB", label: "T" },
+    { key: "KeyT", label: "\u015eehir" },
   ];
   const tw = 44;
   const totalW = menuItems.length * tw + (menuItems.length - 1) * 4;
@@ -524,7 +614,7 @@ function hitMobileButton(mx, my, cw, ch) {
       if (dx * dx + dy * dy <= G.atkR * G.atkR) return b;
       continue;
     }
-    if (b.kind === "skill" || b.kind === "swap" || b.kind === "target") {
+    if (b.kind === "skill" || b.kind === "target" || b.kind === "power") {
       const dx = mx - b.cx, dy = my - b.cy;
       if (dx * dx + dy * dy <= b.r * b.r) return b;
       continue;
@@ -570,17 +660,17 @@ const TileType = {
 };
 
 const TILE_COLORS = {
-  [TileType.GRASS]:       "#4a8c3f",
-  [TileType.DIRT]:        "#8b6b3d",
-  [TileType.WATER]:       "#3172b8",
-  [TileType.SAND]:        "#d4bc6a",
-  [TileType.STONE_FLOOR]: "#8a8a8a",
-  [TileType.WALL]:        "#5a5a5a",
-  [TileType.TREE]:        "#2d6e1e",
-  [TileType.FLOWER]:      "#4a8c3f",
-  [TileType.BRIDGE]:      "#7a5c30",
-  [TileType.TALL_GRASS]:  "#3d7a33",
-  [TileType.SNOW]:        "#d8e8f0",
+  [TileType.GRASS]:       "#3d8a42",
+  [TileType.DIRT]:        "#7a5a35",
+  [TileType.WATER]:       "#2a6aa8",
+  [TileType.SAND]:        "#c9ae58",
+  [TileType.STONE_FLOOR]: "#7a7a82",
+  [TileType.WALL]:        "#4a4a52",
+  [TileType.TREE]:        "#2a6a1c",
+  [TileType.FLOWER]:      "#3d8440",
+  [TileType.BRIDGE]:      "#6a5030",
+  [TileType.TALL_GRASS]:  "#2e7238",
+  [TileType.SNOW]:        "#dceaf4",
 };
 
 const SOLID_TILES = new Set([TileType.WATER, TileType.WALL, TileType.TREE]);
@@ -657,7 +747,7 @@ const ITEMS = {
   chest_leather:  { id: "chest_leather",  name: "Deri Z\u0131rh",        stackable: true, maxStack: 32, rarity: "common",    equipSlot: "chest",  stats: { str: 1, agi: 1, wis: 0, maxHp: 12, maxMana: 0 }, desc: "Hafif g\u00f6vde korumas\u0131.", buyPrice: 0, sellPrice: 20 },
   chest_steel:    { id: "chest_steel",    name: "\u00c7elik Z\u0131rh",      stackable: true, maxStack: 32, rarity: "rare",      equipSlot: "chest", weight: 28,
     stats: { str: 3, agi: 1, wis: 0, maxHp: 28, maxMana: 0 },
-    advanced: { defense: 22, defSword: 8, defClub: 6, resFire: 5, resGlacier: 4 },
+    advanced: { defense: 22, defSword: 8, defClub: 6, resFire: 5, resGlacier: 4, pctHp: 5 },
     desc: "Kal\u0131n \u00e7elik plakalar.", buyPrice: 0, sellPrice: 55 },
   chest_epic:     { id: "chest_epic",     name: "Orman Kalbi",        stackable: true, maxStack: 32, rarity: "epic",      equipSlot: "chest",  stats: { str: 5, agi: 3, wis: 2, maxHp: 40, maxMana: 15 },
     extras: {
@@ -670,18 +760,44 @@ const ITEMS = {
   chest_legendary:{ id: "chest_legendary",name: "G\u00f6lge Pelerini",   stackable: true, maxStack: 32, rarity: "legendary", equipSlot: "chest",  stats: { str: 8, agi: 5, wis: 4, maxHp: 60, maxMana: 25 }, desc: "Karanl\u0131\u011f\u0131n efsanevi k\u0131yafeti.", buyPrice: 0, sellPrice: 500 },
   boots_swift:    { id: "boots_swift",    name: "H\u0131zl\u0131 Botlar",      stackable: true, maxStack: 32, rarity: "rare",      equipSlot: "feet",   stats: { str: 0, agi: 4, wis: 0, maxHp: 0, maxMana: 0 }, desc: "Hareket h\u0131z\u0131n\u0131 art\u0131r\u0131r.", buyPrice: 0, sellPrice: 40 },
   boots_epic:     { id: "boots_epic",     name: "R\u00fczgar Ad\u0131mlar\u0131",  stackable: true, maxStack: 32, rarity: "epic",      equipSlot: "feet",   stats: { str: 1, agi: 6, wis: 1, maxHp: 10, maxMana: 8 }, desc: "Hafif ve b\u00fcy\u00fcl\u00fc.", buyPrice: 0, sellPrice: 110 },
+  waist_cloth:    { id: "waist_cloth",    name: "Kuma\u015f Donluk", stackable: true, maxStack: 32, rarity: "common", equipSlot: "waist",
+    stats: { str: 0, agi: 1, wis: 0, maxHp: 6, maxMana: 0 }, desc: "Basit ama i\u015flevsel.", buyPrice: 0, sellPrice: 12 },
+  waist_chain:    { id: "waist_chain",    name: "Zincir Donluk", stackable: true, maxStack: 32, rarity: "rare", equipSlot: "waist",
+    stats: { str: 1, agi: 2, wis: 0, maxHp: 14, maxMana: 0 }, desc: "Daha sa\u011flam koruma.", buyPrice: 0, sellPrice: 38 },
+  waist_epic:     { id: "waist_epic",     name: "F\u0131rt\u0131na Donlu\u011fu", stackable: true, maxStack: 32, rarity: "epic", equipSlot: "waist",
+    stats: { str: 2, agi: 4, wis: 1, maxHp: 24, maxMana: 8 }, desc: "Sava\u015fta denge verir.", buyPrice: 0, sellPrice: 98 },
+  waist_legendary:{ id: "waist_legendary",name: "Efsunlu Donluk", stackable: true, maxStack: 32, rarity: "legendary", equipSlot: "waist",
+    stats: { str: 4, agi: 5, wis: 2, maxHp: 38, maxMana: 14 }, desc: "Kadim m\u00fch\u00fcrlerle dokundu.", buyPrice: 0, sellPrice: 280 },
+  arms_cloth:     { id: "arms_cloth",     name: "Bez Kolluk", stackable: true, maxStack: 32, rarity: "common", equipSlot: "arms",
+    stats: { str: 1, agi: 0, wis: 0, maxHp: 5, maxMana: 0 }, desc: "Kollar i\u00e7in hafif koruma.", buyPrice: 0, sellPrice: 10 },
+  arms_iron:      { id: "arms_iron",      name: "Demir Kolluk", stackable: true, maxStack: 32, rarity: "rare", equipSlot: "arms",
+    stats: { str: 2, agi: 1, wis: 0, maxHp: 12, maxMana: 0 }, desc: "Darbe emici metal halkalar.", buyPrice: 0, sellPrice: 35 },
+  arms_epic:      { id: "arms_epic",      name: "Runik Kolluk", stackable: true, maxStack: 32, rarity: "epic", equipSlot: "arms",
+    stats: { str: 3, agi: 3, wis: 1, maxHp: 20, maxMana: 8 }, desc: "R\u00fcnlerle i\u015flenmi\u015f.", buyPrice: 0, sellPrice: 95 },
+  arms_legendary: { id: "arms_legendary", name: "Titan Kollu\u011fu", stackable: true, maxStack: 32, rarity: "legendary", equipSlot: "arms",
+    stats: { str: 5, agi: 4, wis: 1, maxHp: 34, maxMana: 12 }, desc: "Devlerin sava\u015f yadigar\u0131.", buyPrice: 0, sellPrice: 260 },
+  wings_cloth:    { id: "wings_cloth",    name: "Kuma\u015f Kanat", stackable: true, maxStack: 32, rarity: "common", equipSlot: "wings",
+    stats: { str: 0, agi: 1, wis: 1, maxHp: 4, maxMana: 8 }, desc: "S\u00fcs ama az da olsa g\u00fc\u00e7 verir.", buyPrice: 0, sellPrice: 14 },
+  wings_azure:    { id: "wings_azure",    name: "Azure Kanatl\u0131k", stackable: true, maxStack: 32, rarity: "rare", equipSlot: "wings",
+    stats: { str: 1, agi: 3, wis: 2, maxHp: 10, maxMana: 15 }, desc: "R\u00fczgarla uyumlu.", buyPrice: 0, sellPrice: 44 },
+  wings_epic:     { id: "wings_epic",     name: "Y\u0131ld\u0131z Kanatl\u0131k", stackable: true, maxStack: 32, rarity: "epic", equipSlot: "wings",
+    stats: { str: 2, agi: 5, wis: 3, maxHp: 16, maxMana: 24 }, desc: "Gece g\u00f6\u011f\u00fcnden dokunmu\u015f.", buyPrice: 0, sellPrice: 120 },
+  wings_legendary:{ id: "wings_legendary",name: "Ejder Kanatl\u0131k", stackable: true, maxStack: 32, rarity: "legendary", equipSlot: "wings",
+    stats: { str: 4, agi: 7, wis: 4, maxHp: 30, maxMana: 36 },
+    advanced: { pctAgi: 10, pctHp: 8, pctMana: 8 },
+    desc: "Efsanevi alev izleri ta\u015f\u0131r.", buyPrice: 0, sellPrice: 340 },
   ring_power:     { id: "ring_power",     name: "G\u00fc\u00e7 Y\u00fcz\u00fc\u011f\u00fc",      stackable: true, maxStack: 32, rarity: "epic",      equipSlot: "ring", weight: 0.6,
     stats: { str: 5, agi: 0, wis: 2, maxHp: 0, maxMana: 20 },
-    advanced: { defDagger: 6, defSword: 6, defClub: 6, defSpear: 6, defArrow: 6, defense: 4 },
+    advanced: { defDagger: 6, defSword: 6, defClub: 6, defSpear: 6, defArrow: 6, defense: 4, pctStr: 8 },
     desc: "Saf g\u00fc\u00e7 kristali.", buyPrice: 0, sellPrice: 90 },
   amulet_wisdom:  { id: "amulet_wisdom",  name: "Bilgelik T\u0131ls\u0131m\u0131",  stackable: true, maxStack: 32, rarity: "legendary", equipSlot: "amulet", weight: 0.5,
     stats: { str: 2, agi: 2, wis: 8, maxHp: 20, maxMana: 40 },
-    advanced: { resFire: 12, resGlacier: 12, resLightning: 12, resMagic: 18, resPoison: 10, resCurse: 14, defense: 8 },
+    advanced: { resFire: 12, resGlacier: 12, resLightning: 12, resMagic: 18, resPoison: 10, resCurse: 14, defense: 8, pctWis: 12, pctMana: 15 },
     desc: "Kadim bilgelik sembol\u00fc.", buyPrice: 0, sellPrice: 350 },
-  gloves_archer:  { id: "gloves_archer",  name: "Ok\u00e7u Eldivenleri", stackable: true, maxStack: 32, rarity: "rare",      equipSlot: "hands",  stats: { str: 2, agi: 3, wis: 0, maxHp: 0, maxMana: 5 }, desc: "Yay \u00e7eki\u015fini kolayla\u015ft\u0131r\u0131r.", buyPrice: 0, sellPrice: 35 },
+  gloves_archer:  { id: "gloves_archer",  name: "Ok\u00e7u Eldivenleri", stackable: true, maxStack: 32, rarity: "rare",      equipSlot: "arms",  stats: { str: 2, agi: 3, wis: 0, maxHp: 0, maxMana: 5 }, desc: "Yay \u00e7eki\u015fini kolayla\u015ft\u0131r\u0131r.", buyPrice: 0, sellPrice: 35 },
   lucky_charm:    { id: "lucky_charm",    name: "\u015eans T\u0131ls\u0131m\u0131",      stackable: true, maxStack: 32, rarity: "rare",      equipSlot: "amulet", stats: { str: 0, agi: 1, wis: 2, maxHp: 6, maxMana: 12 }, desc: "Eski kervan yollar\u0131ndan.", buyPrice: 175, sellPrice: 42 },
   merchants_ring: { id: "merchants_ring", name: "Lonca Y\u00fcz\u00fc\u011f\u00fc",      stackable: true, maxStack: 32, rarity: "epic",      equipSlot: "ring",   stats: { str: 2, agi: 2, wis: 2, maxHp: 10, maxMana: 14 }, desc: "T\u00fcccar loncas\u0131n\u0131n m\u00fchr\u00fc.", buyPrice: 310, sellPrice: 88 },
-  explorer_band:  { id: "explorer_band",  name: "Ka\u015fif Bilezi\u011fi",      stackable: true, maxStack: 32, rarity: "rare",      equipSlot: "hands",  stats: { str: 1, agi: 3, wis: 0, maxHp: 8, maxMana: 0 }, desc: "Harita ve pusula dostu.", buyPrice: 135, sellPrice: 38 },
+  explorer_band:  { id: "explorer_band",  name: "Ka\u015fif Bilezi\u011fi",      stackable: true, maxStack: 32, rarity: "rare",      equipSlot: "arms",  stats: { str: 1, agi: 3, wis: 0, maxHp: 8, maxMana: 0 }, desc: "Harita ve pusula dostu.", buyPrice: 135, sellPrice: 38 },
   boss_chest:     { id: "boss_chest",     name: "Boss Sand\u0131\u011f\u0131",       stackable: true, maxStack: 99, rarity: "legendary", desc: "A\u00e7\u0131nca nadir ganimet verir.", buyPrice: 0, sellPrice: 0 },
 };
 
@@ -726,7 +842,7 @@ function aggregateEquipmentExtras(inv) {
     lowHpRules: [],
   };
   if (!inv || !inv.equipped) return out;
-  const eqKeys = ["blade", "bow", "head", "chest", "hands", "feet", "ring", "amulet"];
+  const eqKeys = EQ_SLOTS;
   for (const sk of eqKeys) {
     const es = inv.equipped[sk];
     if (!es || !ITEMS[es.id]) continue;
@@ -773,7 +889,9 @@ function isPlayerBehindMonster(player, monster) {
 function applyOutgoingPlayerDamage(baseDmg, player, inventory, opts) {
   opts = opts || {};
   const agg = aggregateEquipmentExtras(inventory);
+  const atkPowerFloor = getEquipmentAttackPowerTotal(inventory);
   let d = baseDmg * (1 + agg.bonusPctDmg / 100) * (1 + (agg.firePct + agg.icePct + agg.poisonPct) / 100);
+  if (atkPowerFloor > 0) d = Math.max(d, atkPowerFloor);
   const hpRat = player.maxHp > 0 ? player.hp / player.maxHp : 1;
   let lowExtra = 0;
   for (const r of agg.lowHpRules) {
@@ -786,6 +904,10 @@ function applyOutgoingPlayerDamage(baseDmg, player, inventory, opts) {
   if (crit) {
     const mult = 1.5 + (agg.critDamagePct / 100);
     d *= mult;
+  }
+  if (opts.armorPiercePct > 0) {
+    const p = Math.min(90, opts.armorPiercePct | 0);
+    d *= 1 + (p / 100) * 0.42;
   }
   if (player.rageBurstTimer > 0) d *= 3;
   return Math.max(1, Math.floor(d));
@@ -848,6 +970,66 @@ function stackUpgradesMatch(a, b) {
 }
 
 function getEffectiveItemStatsMerged(def, upgradeLv) {
+  const deriveDefaultPercentBonuses = () => {
+    if (!def || !def.equipSlot) return {};
+    const rr = rarityRank(def.rarity || "common");
+    const out = {};
+    const slot = def.equipSlot;
+    const base = Math.max(0, rr - 1);
+    if (base <= 0) return out;
+
+    /* Slot odaklı daha keskin RPG dağılımı */
+    const add = (k, v) => { out[k] = Math.max(out[k] || 0, Math.round(v)); };
+    const main = 2 + base * 3.4;
+    const side = 1 + base * 1.75;
+    const rareLift = rr >= 4 ? 1.18 : rr >= 3 ? 1.08 : 1;
+
+    if (slot === "blade") {
+      add("pctStr", main * 1.2 * rareLift);
+      add("pctHp", side * 0.9);
+    } else if (slot === "bow") {
+      add("pctAgi", main * 1.2 * rareLift);
+      add("pctStr", side * 0.45);
+    } else if (slot === "feet") {
+      add("pctAgi", main * 1.02 * rareLift);
+      add("pctHp", side * 0.55);
+    } else if (slot === "wings") {
+      add("pctAgi", main * 1.08 * rareLift);
+      add("pctMana", side * 1.0);
+    } else if (slot === "amulet") {
+      add("pctWis", main * 1.22 * rareLift);
+      add("pctMana", main * 1.06);
+      add("pctStr", side * 0.35);
+    } else if (slot === "ring") {
+      add("pctWis", main * 0.95 * rareLift);
+      add("pctMana", side * 0.95);
+      add("pctStr", side * 0.55);
+      add("pctAgi", side * 0.55);
+    } else if (slot === "chest") {
+      add("pctHp", main * 1.25 * rareLift);
+      add("pctStr", side * 0.6);
+    } else if (slot === "waist") {
+      add("pctHp", main * 1.06 * rareLift);
+      add("pctStr", side * 0.72);
+    } else if (slot === "arms") {
+      add("pctStr", main * 0.88 * rareLift);
+      add("pctAgi", side * 0.88);
+    } else if (slot === "head") {
+      add("pctWis", main * 0.78 * rareLift);
+      add("pctHp", side * 0.82);
+    }
+
+    /* Eşyanın kendi stat profiline göre küçük dengeleme */
+    const st = def.stats || {};
+    if (st.maxHp) add("pctHp", out.pctHp ? out.pctHp + Math.max(1, base * 0.5) : base * 1.2);
+    if (st.maxMana) add("pctMana", out.pctMana ? out.pctMana + Math.max(1, base * 0.5) : base * 1.2);
+    if (st.str) add("pctStr", out.pctStr ? out.pctStr + Math.max(1, base * 0.35) : base);
+    if (st.agi) add("pctAgi", out.pctAgi ? out.pctAgi + Math.max(1, base * 0.35) : base);
+    if (st.wis) add("pctWis", out.pctWis ? out.pctWis + Math.max(1, base * 0.35) : base);
+
+    return out;
+  };
+
   const stats = {};
   if (def.stats) {
     for (const k of Object.keys(def.stats)) stats[k] = def.stats[k];
@@ -856,21 +1038,39 @@ function getEffectiveItemStatsMerged(def, upgradeLv) {
   if (def.advanced) {
     for (const k of Object.keys(def.advanced)) advanced[k] = def.advanced[k];
   }
+  const autoPct = deriveDefaultPercentBonuses();
+  for (const k of Object.keys(autoPct)) {
+    if (advanced[k] == null) advanced[k] = autoPct[k];
+  }
   const u = upgradeLv | 0;
-  if (u <= 0) return { stats, advanced };
-  const sc = 1 + u * 0.072;
-  for (const k of Object.keys(stats)) {
-    const v = stats[k];
-    if (typeof v === "number" && v) {
-      stats[k] = v > 0
-        ? Math.round(v * sc + u * (k.indexOf("Dmg") >= 0 ? 0.85 : 0.28))
-        : Math.round(v * (1 + u * 0.018));
+  if (u > 0) {
+    const sc = 1 + u * 0.072;
+    for (const k of Object.keys(stats)) {
+      const v = stats[k];
+      if (typeof v === "number" && v) {
+        stats[k] = v > 0
+          ? Math.round(v * sc + u * (k.indexOf("Dmg") >= 0 ? 0.85 : 0.28))
+          : Math.round(v * (1 + u * 0.018));
+      }
+    }
+    for (const k of Object.keys(advanced)) {
+      const v = advanced[k];
+      if (typeof v === "number" && v > 0) advanced[k] = Math.round(v * sc + u * 0.55);
+      else if (typeof v === "number" && v < 0) advanced[k] = Math.round(v * (1 + u * 0.014));
     }
   }
-  for (const k of Object.keys(advanced)) {
-    const v = advanced[k];
-    if (typeof v === "number" && v > 0) advanced[k] = Math.round(v * sc + u * 0.55);
-    else if (typeof v === "number" && v < 0) advanced[k] = Math.round(v * (1 + u * 0.014));
+  if (def.equipSlot && (advanced.attackPower == null || advanced.attackPower <= 0)) {
+    const melee = Math.max(0, stats.meleeDmg || 0);
+    const ranged = Math.max(0, stats.rangedDmg || 0);
+    const str = Math.max(0, stats.str || 0);
+    const agi = Math.max(0, stats.agi || 0);
+    const wis = Math.max(0, stats.wis || 0);
+    const hp = Math.max(0, stats.maxHp || 0);
+    const mp = Math.max(0, stats.maxMana || 0);
+    let ap = melee * 6 + ranged * 6 + str * 2.1 + agi * 1.7 + wis * 1.35 + hp / 14 + mp / 8;
+    if (def.equipSlot === "blade" || def.equipSlot === "bow") ap *= 1.22;
+    else ap *= 0.7;
+    advanced.attackPower = Math.max(1, Math.round(ap));
   }
   return { stats, advanced };
 }
@@ -879,7 +1079,7 @@ function sumEquipmentEffective(inv) {
   const st = { str: 0, agi: 0, wis: 0, maxHp: 0, maxMana: 0, meleeDmg: 0, rangedDmg: 0 };
   const adv = {};
   if (!inv || !inv.equipped) return { stats: st, advanced: adv };
-  const eqKeys = ["blade", "bow", "head", "chest", "hands", "feet", "ring", "amulet"];
+  const eqKeys = EQ_SLOTS;
   for (let i = 0; i < eqKeys.length; i++) {
     const sk = eqKeys[i];
     const es = inv.equipped[sk];
@@ -891,6 +1091,11 @@ function sumEquipmentEffective(inv) {
     for (const k of Object.keys(m.advanced)) adv[k] = (adv[k] || 0) + (m.advanced[k] || 0);
   }
   return { stats: st, advanced: adv };
+}
+
+function getEquipmentAttackPowerTotal(inv) {
+  const s = sumEquipmentEffective(inv);
+  return Math.max(0, Math.floor((s.advanced && s.advanced.attackPower) || 0));
 }
 
 function getItemWeightDef(def) {
@@ -939,12 +1144,51 @@ function collectEffectiveStatLines(def, upgradeLv) {
     defClub: "G\u00fc\u00e7l\u00fc darbe sav.",
     defSpear: "M\u0131zrak savunmas\u0131",
     defArrow: "Ok savunmas\u0131",
-    attackPower: "Sald\u0131r\u0131 g\u00fcc\u00fc",
+    attackPower: "Attack Power",
     durabilityMax: "Max dayan\u0131kl\u0131l\u0131k",
+  };
+  const advColor = {
+    attackPower: "#f4f4ff",
+    defense: "#7cc8ff",
+    resFire: "#ff9d5c",
+    resGlacier: "#8ed8ff",
+    resLightning: "#e8b0ff",
+    resMagic: "#b8b8ff",
+    resPoison: "#93e07e",
+    resCurse: "#b58cff",
+    defDagger: "#a0d0ff",
+    defSword: "#a0d0ff",
+    defClub: "#a0d0ff",
+    defSpear: "#a0d0ff",
+    defArrow: "#a0d0ff",
+    durabilityMax: "#d8d8e8",
   };
   for (const k of Object.keys(advLabels)) {
     const v = adv[k];
-    if (v != null && v !== 0) lines.push({ text: advLabels[k] + ": " + (v > 0 ? "+" : "") + v, neg: v < 0 });
+    if (v != null && v !== 0) {
+      lines.push({
+        text: advLabels[k] + ": " + (v > 0 ? "+" : "") + v,
+        neg: v < 0,
+        color: advColor[k] || (v < 0 ? "#ff7070" : "#8ae0a8"),
+      });
+    }
+  }
+  const pctRows = [
+    ["pctStr", "G\u00fc\u00e7 %"],
+    ["pctAgi", "\u00c7eviklik %"],
+    ["pctWis", "Bilgelik %"],
+    ["pctHp", "Max Can %"],
+    ["pctMana", "Max Mana %"],
+  ];
+  for (const [k, lbl] of pctRows) {
+    const v = adv[k];
+    if (v != null && v !== 0) {
+      lines.push({
+        text: lbl + ": " + (v > 0 ? "+" : "") + v,
+        neg: v < 0,
+        color: v > 0 ? "#ffd480" : "#ff8080",
+      });
+    }
   }
   const elemLabels = {
     elemPoison: "Zehir hasar\u0131",
@@ -954,7 +1198,10 @@ function collectEffectiveStatLines(def, upgradeLv) {
   };
   for (const k of Object.keys(elemLabels)) {
     const v = adv[k];
-    if (v != null && v !== 0) lines.push({ text: elemLabels[k] + ": " + v, neg: false });
+    if (v != null && v !== 0) {
+      const col = k === "elemFlame" ? "#ff9d5c" : k === "elemGlacier" ? "#7fd8ff" : k === "elemLightning" ? "#d39cff" : "#8be27a";
+      lines.push({ text: elemLabels[k] + ": " + v, neg: false, color: col });
+    }
   }
   return lines;
 }
@@ -1295,6 +1542,10 @@ function buildItemTooltipLayout(ctx, def, itemId, canvasW, mobile, metaOpts, tra
     let title = def.name || "?";
     if (upLv > 0) title += "(+" + upLv + ")";
     pushWrapped(title, fonts.title, "#f0d050");
+    const apTop = getEffectiveItemStatsMerged(def, upLv).advanced || {};
+    if (apTop.attackPower != null && apTop.attackPower > 0) {
+      measurePush(fonts.stat, "#ffffff", "Attack Power : " + apTop.attackPower);
+    }
     if (def.rarity) {
       const rlab = RARITY_LABEL_TR[def.rarity] || String(def.rarity).toUpperCase();
       measurePush(fonts.rare, getItemRarityColor(itemId), rlab);
@@ -1309,7 +1560,8 @@ function buildItemTooltipLayout(ctx, def, itemId, canvasW, mobile, metaOpts, tra
     }
   }
   for (const row of collectEffectiveStatLines(def, upLv)) {
-    measurePush(fonts.stat, row.neg ? "#ff7070" : "#8ae0a8", row.text);
+    if (/^Attack Power\s*:/.test(row.text)) continue;
+    measurePush(fonts.stat, row.color || (row.neg ? "#ff7070" : "#8ae0a8"), row.text);
   }
   appendItemExtraTooltipLines(def, fonts, measurePush, pushWrapped);
   const meta = collectItemMetaLines(def, itemId, metaOpts);
@@ -2000,35 +2252,70 @@ const charPanel = {
 
 /* ── Inventory ───────────────────────────────────────────── */
 
-const EQ_SLOTS = ["blade", "bow", "head", "chest", "hands", "feet", "ring", "amulet"];
-const EQ_LABELS = { blade: "K\u0131l\u0131\u00e7", bow: "Yay", head: "Kafa", chest: "G\u00f6vde", hands: "Eller", feet: "Ayak", ring: "Y\u00fcz\u00fck", amulet: "T\u0131ls\u0131m" };
+const EQ_SLOTS = ["blade", "bow", "head", "chest", "feet", "waist", "arms", "wings", "ring1", "ring2", "amulet"];
+const EQ_LABELS = {
+  blade: "K\u0131l\u0131\u00e7",
+  bow: "Yay",
+  head: "Kafal\u0131k",
+  chest: "G\u00f6\u011f\u00fcsl\u00fck",
+  feet: "Ayakl\u0131k",
+  waist: "Donluk",
+  arms: "Kolluk",
+  wings: "Kanatl\u0131k",
+  ring1: "Y\u00fcz\u00fck 1",
+  ring2: "Y\u00fcz\u00fck 2",
+  amulet: "Kolye",
+  ring: "Y\u00fcz\u00fck",
+};
 
-/** Knight Online tarz\u0131 3 s\u00fctun \u00d7 5 sat\u0131r: key=null dekoratif/kilitli slot */
-const EQ_GRID_ROWS = 5;
+function equipSlotsForItemDef(def) {
+  if (!def || !def.equipSlot) return [];
+  if (def.equipSlot === "ring") return ["ring1", "ring2"];
+  return [def.equipSlot];
+}
+
+function itemFitsEquipSlot(def, slotKey) {
+  return equipSlotsForItemDef(def).includes(slotKey);
+}
+
+function firstEquipSlotForItem(inv, def) {
+  const cands = equipSlotsForItemDef(def);
+  if (!cands.length) return null;
+  for (const sk of cands) if (!inv.equipped[sk]) return sk;
+  return cands[0];
+}
+
+/** Knight Online tarz\u0131 3 s\u00fctun \u00d7 6 sat\u0131r: key=null dekoratif/kilitli slot */
+const EQ_GRID_ROWS = 6;
 const EQ_GRID_COLS = 3;
 const EQ_GRID = [
   [
-    { key: null, label: "\u00b7", sub: "Aksesuar" },
-    { key: "head", label: "Mi\u011fer", sub: "" },
-    { key: null, label: "\u00b7", sub: "Aksesuar" },
+    { key: "ring1", label: "Y\u00fcz\u00fck 1", sub: "" },
+    { key: "head", label: "Kafal\u0131k", sub: "" },
+    { key: "ring2", label: "Y\u00fcz\u00fck 2", sub: "" },
   ],
   [
-    { key: "amulet", label: "T\u0131ls\u0131m", sub: "" },
-    { key: "chest", label: "G\u00f6vde", sub: "" },
+    { key: "amulet", label: "Kolye", sub: "" },
+    { key: "chest", label: "G\u00f6\u011f\u00fcs", sub: "" },
     { key: "bow", label: "Yay", sub: "" },
   ],
   [
     { key: "blade", label: "Silah", sub: "" },
-    { key: null, label: "\u2014", sub: "Ku\u015fak", locked: true },
-    { key: null, label: "\u00b7", sub: "", locked: true },
+    { key: "waist", label: "Donluk", sub: "" },
+    { key: "arms", label: "Kolluk", sub: "" },
   ],
   [
-    { key: "ring", label: "Y\u00fcz\u00fck", sub: "" },
-    { key: "feet", label: "Bot", sub: "" },
-    { key: null, label: "\u2295", sub: "Kilitli", locked: true },
+    { key: "feet", label: "Ayakl\u0131k", sub: "" },
+    { key: "wings", label: "Kanat", sub: "" },
+    { key: null, label: "\u00b7", sub: "Aksesuar" },
   ],
   [
-    { key: "hands", label: "El", sub: "" },
+    { key: null, label: "\u00b7", sub: "" },
+    { key: null, label: "\u00b7", sub: "" },
+    { key: null, label: "\u2014", sub: "", locked: true },
+  ],
+  [
+    { key: null, label: "\u2014", sub: "", locked: true },
     { key: null, label: "\u2014", sub: "", locked: true },
     { key: null, label: "\u2014", sub: "", locked: true },
   ],
@@ -2048,7 +2335,7 @@ class Inventory {
   constructor() {
     this.slots = new Array(INV_SLOTS).fill(null);
     this.hotbar = new Array(HOTBAR_SLOTS).fill(null);
-    this.equipped = { blade: null, bow: null, head: null, chest: null, hands: null, feet: null, ring: null, amulet: null };
+    this.equipped = Object.fromEntries(EQ_SLOTS.map((sk) => [sk, null]));
     this.gold = 0;
     this.open = false;
     this.selectedHotbar = 0;
@@ -2253,7 +2540,8 @@ class Inventory {
   tryEquipOneFromId(itemId, upgradeOpt) {
     const def = ITEMS[itemId];
     if (!def || !def.equipSlot) return "Giyilebilir bir e\u015fya de\u011fil.";
-    const sk = def.equipSlot;
+    const sk = firstEquipSlotForItem(this, def);
+    if (!sk) return "Bu e\u015fya i\u00e7in uygun slot yok.";
     const uWant = upgradeOpt | 0;
     const prev = this.equipped[sk];
     if (prev && prev.id === itemId && getStackUpgradeLv(prev) === uWant) return "Zaten bu e\u015fya giyili.";
@@ -2277,7 +2565,8 @@ class Inventory {
     if (!slot || slot.count < 1) return "B\u00f6yle bir e\u015fya yok.";
     const def = ITEMS[slot.id];
     if (!def || !def.equipSlot) return "Giyilebilir bir e\u015fya de\u011fil.";
-    const sk = def.equipSlot;
+    const sk = firstEquipSlotForItem(this, def);
+    if (!sk) return "Bu e\u015fya i\u00e7in uygun slot yok.";
     const id = slot.id;
     const uNew = getStackUpgradeLv(slot);
     if (this.equipped[sk] && this.equipped[sk].id === id && stackUpgradesMatch(this.equipped[sk], slot)) return "Zaten bu e\u015fya giyili.";
@@ -2307,7 +2596,7 @@ class Inventory {
           const s = container[i];
           if (!s) continue;
           const d = ITEMS[s.id];
-          if (d && d.equipSlot === sk) {
+          if (d && itemFitsEquipSlot(d, sk)) {
             this._equipFromContainerSlot(container, i);
             break;
           }
@@ -2337,7 +2626,8 @@ class Inventory {
     if (invIdx >= 0 && this.slots[invIdx]) {
       const def = ITEMS[this.slots[invIdx].id];
       if (def && def.equipSlot) {
-        const curE = this.equipped[def.equipSlot];
+        const targetSlot = firstEquipSlotForItem(this, def);
+        const curE = targetSlot ? this.equipped[targetSlot] : null;
         if (!curE || curE.id !== this.slots[invIdx].id) {
           this._slotPress = {
             container: this.slots, idx: invIdx, t0: performance.now(), ox: mx, oy: my,
@@ -2351,7 +2641,8 @@ class Inventory {
     if (hbIdx >= 0 && this.hotbar[hbIdx]) {
       const def = ITEMS[this.hotbar[hbIdx].id];
       if (def && def.equipSlot) {
-        const curE2 = this.equipped[def.equipSlot];
+        const targetSlot2 = firstEquipSlotForItem(this, def);
+        const curE2 = targetSlot2 ? this.equipped[targetSlot2] : null;
         if (!curE2 || curE2.id !== this.hotbar[hbIdx].id) {
           this._slotPress = {
             container: this.hotbar, idx: hbIdx, t0: performance.now(), ox: mx, oy: my,
@@ -2373,8 +2664,12 @@ class Inventory {
     if (!slot) { this._clearSlotPress(); return; }
     const def = ITEMS[slot.id];
     if (!def || !def.equipSlot) { this._clearSlotPress(); return; }
-    const curW = this.equipped[def.equipSlot];
-    if (curW && curW.id === slot.id) { this._clearSlotPress(); return; }
+    const cand = equipSlotsForItemDef(def);
+    const allFilledWithSame = cand.length > 0 && cand.every((sk) => {
+      const w = this.equipped[sk];
+      return w && w.id === slot.id;
+    });
+    if (allFilledWithSame) { this._clearSlotPress(); return; }
 
     const down = (p.touchId === null || p.touchId === undefined)
       ? canvasMouse0Down
@@ -2464,7 +2759,7 @@ class Inventory {
     if (this.heldItem) {
       const def = ITEMS[this.heldItem.id];
       if (!def || !def.equipSlot) return;
-      if (def.equipSlot !== slotKey) return;
+      if (!itemFitsEquipSlot(def, slotKey)) return;
       const oneId = this.heldItem.id;
       const uHeld = getStackUpgradeLv(this.heldItem);
       this.heldItem.count--;
@@ -2491,7 +2786,12 @@ class Inventory {
     if (rightClick && slot && slot.id === "boss_chest" && slot.count > 0) {
       slot.count--;
       if (slot.count <= 0) container[idx] = null;
-      const pool = ["helm_epic", "chest_epic", "boots_epic", "ring_power", "gloves_archer", "helm_iron", "chest_steel", "sword_elven", "spear_epic", "bow_long", "sword_steel", "bow_hunter", "merchants_ring", "explorer_band", "potion_mana", "potion"];
+      const pool = [
+        "helm_epic", "chest_epic", "boots_epic", "waist_epic", "arms_epic", "wings_epic",
+        "helm_legendary", "chest_legendary", "waist_legendary", "arms_legendary", "wings_legendary",
+        "ring_power", "merchants_ring", "amulet_wisdom", "gloves_archer", "explorer_band",
+        "sword_elven", "spear_epic", "bow_long", "sword_steel", "bow_hunter", "potion_mana", "potion"
+      ];
       this.addItem(pool[Math.floor(Math.random() * pool.length)], 1);
       return;
     }
@@ -3007,6 +3307,7 @@ class TileMap {
     const startRow = Math.max(0, Math.floor(camY / TILE_SIZE));
     const endCol   = Math.min(this.cols, Math.ceil((camX + camW) / TILE_SIZE));
     const endRow   = Math.min(this.rows, Math.ceil((camY + camH) / TILE_SIZE));
+    const waterT = performance.now() * 0.0011;
 
     for (let row = startRow; row < endRow; row++) {
       for (let col = startCol; col < endCol; col++) {
@@ -3016,12 +3317,52 @@ class TileMap {
 
         ctx.fillStyle = TILE_COLORS[tile] || "#ff00ff";
         ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+        if (tile === TileType.GRASS || tile === TileType.DIRT || tile === TileType.SAND) {
+          const n = (col * 11 + row * 17) % 5;
+          ctx.fillStyle = "rgba(0,0,0," + (0.018 + n * 0.01) + ")";
+          ctx.fillRect(x + 3 + (n % 3) * 4, y + 4 + (n % 2) * 3, 6, 5);
+        }
+        if (tile === TileType.WATER) {
+          this._drawWaterShimmer(ctx, x, y, col, row, waterT);
+        }
         this._drawTileDecoration(ctx, tile, x, y);
 
         const detail = this.getDetail(col, row);
         if (detail >= 0) this._drawDetailTile(ctx, detail, x, y);
       }
     }
+  }
+
+  _drawWaterShimmer(ctx, x, y, col, row, t) {
+    const phase = col * 0.4 + row * 0.55;
+    const w = 0.22 + 0.08 * Math.sin(t * 1.3 + phase);
+    const g1 = Math.sin(t * 0.7 + phase) * 0.5 + 0.5;
+    const g2 = Math.sin(t * 0.9 + phase * 1.1 + 0.4) * 0.5 + 0.5;
+    ctx.save();
+    ctx.globalAlpha = 0.32 + 0.18 * g1;
+    const grd = ctx.createLinearGradient(x, y, x + TILE_SIZE, y + TILE_SIZE);
+    grd.addColorStop(0, "rgba(120, 200, 255, " + w + ")");
+    grd.addColorStop(0.45, "rgba(40, 100, 180, 0.08)");
+    grd.addColorStop(1, "rgba(180, 230, 255, " + (w * 0.85) + ")");
+    ctx.fillStyle = grd;
+    ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+    ctx.globalAlpha = 0.15 + 0.1 * g2;
+    ctx.fillStyle = "rgba(200, 240, 255, 0.35)";
+    ctx.beginPath();
+    ctx.ellipse(
+      x + 10 + Math.sin(t * 1.2 + col) * 3,
+      y + 12 + Math.cos(t * 0.9 + row) * 2,
+      7,
+      3,
+      t * 0.15,
+      0,
+      Math.PI * 2
+    );
+    ctx.fill();
+    ctx.globalAlpha = 0.1;
+    ctx.fillStyle = "rgba(255,255,255,0.5)";
+    ctx.fillRect(x + 4, y + 4 + (col % 3) * 2, 10, 2);
+    ctx.restore();
   }
 
   _drawTileDecoration(ctx, tile, x, y) {
@@ -3236,6 +3577,10 @@ class Player {
     this.poisonTimer = 0;
     this.activeSkillCd = [0, 0, 0, 0, 0, 0, 0, 0];
     this.skillAuraT = 0;
+    this.archerComboCount = 0;
+    this.archerComboTimer = 0;
+    this.comboBlastTimer = 0;
+    this.archerRapidFireTimer = 0;
   }
 
   gainXP(amount) {
@@ -3271,6 +3616,12 @@ class Player {
     this._eqResMagic = adv.resMagic || 0;
     this._eqResPoison = adv.resPoison || 0;
     this._eqResCurse = adv.resCurse || 0;
+    const pctStr = adv.pctStr || 0;
+    const pctAgi = adv.pctAgi || 0;
+    const pctWis = adv.pctWis || 0;
+    if (pctStr) this._eqStr += Math.max(0, Math.floor(this.str * pctStr / 100));
+    if (pctAgi) this._eqAgi += Math.max(0, Math.floor(this.agi * pctAgi / 100));
+    if (pctWis) this._eqWis += Math.max(0, Math.floor(this.wis * pctWis / 100));
     const eqHp = st.maxHp || 0;
     const eqMana = st.maxMana || 0;
     let skHp = 0, skMana = 0;
@@ -3278,6 +3629,8 @@ class Player {
     if (this.skills.arcane) skMana += 22;
     this.maxHp = this.baseMaxHp + eqHp + skHp;
     this.maxMana = this.baseMaxMana + eqMana + skMana;
+    if (adv.pctHp) this.maxHp = Math.max(1, Math.floor(this.maxHp * (1 + adv.pctHp / 100)));
+    if (adv.pctMana) this.maxMana = Math.max(1, Math.floor(this.maxMana * (1 + adv.pctMana / 100)));
     if (this.rageBurstTimer > 0) {
       this.maxHp = Math.floor(this.maxHp * 3);
       this.maxMana = Math.floor(this.maxMana * 3);
@@ -3314,8 +3667,12 @@ class Player {
       a *= 1 - Math.min(0.82, (this._eqResCurse || 0) / 130);
     }
     a = Math.max(0.35, a);
+    const dealt = a;
     this.hp = Math.max(0, this.hp - a);
     this.dmgFlashTimer = 0.3;
+    if (dealt > 0.3) {
+      spawnDamageFloater(this.centerX, this.y - 8, Math.round(dealt), false, "#ff6a6a");
+    }
     if (kind !== "poison") gameAudio.playHurt();
   }
 
@@ -3368,6 +3725,10 @@ class Player {
     if (this.dmgFlashTimer > 0) this.dmgFlashTimer -= dt;
     if (this.levelUpTimer > 0) this.levelUpTimer -= dt;
     if (this.inBoat) this.boatWaveTimer += dt;
+    if (this.archerComboTimer > 0) this.archerComboTimer -= dt;
+    if (this.archerComboTimer <= 0) this.archerComboCount = 0;
+    if (this.comboBlastTimer > 0) this.comboBlastTimer -= dt;
+    if (this.archerRapidFireTimer > 0) this.archerRapidFireTimer -= dt;
 
     this.hp = Math.min(this.maxHp, this.hp + this.hpRegen * dt);
     this.mana = Math.min(this.maxMana, this.mana + this.manaRegen * dt);
@@ -3449,7 +3810,7 @@ class Player {
     let armorMx = 0;
     let powerSum = 0;
     let armorPowerSum = 0;
-    const ARMOR_SLOTS = ["head", "chest", "hands", "feet"];
+    const ARMOR_SLOTS = ["head", "chest", "feet", "waist", "arms", "wings"];
     const bump = (d) => {
       if (d && d.rarity) mx = Math.max(mx, rarityRank(d.rarity));
     };
@@ -3472,8 +3833,8 @@ class Player {
     const hasHead = !!(inv?.equipped?.head && ITEMS[inv.equipped.head.id]);
     const hasFeet = !!(inv?.equipped?.feet && ITEMS[inv.equipped.feet.id]);
     const helmId = hasHead ? inv.equipped.head.id : null;
-    const handsId = inv?.equipped?.hands ? inv.equipped.hands.id : null;
-    const hasJewelry = !!(inv?.equipped?.ring || inv?.equipped?.amulet);
+    const handsId = inv?.equipped?.arms ? inv.equipped.arms.id : null;
+    const hasJewelry = !!(inv?.equipped?.ring1 || inv?.equipped?.ring2 || inv?.equipped?.amulet);
     const showFantasyBack = hasChest || hasHead;
 
     let aura = null;
@@ -3613,8 +3974,8 @@ class Player {
     ctx.save();
     ctx.translate(cx, cy - bounce * 0.35);
     if (d === DIR.UP) ctx.rotate(Math.PI);
-    else if (d === DIR.LEFT) ctx.rotate(-Math.PI / 2);
-    else if (d === DIR.RIGHT) ctx.rotate(Math.PI / 2);
+    else if (d === DIR.LEFT) ctx.rotate(Math.PI / 2);
+    else if (d === DIR.RIGHT) ctx.rotate(-Math.PI / 2);
     drawOneWing(-1);
     drawOneWing(1);
     ctx.restore();
@@ -3733,6 +4094,92 @@ class Player {
     ctx.restore();
   }
 
+  _equippedEffectEntries(inv) {
+    const out = [];
+    if (!inv || !inv.equipped) return out;
+    for (const sk of EQ_SLOTS) {
+      const es = inv.equipped[sk];
+      if (!es || !ITEMS[es.id]) continue;
+      const def = ITEMS[es.id];
+      const rk = rarityRank(def.rarity || "common");
+      const pw = Math.max(0, itemStatPowerScore(def || {}));
+      if (rk < 2 && pw < 6) continue;
+      out.push({
+        slot: sk,
+        color: getItemRarityColor(def.id || ""),
+        rk,
+        pw,
+      });
+    }
+    return out;
+  }
+
+  _drawEquippedItemEffects(ctx, cx, cy, inv) {
+    const entries = this._equippedEffectEntries(inv);
+    if (!entries.length) return;
+    const tMs = performance.now();
+    const t = tMs * 0.001;
+    const baseR = 14;
+    const jewelrySlots = { ring1: 1, ring2: 1, amulet: 1 };
+    const armorSlots = { head: 1, chest: 1, feet: 1, waist: 1, arms: 1 };
+    ctx.save();
+    for (let i = 0; i < entries.length; i++) {
+      const e = entries[i];
+      const pulse = 0.62 + 0.38 * Math.sin(t * (1.8 + e.rk * 0.25) + i * 0.9);
+      const pwrN = Math.min(1, e.pw / 44);
+      if (e.slot === "blade" || e.slot === "bow") {
+        const r = baseR + 9 + e.rk * 1.8 + pwrN * 8;
+        ctx.globalAlpha = 0.16 + 0.22 * pulse + pwrN * 0.12;
+        ctx.strokeStyle = e.color;
+        ctx.lineWidth = 1 + e.rk * 0.25;
+        ctx.beginPath();
+        ctx.arc(cx, cy - 5, r, t * 0.65 + i, t * 0.65 + i + Math.PI * 0.95);
+        ctx.stroke();
+        continue;
+      }
+      if (e.slot === "wings") {
+        const rr = 12 + e.rk * 2.5 + pwrN * 10;
+        for (const s of [-1, 1]) {
+          ctx.globalAlpha = 0.13 + pulse * 0.2;
+          const gx = ctx.createRadialGradient(cx + s * (6 + rr * 0.35), cy - 8, 0, cx + s * (8 + rr * 0.42), cy - 8, rr);
+          gx.addColorStop(0, hexToRgba(e.color, 0.46));
+          gx.addColorStop(0.5, hexToRgba(e.color, 0.18));
+          gx.addColorStop(1, "rgba(0,0,0,0)");
+          ctx.fillStyle = gx;
+          ctx.beginPath();
+          ctx.ellipse(cx + s * (8 + rr * 0.4), cy - 8, rr * 0.8, rr * 0.45, s * 0.25, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        continue;
+      }
+      if (jewelrySlots[e.slot]) {
+        const n = 2 + Math.min(4, e.rk);
+        for (let k = 0; k < n; k++) {
+          const a = t * (1.8 + e.rk * 0.2) + i * 0.7 + k * (Math.PI * 2 / n);
+          const r = 7 + e.rk * 1.8 + pwrN * 5 + Math.sin(t * 2.3 + k) * 1.5;
+          ctx.globalAlpha = 0.2 + 0.28 * pulse;
+          ctx.fillStyle = e.rk >= 4 ? "#fff4c8" : e.color;
+          ctx.beginPath();
+          ctx.arc(cx + Math.cos(a) * r, cy - 12 + Math.sin(a) * r * 0.7, 0.9 + pwrN * 1.4, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        continue;
+      }
+      if (armorSlots[e.slot]) {
+        const r = baseR + (i % 3) * 4 + e.rk * 1.5 + pwrN * 6;
+        ctx.globalAlpha = 0.09 + pulse * 0.16;
+        ctx.strokeStyle = e.color;
+        ctx.lineWidth = 1.1;
+        ctx.setLineDash([3, 5]);
+        ctx.beginPath();
+        ctx.arc(cx, cy - 4, r, t * 0.45 + i * 0.4, t * 0.45 + i * 0.4 + Math.PI * 2);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+    }
+    ctx.restore();
+  }
+
   render(ctx, inventory, monsters) {
     const inv = inventory || null;
     const vis = this._appearanceFromEquipment(inv);
@@ -3781,6 +4228,7 @@ class Player {
     }
 
     this._drawEquipmentAura(ctx, cx, cy, vis);
+    this._drawEquippedItemEffects(ctx, cx, cy, inv);
     if (vis.showFantasyBack) {
       this._drawFantasyWings(ctx, cx, cy, d, bounce);
       this._drawBackFairyOrb(ctx, cx, cy, d, bounce);
@@ -4614,103 +5062,131 @@ function drawMonsterSprite(ctx, type, x, y, dir, frame, hitFlash, atkAnim, bw, b
   const bww = bw != null ? bw : 20, bhh = bh != null ? bh : 20;
   const cx = x + bww / 2, cy = y + bhh / 2;
   if (hitFlash > 0) { ctx.globalAlpha = 0.5 + Math.sin(hitFlash * 30) * 0.5; }
+  const st = mstate || "idle";
+  const locomotion = st === "chase" || st === "attack" ? 1 : 0.45;
+  const swayX = Math.sin(frame * Math.PI * 0.9) * 0.9 * locomotion;
+  const bobY = Math.cos(frame * Math.PI * 1.1) * 0.8 * locomotion;
+  ctx.save();
+  ctx.translate(swayX, bobY);
 
   switch (type) {
     case "slime": {
-      const squish = 1 + Math.sin(frame * Math.PI) * 0.15;
-      const h = (bhh * 0.55) * squish, w = (bww * 0.7) / squish;
-      const g = ctx.createRadialGradient(cx - 2, cy, 0, cx, cy + 4, Math.max(w, h));
-      g.addColorStop(0, hitFlash > 0 ? "#ff9090" : "#90f090");
-      g.addColorStop(0.6, hitFlash > 0 ? "#ff5050" : "#38a838");
-      g.addColorStop(1, hitFlash > 0 ? "#a02020" : "#206020");
+      const sq = 1 + Math.sin(frame * Math.PI) * 0.18;
+      const h = (bhh * 0.6) * sq, w = (bww * 0.78) / sq;
+      ctx.fillStyle = "rgba(0,0,0,0.18)";
+      ctx.beginPath(); ctx.ellipse(cx, cy + bhh * 0.43, w * 0.42, 3.2, 0, 0, Math.PI * 2); ctx.fill();
+      const g = ctx.createRadialGradient(cx - 3, cy - 2, 0, cx, cy + 5, Math.max(w, h) * 0.7);
+      g.addColorStop(0, hitFlash > 0 ? "#ffaaaa" : "#b7ffc1");
+      g.addColorStop(0.52, hitFlash > 0 ? "#ff6666" : "#53bc63");
+      g.addColorStop(1, hitFlash > 0 ? "#9a2424" : "#246938");
       ctx.fillStyle = g;
-      ctx.beginPath();
-      ctx.ellipse(cx, cy + 4, w / 2, h / 2, 0, 0, Math.PI * 2);
-      ctx.fill();
-      const g2 = ctx.createRadialGradient(cx, cy + 1, 0, cx, cy + 1, 5);
-      g2.addColorStop(0, "#a8ffa8");
-      g2.addColorStop(1, "rgba(0,0,0,0)");
-      ctx.fillStyle = g2;
-      ctx.beginPath(); ctx.ellipse(cx, cy + 2, w / 3, h / 3, 0, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = "#fff";
-      ctx.fillRect(cx - 4, cy - 1, 3, 3);
-      ctx.fillRect(cx + 1, cy - 1, 3, 3);
-      ctx.fillStyle = "#111";
-      ctx.fillRect(cx - 3, cy, 2, 2);
-      ctx.fillRect(cx + 2, cy, 2, 2);
+      ctx.beginPath(); ctx.ellipse(cx, cy + 4, w * 0.5, h * 0.5, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "rgba(255,255,255,0.22)";
+      ctx.beginPath(); ctx.ellipse(cx - 2, cy + 1, w * 0.24, h * 0.15, -0.2, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#f2fff2";
+      ctx.beginPath(); ctx.arc(cx - 3, cy - 1, 1.6, 0, Math.PI * 2); ctx.arc(cx + 2, cy - 1, 1.5, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#122018";
+      ctx.fillRect(cx - 3.6, cy - 0.4, 1.2, 1.4);
+      ctx.fillRect(cx + 1.6, cy - 0.4, 1.2, 1.4);
+      ctx.fillStyle = "rgba(18,30,20,0.35)";
+      ctx.fillRect(cx - 2, cy + 3, 4, 1.2);
       break;
     }
     case "wolf": {
-      const run = Math.sin(frame * Math.PI) * 3;
-      const g = ctx.createLinearGradient(cx - 10, cy, cx + 10, cy + 8);
-      g.addColorStop(0, hitFlash > 0 ? "#a0a0a0" : "#4a4a4a");
-      g.addColorStop(1, hitFlash > 0 ? "#c8c8c8" : "#8a8a8a");
+      const run = Math.sin(frame * Math.PI) * 2.8;
+      const face = dir === DIR.LEFT ? -1 : dir === DIR.RIGHT ? 1 : 1;
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.scale(face, 1);
+      ctx.fillStyle = "rgba(0,0,0,0.2)";
+      ctx.beginPath(); ctx.ellipse(0, 10, 10, 3.4, 0, 0, Math.PI * 2); ctx.fill();
+      const g = ctx.createLinearGradient(-10, -2, 10, 8);
+      g.addColorStop(0, hitFlash > 0 ? "#b8b8b8" : "#5c5c5c");
+      g.addColorStop(1, hitFlash > 0 ? "#d8d8d8" : "#8e8e8e");
       ctx.fillStyle = g;
-      ctx.fillRect(cx - 8, cy - 3, 16, 10);
-      ctx.fillStyle = hitFlash > 0 ? "#ff8080" : "#6a5a4a";
-      ctx.fillRect(cx - 10, cy - 6, 7, 6);
-      ctx.fillStyle = "#222";
-      ctx.fillRect(cx - 8, cy - 4, 2, 2);
-      ctx.fillStyle = hitFlash > 0 ? "#ff6060" : "#2a2a2a";
-      ctx.fillRect(cx - 6 + run, cy + 6, 3, 5);
-      ctx.fillRect(cx + 3 - run, cy + 6, 3, 5);
-      ctx.fillStyle = "#606060";
-      ctx.fillRect(cx + 6, cy - 2, 6, 3);
-      if (atkAnim > 0) {
-        ctx.fillStyle = "#fff";
-        ctx.fillRect(cx - 11, cy - 3, 3, 2);
-      }
+      ctx.beginPath();
+      ctx.moveTo(-9, -2); ctx.lineTo(7, -3); ctx.lineTo(10, 3); ctx.lineTo(6, 8); ctx.lineTo(-8, 8); ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = hitFlash > 0 ? "#ff9a9a" : "#796a58";
+      ctx.beginPath(); ctx.moveTo(-11, -5); ctx.lineTo(-4, -6); ctx.lineTo(-2, -1); ctx.lineTo(-10, 0); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = "#2a2a2a";
+      ctx.fillRect(-8 + run * 0.35, 7, 3, 5);
+      ctx.fillRect(2 - run * 0.35, 7, 3, 5);
+      ctx.fillStyle = "#595959";
+      ctx.beginPath(); ctx.moveTo(8, -1); ctx.lineTo(14, 0); ctx.lineTo(12, 2); ctx.lineTo(7, 1); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = "#f0f0f0";
+      ctx.fillRect(-8, -3, 1.8, 1.8);
+      ctx.fillStyle = "#111";
+      ctx.fillRect(-7.6, -2.6, 1, 1);
+      if (atkAnim > 0) { ctx.fillStyle = "#f8f8f8"; ctx.fillRect(-12, -1, 2.6, 1.6); }
+      ctx.restore();
       break;
     }
     case "skeleton": {
-      const sway = Math.sin(frame * Math.PI * 0.5) * 1;
-      ctx.fillStyle = hitFlash > 0 ? "#ff6060" : "#d0d0b0";
-      ctx.fillRect(cx - 5 + sway, cy - 4, 10, 12);
-      ctx.fillStyle = hitFlash > 0 ? "#ff8080" : "#e0e0c0";
-      ctx.beginPath(); ctx.arc(cx + sway, cy - 7, 6, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = "#222";
-      ctx.fillRect(cx - 3 + sway, cy - 9, 2, 3);
-      ctx.fillRect(cx + 1 + sway, cy - 9, 2, 3);
-      ctx.fillRect(cx - 2 + sway, cy - 5, 4, 2);
-      ctx.fillStyle = "#b0b090";
-      ctx.fillRect(cx - 7 + sway, cy, 4, 3);
-      ctx.fillRect(cx + 3 + sway, cy, 4, 3);
-      ctx.fillRect(cx - 4, cy + 7, 3, 5);
-      ctx.fillRect(cx + 1, cy + 7, 3, 5);
+      const sway = Math.sin(frame * Math.PI * 0.5) * 1.5;
+      ctx.fillStyle = "rgba(0,0,0,0.18)";
+      ctx.beginPath(); ctx.ellipse(cx, cy + 11, 8.5, 3.1, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = hitFlash > 0 ? "#ff9090" : "#d8d8be";
+      ctx.lineWidth = 2.2;
+      ctx.beginPath(); ctx.moveTo(cx + sway, cy - 2); ctx.lineTo(cx + sway, cy + 8); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(cx + sway - 4, cy + 1); ctx.lineTo(cx + sway + 4, cy + 1); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(cx + sway - 3, cy + 8); ctx.lineTo(cx + sway - 5, cy + 12); ctx.moveTo(cx + sway + 3, cy + 8); ctx.lineTo(cx + sway + 5, cy + 12); ctx.stroke();
+      ctx.fillStyle = hitFlash > 0 ? "#ff9a9a" : "#e9e9cf";
+      ctx.beginPath(); ctx.arc(cx + sway, cy - 7, 6.2, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#1c1c1c";
+      ctx.beginPath(); ctx.arc(cx + sway - 2.1, cy - 8, 1.1, 0, Math.PI * 2); ctx.arc(cx + sway + 2.1, cy - 8, 1.1, 0, Math.PI * 2); ctx.fill();
+      ctx.fillRect(cx + sway - 2.4, cy - 5.2, 4.8, 1.3);
       break;
     }
     case "orc": {
-      const bounce = Math.sin(frame * Math.PI) * 2;
-      ctx.fillStyle = hitFlash > 0 ? "#ff6060" : "#406030";
-      ctx.fillRect(cx - 7, cy - 5 - bounce, 14, 14);
-      ctx.fillStyle = hitFlash > 0 ? "#ff8080" : "#508030";
-      ctx.beginPath(); ctx.arc(cx, cy - 8 - bounce, 7, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = "#222";
-      ctx.fillRect(cx - 3, cy - 10 - bounce, 2, 3);
-      ctx.fillRect(cx + 1, cy - 10 - bounce, 2, 3);
-      ctx.fillStyle = "#c0c0c0";
-      const atkOff = atkAnim > 0 ? -6 : 0;
-      ctx.fillRect(cx + 7, cy - 6 - bounce + atkOff, 3, 12);
-      ctx.fillRect(cx + 6, cy - 8 - bounce + atkOff, 5, 3);
-      ctx.fillStyle = "#3a3a2a";
-      ctx.fillRect(cx - 5, cy + 8, 4, 5);
-      ctx.fillRect(cx + 1, cy + 8, 4, 5);
+      const bounce = Math.sin(frame * Math.PI) * 1.7;
+      ctx.fillStyle = "rgba(0,0,0,0.2)";
+      ctx.beginPath(); ctx.ellipse(cx, cy + 12, 10, 3.4, 0, 0, Math.PI * 2); ctx.fill();
+      const bodyG = ctx.createLinearGradient(cx - 9, cy - 8, cx + 9, cy + 10);
+      bodyG.addColorStop(0, hitFlash > 0 ? "#ff8a8a" : "#4f7a3b");
+      bodyG.addColorStop(1, hitFlash > 0 ? "#d84a4a" : "#2f5a24");
+      ctx.fillStyle = bodyG;
+      ctx.fillRect(cx - 8, cy - 4 - bounce, 16, 14);
+      ctx.fillStyle = hitFlash > 0 ? "#ffb2b2" : "#6ea045";
+      ctx.beginPath(); ctx.arc(cx, cy - 8 - bounce, 7.2, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#1f2818";
+      ctx.fillRect(cx - 3.4, cy - 10.6 - bounce, 1.6, 2.4);
+      ctx.fillRect(cx + 1.8, cy - 10.6 - bounce, 1.6, 2.4);
+      ctx.fillStyle = "#e8dca8";
+      ctx.fillRect(cx - 7, cy - 7 - bounce, 1.6, 2.6);
+      ctx.fillRect(cx + 5.4, cy - 7 - bounce, 1.6, 2.6);
+      const atkOff = atkAnim > 0 ? -5 : 0;
+      ctx.fillStyle = "#b8b8b8";
+      ctx.fillRect(cx + 8, cy - 5 - bounce + atkOff, 2.8, 12);
+      ctx.fillRect(cx + 6.5, cy - 6.8 - bounce + atkOff, 6, 2.8);
+      ctx.fillStyle = "#3f3d2b";
+      ctx.fillRect(cx - 5.2, cy + 8, 4.2, 5.2);
+      ctx.fillRect(cx + 1.1, cy + 8, 4.2, 5.2);
       break;
     }
     case "golem": {
       const shake = atkAnim > 0 ? Math.sin(atkAnim * 40) * 2 : 0;
-      ctx.fillStyle = hitFlash > 0 ? "#ff6060" : "#6a6a6a";
+      const pulse = 1 + Math.sin(frame * Math.PI * 0.45) * 0.04;
+      ctx.fillStyle = "rgba(0,0,0,0.22)";
+      ctx.beginPath(); ctx.ellipse(cx + shake * 0.25, cy + 13, 11, 3.8, 0, 0, Math.PI * 2); ctx.fill();
+      const g = ctx.createLinearGradient(cx - 10, cy - 8, cx + 10, cy + 12);
+      g.addColorStop(0, hitFlash > 0 ? "#b67878" : "#7a7a7a");
+      g.addColorStop(1, hitFlash > 0 ? "#965050" : "#4d4d4d");
+      ctx.fillStyle = g;
       ctx.fillRect(cx - 9 + shake, cy - 8, 18, 18);
-      ctx.fillStyle = hitFlash > 0 ? "#ff8080" : "#8a8a8a";
+      ctx.fillStyle = hitFlash > 0 ? "#ff9c9c" : "#9e9e9e";
       ctx.fillRect(cx - 7 + shake, cy - 6, 14, 5);
-      ctx.fillStyle = "#f08030";
-      ctx.fillRect(cx - 4 + shake, cy - 4, 3, 3);
-      ctx.fillRect(cx + 1 + shake, cy - 4, 3, 3);
+      ctx.fillStyle = "#f39a42";
+      ctx.beginPath(); ctx.arc(cx - 2 + shake, cy - 2, 1.9 * pulse, 0, Math.PI * 2); ctx.arc(cx + 3 + shake, cy - 2, 1.9 * pulse, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = "#5a5a5a";
       ctx.fillRect(cx - 10 + shake, cy - 2, 5, 10);
       ctx.fillRect(cx + 5 + shake, cy - 2, 5, 10);
+      ctx.fillStyle = "#474747";
       ctx.fillRect(cx - 7, cy + 9, 6, 6);
       ctx.fillRect(cx + 1, cy + 9, 6, 6);
+      ctx.strokeStyle = hitFlash > 0 ? "#c08080" : "#3a3a3a";
+      ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.moveTo(cx - 5 + shake, cy - 1); ctx.lineTo(cx + 5 + shake, cy + 1); ctx.moveTo(cx - 4 + shake, cy + 4); ctx.lineTo(cx + 4 + shake, cy + 6); ctx.stroke();
       break;
     }
     case "ancient_root":
@@ -5488,6 +5964,7 @@ function drawMonsterSprite(ctx, type, x, y, dir, frame, hitFlash, atkAnim, bw, b
       break;
     }
   }
+  ctx.restore();
   ctx.globalAlpha = 1;
 }
 
@@ -5714,6 +6191,17 @@ class Monster {
 
   render(ctx) {
     if (!this.alive) return;
+    const living = this.state !== "dying";
+    const t = performance.now() * 0.001;
+    const moveMul = (this.state === "chase" || this.state === "attack" || this.moving) ? 1 : 0.35;
+    const bob = Math.sin(t * (2.8 + this.speed * 0.004) + this.x * 0.01) * (living ? 1.4 * moveMul : 0);
+    const tilt = Math.sin(t * (2.2 + this.speed * 0.003) + this.y * 0.01) * (living ? 0.03 * moveMul : 0);
+    const breath = 1 + Math.sin(t * 2 + this.x * 0.02) * (living ? 0.02 : 0);
+    ctx.save();
+    ctx.translate(this.cx, this.cy + bob * 0.22);
+    ctx.rotate(tilt);
+    ctx.scale(1, breath);
+    ctx.translate(-this.cx, -this.cy);
     if (this.state === "dying") {
       ctx.globalAlpha = this.deathTimer / 0.6;
       const sc = 0.5 + this.deathTimer / 0.6 * 0.5;
@@ -5738,6 +6226,7 @@ class Monster {
       ctx.restore();
       ctx.globalAlpha = 1;
     }
+    ctx.restore();
     const mt = MONSTER_TYPES[this.type];
     const nm = (mt && mt.name) ? mt.name : this.type;
     const danger = typeof player !== "undefined" && player && isMonsterDangerousForPlayerLevel(this, player.level);
@@ -5752,7 +6241,7 @@ class Monster {
 /* ── NPC ─────────────────────────────────────────────────── */
 
 class NPC {
-  constructor({ col, row, name, color, dialog, wanderRadius = 0, merchant = false, stock = null, shopPool = null }) {
+  constructor({ col, row, name, color, dialog, wanderRadius = 0, merchant = false, stock = null, shopPool = null, buildsBoat = false }) {
     this.x = col * TILE_SIZE; this.y = row * TILE_SIZE;
     this.w = 20; this.h = 20;
     this.name = name; this.color = color || "#c06030";
@@ -5760,6 +6249,7 @@ class NPC {
     this.merchant = merchant;
     this.stock = stock;
     this.shopPool = shopPool;
+    this.buildsBoat = !!buildsBoat;
     this.direction = DIR.DOWN;
     this.homeX = this.x; this.homeY = this.y;
     this.wanderRadius = wanderRadius * TILE_SIZE;
@@ -5820,6 +6310,11 @@ class NPC {
   render(ctx) {
     const x = Math.round(this.x), y = Math.round(this.y);
     const bounce = this.moving ? Math.sin(this.animFrame * Math.PI / 2) : 0;
+
+    ctx.fillStyle = "rgba(0,0,0,0.25)";
+    ctx.beginPath();
+    ctx.ellipse(x + 10, y + 19, 7, 3, 0, 0, Math.PI * 2);
+    ctx.fill();
 
     ctx.fillStyle = "#3a3a5a";
     ctx.fillRect(x + 4, y + 16 - bounce, 4, 4);
@@ -7560,7 +8055,13 @@ class DialogBox {
     this.displayedText = ""; this.charIndex = 0; this.charTimer = 0;
   }
 
-  close() { this.active = false; if (this.onComplete) this.onComplete(); }
+  /** @param {boolean} skipCallback \u2014 true: Esc / erken kapat, onComplete \u00e7al\u0131\u015fmaz */
+  close(skipCallback) {
+    const cb = skipCallback ? null : this.onComplete;
+    this.onComplete = null;
+    this.active = false;
+    if (cb) cb();
+  }
 
   update(dt) {
     if (!this.active) return;
@@ -7577,8 +8078,12 @@ class DialogBox {
     if (!this.active) return;
     const boxH = 90, boxW = canvasW - 40, boxX = 20, boxY = canvasH - boxH - 20;
 
-    ctx.fillStyle = "rgba(10, 10, 30, 0.92)";
-    ctx.strokeStyle = "#8080c0"; ctx.lineWidth = 2;
+    const dgrd = ctx.createLinearGradient(boxX, boxY, boxX, boxY + boxH);
+    dgrd.addColorStop(0, "rgba(18, 22, 48, 0.97)");
+    dgrd.addColorStop(0.55, "rgba(10, 12, 32, 0.94)");
+    dgrd.addColorStop(1, "rgba(6, 8, 22, 0.96)");
+    ctx.fillStyle = dgrd;
+    ctx.strokeStyle = "rgba(160, 170, 220, 0.55)"; ctx.lineWidth = 2;
     roundRect(ctx, boxX, boxY, boxW, boxH, 8);
     ctx.fill(); ctx.stroke();
 
@@ -7608,11 +8113,14 @@ class HUD {
 
   render(ctx, canvasW, canvasH) {
     if (this.interactPrompt) {
-      ctx.fillStyle = "rgba(10, 10, 30, 0.8)";
-      ctx.strokeStyle = "#a0a0d0"; ctx.lineWidth = 1;
       ctx.font = "12px monospace";
       const tw = ctx.measureText(this.interactPrompt).width + 24;
       const tx = (canvasW - tw) / 2, ty = canvasH - 130;
+      const pgrd = ctx.createLinearGradient(0, ty, 0, ty + 28);
+      pgrd.addColorStop(0, "rgba(20, 24, 48, 0.92)");
+      pgrd.addColorStop(1, "rgba(8, 10, 26, 0.88)");
+      ctx.fillStyle = pgrd;
+      ctx.strokeStyle = "rgba(170, 180, 220, 0.5)"; ctx.lineWidth = 1;
       roundRect(ctx, tx, ty, tw, 28, 6);
       ctx.fill(); ctx.stroke();
       ctx.fillStyle = "#e8e8f0";
@@ -7626,13 +8134,14 @@ class HUD {
         canvasH - 10
       );
     } else {
-      ctx.fillText("WASD | E etkile\u015fim | Z/X/V/N beceri | Tab beceri \u00e7ubu\u011fu | C I Q R Shift B M", 10, canvasH - 10);
+      ctx.fillText("WASD | E etkile\u015fim | Sol t\u0131k: at\u0131\u015f | Bas\u0131l\u0131 tut: Power | Z/X/V beceri | C I Q R M T | B tekne | L loot", 10, canvasH - 10);
     }
   }
 }
 
 /** T\u0131klanabilir can/mana iksiri d\u00fc\u011fmeleri (son kare hit-test i\u00e7in) */
 let combatPotionRects = null;
+let combatTownTeleportRect = null;
 
 function layoutCombatPotions(cw, ch) {
   const w = 46, h = 46, gap = 6;
@@ -7653,12 +8162,14 @@ function layoutCombatPotions(cw, ch) {
       hpX = Math.max(joyRight + 8, hb.x - potW - 14);
       manaX = hpX;
       const manaY = hpY + potH + innerGap;
+      combatTownTeleportRect = null;
       combatPotionRects = [
         { kind: "hp", x: hpX, y: hpY, w: potW, h: potH, key: "Q" },
         { kind: "mana", x: manaX, y: manaY, w: potW, h: potH, key: "R" },
       ];
       return combatPotionRects;
     }
+    combatTownTeleportRect = null;
     combatPotionRects = [
       { kind: "hp", x: hpX, y: hpY, w: potW, h: potH, key: "Q" },
       { kind: "mana", x: manaX, y: hpY, w: potW, h: potH, key: "R" },
@@ -7675,6 +8186,7 @@ function layoutCombatPotions(cw, ch) {
     { kind: "hp", x: x1, y, w, h, key: "Q" },
     { kind: "mana", x: x2, y, w, h, key: "R" },
   ];
+  combatTownTeleportRect = { x: x1 - w - gap - 8, y, w: w + 8, h, key: "T" };
   return combatPotionRects;
 }
 
@@ -7698,6 +8210,56 @@ function drawCombatPotions(ctx, cw, ch, inventory) {
     ctx.font = "9px monospace";
     ctx.fillText("[" + r.key + "]", r.x + 4, r.y - 4);
   }
+  if (combatTownTeleportRect && !touchState.mobileUI) {
+    const r = combatTownTeleportRect;
+    ctx.fillStyle = "rgba(12,18,32,0.9)";
+    roundRect(ctx, r.x - 2, r.y - 14, r.w + 4, r.h + 18, 6);
+    ctx.fill();
+    ctx.strokeStyle = "#6f8fb8";
+    ctx.lineWidth = 1;
+    roundRect(ctx, r.x - 2, r.y - 14, r.w + 4, r.h + 18, 6);
+    ctx.stroke();
+    ctx.fillStyle = "#d8e8ff";
+    ctx.font = "bold 10px monospace";
+    ctx.fillText("Kasaba", r.x + 8, r.y + 18);
+    ctx.fillStyle = "#9fb8d8";
+    ctx.font = "9px monospace";
+    ctx.fillText("[T]", r.x + 16, r.y + r.h - 4);
+  }
+}
+
+function tryTeleportToVillage() {
+  if (player.inBoat) {
+    pickupMsgText = "Kasabaya \u0131\u015f\u0131nlanmak i\u00e7in tekneden in.";
+    pickupMsgTimer = 1.1;
+    return false;
+  }
+  const options = [
+    [PLAYER_START.col, PLAYER_START.row],
+    [PLAYER_START.col + 1, PLAYER_START.row],
+    [PLAYER_START.col - 1, PLAYER_START.row],
+    [PLAYER_START.col, PLAYER_START.row + 1],
+    [PLAYER_START.col, PLAYER_START.row - 1],
+  ];
+  let spot = null;
+  for (const [c, r] of options) {
+    if (c < 1 || c >= WORLD_COLS - 1 || r < 1 || r >= WORLD_ROWS - 1) continue;
+    if (!map.isSolid(c, r)) { spot = { c, r }; break; }
+  }
+  if (!spot) return false;
+  player.x = spot.c * TILE_SIZE;
+  player.y = spot.r * TILE_SIZE;
+  player.vx = 0;
+  player.vy = 0;
+  player.powerCharging = false;
+  player.powerCharge = 0;
+  player.inBoat = false;
+  camera.x = player.x - canvasW * 0.5;
+  camera.y = player.y - canvasH * 0.5;
+  pickupMsgText = "Kasabaya \u0131\u015f\u0131nland\u0131n! [T]";
+  pickupMsgTimer = 1.2;
+  addScreenShake(1.2);
+  return true;
 }
 
 function tryUseHpPotion() {
@@ -7731,6 +8293,13 @@ function tryUseManaPotion() {
 }
 
 function tryCombatPotionClick(mx, my) {
+  if (combatTownTeleportRect) {
+    const r = combatTownTeleportRect;
+    if (mx >= r.x - 2 && mx < r.x + r.w + 2 && my >= r.y - 14 && my < r.y + r.h + 6) {
+      tryTeleportToVillage();
+      return true;
+    }
+  }
   if (!combatPotionRects) return false;
   for (const r of combatPotionRects) {
     if (mx >= r.x - 2 && mx < r.x + r.w + 2 && my >= r.y - 14 && my < r.y + r.h + 6) {
@@ -7932,8 +8501,11 @@ function renderWorldItemInspect(ctx, cw, ch) {
     ty += touchState.mobileUI ? 19 : 15;
   }
 
-  const curW0 = def.equipSlot ? inventory.equipped[def.equipSlot] : null;
-  const canEq = !!(def.equipSlot && (!curW0 || curW0.id !== wi.itemId || getStackUpgradeLv(curW0) !== uWiPre));
+  const eqCands0 = equipSlotsForItemDef(def);
+  const canEq = eqCands0.some((sk) => {
+    const curW0 = inventory.equipped[sk];
+    return !curW0 || curW0.id !== wi.itemId || getStackUpgradeLv(curW0) !== uWiPre;
+  });
   ctx.fillStyle = canEq ? "rgba(45,90,55,0.92)" : "rgba(45,45,58,0.75)";
   ctx.strokeStyle = canEq ? "#70c080" : "#505060";
   roundRect(ctx, L.btnEquip.x, L.btnEquip.y, L.btnEquip.w, L.btnEquip.h, 6);
@@ -7994,10 +8566,13 @@ function fbm(x, y, oct) {
   return v / tot;
 }
 
-const WORLD_COLS = 500, WORLD_ROWS = 360;
+const WORLD_COLS = 680, WORLD_ROWS = 500;
 const VCOLS = 40, VROWS = 30;
 const VOX = Math.floor((WORLD_COLS - VCOLS) / 2);
 const VOY = Math.floor((WORLD_ROWS - VROWS) / 2);
+const BASE_WORLD_COLS = 500, BASE_WORLD_ROWS = 360;
+const ISLAND_OFFSET_X = Math.floor((WORLD_COLS - BASE_WORLD_COLS) / 2);
+const ISLAND_OFFSET_Y = Math.floor((WORLD_ROWS - BASE_WORLD_ROWS) / 2);
 
 const ORIG_GROUND = [5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,0,0,0,9,0,0,0,9,0,0,0,0,0,0,0,9,0,0,0,0,0,0,0,0,9,0,0,0,0,0,0,0,9,0,0,0,0,0,5,5,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,9,0,0,5,5,0,9,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,5,5,0,0,0,0,0,0,0,0,0,0,0,9,0,0,0,0,0,0,1,1,4,4,1,1,0,0,0,0,0,9,0,0,0,0,0,0,0,0,5,5,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,4,4,4,4,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,5,5,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,4,4,4,4,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,5,5,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,4,4,4,4,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,5,5,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,1,1,1,1,1,0,0,1,0,0,0,0,0,0,0,0,0,0,0,5,5,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,5,5,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,5,5,0,9,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,1,0,0,0,0,0,0,0,9,0,0,0,5,5,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,5,5,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,5,5,0,0,0,0,0,0,0,9,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,9,0,0,0,0,0,0,5,5,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,5,5,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,5,5,0,0,0,0,3,3,3,3,3,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,5,5,0,0,0,3,3,2,2,2,3,3,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,5,5,0,0,3,3,2,2,2,2,2,3,3,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,5,5,0,0,3,3,2,2,2,2,2,3,3,0,0,0,0,0,0,0,0,1,1,4,4,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,5,5,0,0,0,3,3,2,2,2,3,3,0,0,0,0,0,0,0,0,0,1,4,4,4,4,1,0,0,0,0,0,0,0,0,0,0,0,0,0,5,5,0,0,0,0,3,3,2,3,3,0,0,0,0,0,0,0,0,0,0,1,4,4,4,4,1,0,0,0,0,0,0,0,0,9,0,0,0,0,5,5,0,0,0,0,0,3,3,3,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,5,5,0,0,0,0,0,0,0,0,0,0,0,0,0,9,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,9,0,0,0,0,0,0,0,0,5,5,0,9,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,9,0,5,5,0,0,0,0,0,0,0,0,0,0,0,9,0,0,0,0,0,0,0,0,0,0,0,0,0,9,0,0,0,0,0,0,0,0,0,0,0,0,5,5,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,5,5,0,0,0,0,9,0,0,0,0,0,0,0,0,0,0,0,9,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,9,0,0,0,0,0,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5];
 const ORIG_DETAIL = [-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,6,-1,-1,-1,-1,6,-1,-1,6,-1,-1,-1,-1,-1,6,-1,-1,6,-1,-1,-1,-1,-1,-1,-1,6,-1,-1,-1,-1,-1,6,-1,-1,6,-1,-1,6,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,6,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,6,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,7,-1,-1,-1,-1,7,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,7,-1,-1,-1,-1,-1,-1,7,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,6,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,6,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,6,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,7,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,6,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,6,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,7,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,7,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,6,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,6,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,6,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,6,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,6,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,6,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,6,-1,-1,-1,-1,-1,-1,-1,-1,6,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,6,-1,-1,7,-1,-1,-1,-1,-1,-1,-1,-1,-1,7,-1,-1,-1,-1,-1,-1,6,-1,-1,-1,7,-1,-1,-1,-1,-1,-1,7,-1,-1,6,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1];
@@ -8039,13 +8614,31 @@ const ISLANDS = [
     monsters: ["vine_horror","slime","wolf","storm_wraith","vine_horror"], scale: 1.15, boss: "flower_queen" },
 ];
 
+function islandWorldCenter(isl) {
+  return { cx: isl.cx + ISLAND_OFFSET_X, cy: isl.cy + ISLAND_OFFSET_Y };
+}
+
+function islandNormalizedDistance(isl, c, r) {
+  const ctr = islandWorldCenter(isl);
+  const dx = c - ctr.cx, dy = r - ctr.cy;
+  const rx = isl.rx != null ? isl.rx : isl.r;
+  const ry = isl.ry != null ? isl.ry : isl.r;
+  const ang = Math.atan2(dy / Math.max(1, ry), dx / Math.max(1, rx));
+  const coastNoise = fbm((ctr.cx + Math.cos(ang) * 17) * 0.075, (ctr.cy + Math.sin(ang) * 17) * 0.075, 3);
+  const rough = (coastNoise - 0.5) * 0.32;
+  const wobble = Math.sin(ang * 3.2 + ctr.cx * 0.02) * 0.08 + Math.cos(ang * 5.1 + ctr.cy * 0.02) * 0.06;
+  const edgeMul = Math.max(0.72, 1 + rough + wobble);
+  const ex = dx / (rx * edgeMul);
+  const ey = dy / (ry * edgeMul);
+  return Math.sqrt(ex * ex + ey * ey);
+}
+
 function islandInfluence(c, r) {
   let best = 9999;
   for (const isl of ISLANDS) {
-    const dx = c - isl.cx, dy = r - isl.cy;
     const rx = isl.rx != null ? isl.rx : isl.r;
     const ry = isl.ry != null ? isl.ry : isl.r;
-    const e = Math.sqrt((dx * dx) / (rx * rx) + (dy * dy) / (ry * ry));
+    const e = islandNormalizedDistance(isl, c, r);
     const d = (e - 1) * Math.min(rx, ry);
     if (d < best) best = d;
   }
@@ -8055,10 +8648,7 @@ function islandInfluence(c, r) {
 function islandCellOwner(c, r) {
   let best = null, bestE = 999;
   for (const isl of ISLANDS) {
-    const dx = c - isl.cx, dy = r - isl.cy;
-    const rx = isl.rx != null ? isl.rx : isl.r;
-    const ry = isl.ry != null ? isl.ry : isl.r;
-    const e = Math.sqrt((dx * dx) / (rx * rx) + (dy * dy) / (ry * ry));
+    const e = islandNormalizedDistance(isl, c, r);
     if (e < 1 && e < bestE) {
       bestE = e;
       best = isl;
@@ -8071,7 +8661,7 @@ function generateWorld() {
   const ground = new Array(WORLD_COLS * WORLD_ROWS);
   const detail = new Array(WORLD_COLS * WORLD_ROWS);
   const centerX = WORLD_COLS / 2, centerY = WORLD_ROWS / 2;
-  const mainR = 76;
+  const mainR = Math.floor(Math.min(WORLD_COLS, WORLD_ROWS) * 0.24);
 
   for (let r = 0; r < WORLD_ROWS; r++) {
     for (let c = 0; c < WORLD_COLS; c++) {
@@ -8349,7 +8939,7 @@ class CraftPanel {
 
     if (player.hasBoat) {
       ctx.fillStyle = "#50e050"; ctx.font = "bold 13px monospace";
-      ctx.fillText("\u2713 Teknen haz\u0131r! Su k\u0131y\u0131s\u0131nda B bas.", px + 30, iy + 14);
+      ctx.fillText("\u2713 Teknen haz\u0131r! \u0130skelede k\u0131y\u0131ya gel, bindi\u011finde a\u00e7\u0131l\u0131rs\u0131n.", px + 22, iy + 14);
     } else {
       const btnW = Math.min(120, panW - 24), btnH = 30;
       const btnX = px + (panW - btnW) / 2, btnY = py + panH - 50;
@@ -8374,7 +8964,7 @@ class CraftPanel {
     }
 
     ctx.fillStyle = "#707090"; ctx.font = "10px monospace";
-    ctx.fillText("[B] kapat", px + panW - 70, py + panH - 8);
+    ctx.fillText("Esc kapat", px + panW - 58, py + panH - 8);
   }
 }
 
@@ -8469,8 +9059,9 @@ class Minimap {
     ctx.fillRect(px - 2, py2 - 2, 4, 4);
 
     for (const isl of ISLANDS) {
-      const ix = dx + isl.cx * this.scale;
-      const iy = dy + isl.cy * this.scale;
+      const ctr = islandWorldCenter(isl);
+      const ix = dx + ctr.cx * this.scale;
+      const iy = dy + ctr.cy * this.scale;
       ctx.fillStyle = "rgba(255,200,80,0.6)";
       ctx.font = "7px monospace";
       ctx.fillText("\u25C6", ix - 3, iy + 3);
@@ -8539,19 +9130,19 @@ const VILLAGE_NPCS = [
       { id: "bow", qty: 1 }, { id: "sword", qty: 2 },
     ]},
   { col: 27, row: 198, name: "Ya\u015fl\u0131 Bal\u0131k\u00e7\u0131", color: "#4080b0",
-    dialog: ["Kayalık Ada'da en g\u00fczel bal\u0131klar tutulur.","Halat al\u0131rsan tekne yapabilirsin."], wanderRadius: 1 },
+    dialog: ["Kayal\u0131k Ada'da en g\u00fczel bal\u0131klar tutulur.","K\u00f6y iskelesindeki Liman Reisi malzemeyi toplad\u0131\u011f\u0131nda sana tekne kurar."], wanderRadius: 1 },
   { col: 265, row: 192, name: "\u00c7i\u00e7ek\u00e7i", color: "#d060a0",
     dialog: ["\u00c7i\u00e7ek Adas\u0131 cennet gibidir!","Nadir \u00e7i\u00e7ekler sadece burada yeti\u015fir."], wanderRadius: 2 },
   { col: 150, row: 12, name: "Kuzey Kaşifi", color: "#60a0c0",
     dialog: ["Kuzeyin so\u011fuk r\u00fczg\u00e2rlar\u0131 sert eser.","Ama burasnin ta\u015flar\u0131 \u00e7ok de\u011ferli!"], wanderRadius: 1 },
   { col: 150, row: 207, name: "G\u00fcney Muhaf\u0131z\u0131", color: "#a06040",
     dialog: ["G\u00fcney Adas\u0131'n\u0131n koruyucusuyum.","Burada gizli bir \u00e7e\u015fme varm\u0131\u015f!"], wanderRadius: 1 },
-  { col: 98, row: VOY + VROWS + 1, name: "Liman Reisi", color: "#3080a0",
-    dialog: ["\u0130skeleye ho\u015f geldin, denizci!","Tekne yapmak i\u00e7in 15 odun, 5 ta\u015f ve 3 halat topla.",
-             "B tu\u015fuyla tekne yap\u0131m panelini a\u00e7abilirsin.",
-             "Teknen haz\u0131rsa iskelede B'ye bas\u0131p denize a\u00e7\u0131labilirsin!",
+  { col: VOX + 18, row: VOY + VROWS + 1, name: "Liman Reisi", color: "#3080a0", buildsBoat: true,
+    dialog: ["\u0130skeleye ho\u015f geldin, denizci!","Malzemeyi toplad\u0131\u011f\u0131nda sana \u00fccretsiz kurar\u0131m: 15 odun, 5 ta\u015f, 3 halat.",
+             "Konu\u015fmam\u0131z bitince in\u015fa paneli a\u00e7\u0131lacak. Orada malzemeyi bana emanet eder, tekneyi in\u015fa edersin.",
+             "Teknen olunca iskelede k\u0131y\u0131ya gel; \u00e7o\u011funlukla otomatik bini\u015f olur, istersen B ile de binersin / inersin.",
              "Uzak adalarda hazineler ve nadir kaynaklar var."], wanderRadius: 0 },
-  { col: 102, row: VOY + VROWS + 1, name: "Liman T\u00fcccar\u0131", color: "#4090b0",
+  { col: VOX + 22, row: VOY + VROWS + 1, name: "Liman T\u00fcccar\u0131", color: "#4090b0",
     dialog: ["Deniz malzemeleri burada!"], wanderRadius: 0,
     merchant: true, shopPool: "dock", stock: [
       { special: true }, { special: true },
@@ -8670,6 +9261,7 @@ camera.y = player.y - window.innerHeight / 2;
 function isSafeSpawn(col, row) { return !map.isSolid(col, row); }
 
 function findBossSpawn(isl) {
+  const ctr = islandWorldCenter(isl);
   const rx = isl.rx != null ? isl.rx : isl.r;
   const tries = [
     [0, 0], [2, 0], [-2, 0], [0, 2], [0, -2], [3, 2], [-2, 3], [4, 0], [0, 4], [-3, -2],
@@ -8677,7 +9269,7 @@ function findBossSpawn(isl) {
     [1, 3], [-4, 0], [0, -4], [5, -2], [-5, 2],
   ];
   for (const [ox, oy] of tries) {
-    const mc = Math.floor(isl.cx + ox), mr = Math.floor(isl.cy + oy);
+    const mc = Math.floor(ctr.cx + ox), mr = Math.floor(ctr.cy + oy);
     if (mc >= 0 && mc < WORLD_COLS && mr >= 0 && mr < WORLD_ROWS && isSafeSpawn(mc, mr))
       return { col: mc, row: mr };
   }
@@ -8878,8 +9470,11 @@ function renderInventorySlotInspect(ctx, cw, ch) {
     ty += touchState.mobileUI ? 19 : 15;
   }
 
-  const curI = def.equipSlot ? inventory.equipped[def.equipSlot] : null;
-  const canEq = !!(def.equipSlot && (!curI || curI.id !== slot.id || getStackUpgradeLv(curI) !== getStackUpgradeLv(slot)));
+  const eqCands1 = equipSlotsForItemDef(def);
+  const canEq = eqCands1.some((sk) => {
+    const curI = inventory.equipped[sk];
+    return !curI || curI.id !== slot.id || getStackUpgradeLv(curI) !== getStackUpgradeLv(slot);
+  });
   ctx.fillStyle = canEq ? "rgba(45,90,55,0.92)" : "rgba(45,45,58,0.75)";
   ctx.strokeStyle = canEq ? "#70c080" : "#505060";
   roundRect(ctx, L.btnEquip.x, L.btnEquip.y, L.btnEquip.w, L.btnEquip.h, 6);
@@ -8975,12 +9570,13 @@ function spawnMonsters() {
   for (const isl of ISLANDS) {
     if (!isl.monsters) continue;
     const mList = isl.monsters;
+    const ctr = islandWorldCenter(isl);
     for (let i = 0; i < mList.length; i++) {
       const angle = (i / mList.length) * Math.PI * 2;
       const rx = isl.rx != null ? isl.rx : isl.r;
       const ry = isl.ry != null ? isl.ry : isl.r;
-      const mc = Math.floor(isl.cx + Math.cos(angle) * rx * 0.45);
-      const mr = Math.floor(isl.cy + Math.sin(angle) * ry * 0.45);
+      const mc = Math.floor(ctr.cx + Math.cos(angle) * rx * 0.45);
+      const mr = Math.floor(ctr.cy + Math.sin(angle) * ry * 0.45);
       if (isSafeSpawn(mc, mr)) list.push(new Monster(mc, mr, mList[i], isl.scale || 1));
     }
     if (isl.boss && MONSTER_TYPES[isl.boss]) {
@@ -9109,16 +9705,82 @@ function tryActivateRageBurst() {
 }
 
 function dropMonsterLoot(m, worldItems) {
+  const preset = getLootPreset();
   const lo = m.loot || [];
   const tc = Math.floor(m.cx / TILE_SIZE), tr = Math.floor(m.cy / TILE_SIZE);
+  const dropped = [];
+  const pushDrop = (itemId, count) => {
+    const cnt = Math.max(1, count | 0);
+    worldItems.push(new WorldItem(tc, tr, itemId, cnt, false));
+    dropped.push({ id: itemId, c: cnt });
+  };
   for (const entry of lo) {
     const defL = ITEMS[entry.id];
     if (defL && defL.rarity === "legendary" && !m.boss) continue;
     if (Math.random() < (entry.ch !== undefined ? entry.ch : 1)) {
       const cnt = entry.c || 1;
-      worldItems.push(new WorldItem(tc, tr, entry.id, cnt, false));
+      pushDrop(entry.id, cnt);
     }
   }
+
+  const ALL_MONSTER_EQUIP_COMMON_RARE = [
+    "helm_leather", "helm_iron", "chest_leather", "chest_steel", "boots_swift",
+    "waist_cloth", "waist_chain", "arms_cloth", "arms_iron", "wings_cloth", "wings_azure",
+    "gloves_archer", "explorer_band", "lucky_charm", "ring_power", "merchants_ring", "amulet_wisdom",
+  ];
+  const STRONG_BOSS_EPIC_LEGENDARY = [
+    "helm_epic", "helm_legendary", "chest_epic", "chest_legendary", "boots_epic",
+    "waist_epic", "waist_legendary", "arms_epic", "arms_legendary", "wings_epic", "wings_legendary",
+    "sword_elven", "spear_epic", "bow_long", "ring_power", "merchants_ring", "amulet_wisdom",
+  ];
+  const ANY_BOSS_LEGENDARY = [
+    "helm_legendary", "chest_legendary", "waist_legendary", "arms_legendary", "wings_legendary", "amulet_wisdom",
+  ];
+  const DRAGON_GUARANTEE_LEGENDARY = ["helm_legendary", "chest_legendary", "waist_legendary", "arms_legendary", "wings_legendary", "amulet_wisdom"];
+
+  const strongBoss = !!(m.boss && STRONG_BOSS_TYPES.has(m.type));
+  const bRate = LOOT_BALANCE_PANEL.bossRateTable[m.type] || { legendMul: 1, hiTierMul: 1 };
+
+  if (Math.random() < (m.boss ? Math.min(0.9, preset.allMobEquipChance + 0.2) : preset.allMobEquipChance)) {
+    const pick = ALL_MONSTER_EQUIP_COMMON_RARE[Math.floor(Math.random() * ALL_MONSTER_EQUIP_COMMON_RARE.length)];
+    const d = ITEMS[pick];
+    if (d && (d.rarity === "common" || d.rarity === "rare")) pushDrop(pick, 1);
+  }
+
+  if (m.boss && Math.random() < Math.min(0.95, preset.bossAnyLegendaryChance * bRate.legendMul)) {
+    const lg = ANY_BOSS_LEGENDARY[Math.floor(Math.random() * ANY_BOSS_LEGENDARY.length)];
+    pushDrop(lg, 1);
+  }
+
+  if (strongBoss && Math.random() < Math.min(0.98, preset.strongBossHiTierChance * bRate.hiTierMul)) {
+    const hi = STRONG_BOSS_EPIC_LEGENDARY[Math.floor(Math.random() * STRONG_BOSS_EPIC_LEGENDARY.length)];
+    pushDrop(hi, 1);
+  }
+
+  if (m.type === "skywing_dragon") {
+    const hasLegendary = dropped.some((x) => {
+      const d = ITEMS[x.id];
+      return !!(d && d.rarity === "legendary");
+    });
+    if (!hasLegendary) {
+      const forced = DRAGON_GUARANTEE_LEGENDARY[Math.floor(Math.random() * DRAGON_GUARANTEE_LEGENDARY.length)];
+      pushDrop(forced, 1);
+    }
+    if (dropped.length < 2) {
+      const extra = STRONG_BOSS_EPIC_LEGENDARY[Math.floor(Math.random() * STRONG_BOSS_EPIC_LEGENDARY.length)];
+      pushDrop(extra, 1);
+    }
+  }
+}
+
+function getBossLootRateSummary(type) {
+  const mt = MONSTER_TYPES[type];
+  if (!mt || !mt.boss) return "";
+  const preset = getLootPreset();
+  const bRate = LOOT_BALANCE_PANEL.bossRateTable[type] || { legendMul: 1, hiTierMul: 1 };
+  const legend = Math.round(Math.min(0.95, preset.bossAnyLegendaryChance * bRate.legendMul) * 100);
+  const hiTier = Math.round(Math.min(0.98, preset.strongBossHiTierChance * bRate.hiTierMul) * 100);
+  return " L%" + legend + " H%" + hiTier;
 }
 
 const MELEE_RANGE = 46;
@@ -9225,14 +9887,59 @@ function tryMeleeOrRangedClick() {
       return false;
     } else if (player.useMana(player.manaCostShoot)) {
       inventory.removeItem("arrow", 1);
-      player.shootCooldown = 0.35;
+      const rapid = player.archerRapidFireTimer > 0;
+      player.shootCooldown = rapid ? 0.2 : 0.35;
       player.shootAnim = 0.25;
       const sx = player.centerX + Math.cos(player.angle) * 14;
       const sy = player.centerY + Math.sin(player.angle) * 14;
       const aim = arrowAimAssist(sx, sy, player.angle, monsters);
       const na = new Arrow(sx, sy, aim.angle);
       na.furyShot = player.rageBurstTimer > 0;
-      na.damage = applyOutgoingPlayerDamage(player.getRangedDamage(), player, inventory, {});
+      player.archerComboCount = Math.min(5, (player.archerComboCount | 0) + 1);
+      player.archerComboTimer = 2.2;
+      const comboBurst = player.archerComboCount === 3;
+      const comboUlt = player.archerComboCount >= 5;
+      const comboMul = comboUlt ? 2.05 : comboBurst ? 1.65 : 1;
+      na.damage = applyOutgoingPlayerDamage(player.getRangedDamage() * comboMul, player, inventory, {});
+      if (comboBurst) {
+        const off = 0.13;
+        const a2 = new Arrow(sx, sy, aim.angle - off);
+        const a3 = new Arrow(sx, sy, aim.angle + off);
+        a2.furyShot = na.furyShot; a3.furyShot = na.furyShot;
+        a2.damage = Math.max(1, Math.floor(na.damage * 0.62));
+        a3.damage = Math.max(1, Math.floor(na.damage * 0.62));
+        arrows.push(a2, a3);
+        pickupMsgText = "Combo Patlama!";
+        pickupMsgTimer = 0.5;
+        player.comboBlastTimer = Math.max(player.comboBlastTimer, 0.22);
+      }
+      if (comboUlt) {
+        const fan = [-0.3, -0.16, 0.16, 0.3];
+        for (const off of fan) {
+          const ax = new Arrow(sx, sy, aim.angle + off);
+          ax.furyShot = na.furyShot;
+          ax.damage = Math.max(1, Math.floor(na.damage * 0.58));
+          ax.speed *= 1.12;
+          arrows.push(ax);
+        }
+        const chainTargets = monsters
+          .filter((m) => m.alive && m.state !== "dying")
+          .map((m) => ({ m, d: m.distTo(player.centerX, player.centerY) }))
+          .filter((x) => x.d > 8 && x.d < 180)
+          .sort((a, b) => a.d - b.d)
+          .slice(0, 3);
+        for (const x of chainTargets) {
+          const rawChain = player.getRangedDamage() * 0.95;
+          x.m.takeDamage(applyOutgoingPlayerDamage(rawChain, player, inventory, { monster: x.m, armorPiercePct: 28 }));
+        }
+        addScreenShake(4.2);
+        pickupMsgText = "MINI ULTI! Zincir + Delici + Hızlı Atış";
+        pickupMsgTimer = 0.8;
+        player.comboBlastTimer = Math.max(player.comboBlastTimer, 0.45);
+        player.archerRapidFireTimer = Math.max(player.archerRapidFireTimer, 3.2);
+        player.archerComboCount = 0;
+        player.archerComboTimer = 0;
+      }
       arrows.push(na);
       registerRangedAimTarget(aim.target);
       player.gainXP(1);
@@ -9390,6 +10097,27 @@ function skillCastMend() {
   return true;
 }
 
+function skillCastPowerBurst() {
+  if (!playerHasBowEquipped(inventory)) {
+    pickupMsgText = "Power Burst için yay gerekli!";
+    pickupMsgTimer = 0.9;
+    return false;
+  }
+  if (inventory.countItem("arrow") < 1) {
+    pickupMsgText = "Power Burst için ok gerekli!";
+    pickupMsgTimer = 0.9;
+    return false;
+  }
+  if (player.mana < player.manaCostPower) {
+    pickupMsgText = "Power Burst için mana yetersiz!";
+    pickupMsgTimer = 0.9;
+    return false;
+  }
+  player.powerCharging = true;
+  player.powerCharge = 1;
+  return tryReleasePowerShotClick();
+}
+
 function skillCastVolley() {
   if (!playerHasBowEquipped(inventory)) {
     pickupMsgText = "Salvo i\u00e7in yay gerekli!";
@@ -9444,12 +10172,7 @@ function tryCastActiveSkill(slotIndex) {
   }
   let ok = false;
   switch (def.id) {
-    case "whirl": ok = skillCastWhirl(); break;
-    case "nova": ok = skillCastNova(); break;
-    case "fire": ok = spawnSkillBolt("fire"); break;
-    case "frost": ok = spawnSkillBolt("ice"); break;
-    case "dash": ok = skillCastDash(); break;
-    case "thunder": ok = skillCastThunder(); break;
+    case "powerburst": ok = skillCastPowerBurst(); break;
     case "mend": ok = skillCastMend(); break;
     case "volley": ok = skillCastVolley(); break;
     default: ok = false;
@@ -9466,21 +10189,31 @@ function tryCastActiveSkill(slotIndex) {
 function tryAutoAttackWhileHeld() {
   if (player.inBoat || combatPanelsBlockAutoAttack()) return;
   const shiftHeld = isDown("ShiftLeft") || isDown("ShiftRight");
-  if (shiftHeld && player.powerCharging) return;
   const mouseHeld = canvasMouse0Down && !touchState.mobileUI;
   const mobileAttackHeld = touchState.mobileUI && touchState.attackId >= 0;
   if (!mouseHeld && !mobileAttackHeld) return;
+  if (mouseHeld && !player.inBoat && playerHasBowEquipped(inventory)) {
+    const holdMs = performance.now() - mouseAttackT0;
+    if (holdMs >= DESKTOP_POWER_HOLD_MS && inventory.countItem("arrow") > 0 && player.mana >= player.manaCostPower) {
+      if (!player.powerCharging) {
+        player.powerCharging = true;
+        player.powerCharge = 0;
+      }
+      return;
+    }
+  }
   if (mobileAttackHeld) {
     const dur = performance.now() - touchState.attackT0;
     if (dur < MOBILE_ATTACK_INTERACT_MS && mobileInteractEligible()) return;
   }
+  if (shiftHeld && player.powerCharging) return;
   tryMeleeOrRangedClick();
 }
 
 canvas.addEventListener("mousedown", (e) => {
   if (e.sourceCapabilities && e.sourceCapabilities.firesTouchEvents) return;
   gameAudio.resume();
-  if (e.button === 0) canvasMouse0Down = true;
+  if (e.button === 0) { canvasMouse0Down = true; mouseAttackT0 = performance.now(); }
   if (charPanel.open) {
     charPanel.handleClick(e.clientX, e.clientY, canvasW, canvasH, player, inventory);
     e.preventDefault();
@@ -9546,6 +10279,12 @@ canvas.addEventListener("mousemove", (e) => {
 window.addEventListener("mouseup", (e) => {
   if (e.button === 0) {
     canvasMouse0Down = false;
+    if (player.powerCharging && (performance.now() - mouseAttackT0) >= DESKTOP_POWER_HOLD_MS) {
+      tryReleasePowerShotClick();
+    } else if (!(isDown("ShiftLeft") || isDown("ShiftRight"))) {
+      player.powerCharging = false;
+      player.powerCharge = 0;
+    }
     if (inventory.open) inventory.finishSlotPress(e.clientX, e.clientY, canvasW, canvasH, false);
   }
 });
@@ -9560,7 +10299,7 @@ canvas.addEventListener("wheel", (e) => {
 
 function tryMobileClosePanels(mx, my) {
   if (!touchState.mobileUI || !hitMobileCloseChip(mx, my, canvasW)) return false;
-  if (dialog.active) { dialog.close(); return true; }
+  if (dialog.active) { dialog.close(true); return true; }
   if (shop.open) { shop.close(); return true; }
   if (craftPanel.open) { craftPanel.close(); return true; }
   if (inventory.open) {
@@ -9706,14 +10445,30 @@ function handleCanvasTouchMove(e) {
 }
 
 function pulseMobileButtonKey(key) {
-  if (key === "swap") {
-    touchState.skillBarPage = 1 - (touchState.skillBarPage | 0);
-    pickupMsgText = (touchState.skillBarPage ? "Beceri \u00e7ubu\u011fu B" : "Beceri \u00e7ubu\u011fu A");
-    pickupMsgTimer = 0.65;
-    return;
-  }
   if (key === "target") {
     snapAimToNearestMonster();
+    return;
+  }
+  if (key === MOBILE_POWER_BUTTON_KEY) {
+    if (player.powerCharging && player.powerCharge > 0.08) {
+      tryReleasePowerShotClick();
+    } else if (!player.powerCharging && !combatPanelsBlockAutoAttack() && !player.inBoat) {
+      if (!playerHasBowEquipped(inventory)) {
+        pickupMsgText = "Power için yay kuşan!";
+        pickupMsgTimer = 0.9;
+      } else if (inventory.countItem("arrow") <= 0) {
+        pickupMsgText = "Power için ok gerekli!";
+        pickupMsgTimer = 0.9;
+      } else if (player.mana < player.manaCostPower) {
+        pickupMsgText = "Power için mana yetersiz!";
+        pickupMsgTimer = 0.9;
+      } else {
+        player.powerCharging = true;
+        player.powerCharge = 0;
+        pickupMsgText = "Power doluyor...";
+        pickupMsgTimer = 0.6;
+      }
+    }
     return;
   }
   if (key === "KeyQ") pulseJust("KeyQ");
@@ -9721,6 +10476,8 @@ function pulseMobileButtonKey(key) {
   else if (key === "KeyC") pulseJust("KeyC");
   else if (key === "KeyI") pulseJust("KeyI");
   else if (key === "KeyM") pulseJust("KeyM");
+  else if (key === "KeyL") pulseJust("KeyL");
+  else if (key === "KeyT") pulseJust("KeyT");
   else if (key === "KeyB") pulseJust("KeyB");
 }
 
@@ -9863,21 +10620,22 @@ function renderTouchOverlay(ctx) {
       ctx.fillText(b.label, b.cx - ctx.measureText(b.label).width / 2, b.cy + 4);
       continue;
     }
-    if (b.kind === "swap" || b.kind === "target") {
+    if (b.kind === "target" || b.kind === "power") {
       const onAux = touchState.btnDown.size && [...touchState.btnDown.values()].some((v) => v.key === b.key);
-      ctx.fillStyle = onAux ? "rgba(120,95,155,0.96)" : "rgba(248,248,255,0.94)";
+      const isPower = b.kind === "power";
+      ctx.fillStyle = onAux ? "rgba(120,95,155,0.96)" : (isPower ? "rgba(255,244,252,0.96)" : "rgba(248,248,255,0.94)");
       ctx.beginPath();
       ctx.arc(b.cx, b.cy, b.r, 0, Math.PI * 2);
       ctx.fill();
-      ctx.strokeStyle = onAux ? "#e8c8ff" : "#9090b0";
+      ctx.strokeStyle = onAux ? "#e8c8ff" : (isPower ? "#d088ff" : "#9090b0");
       ctx.lineWidth = 1.5;
       ctx.stroke();
-      ctx.fillStyle = onAux ? "#fff8ff" : "#383850";
+      ctx.fillStyle = onAux ? "#fff8ff" : (isPower ? "#7a2cb0" : "#383850");
       ctx.font = "bold 12px monospace";
       ctx.fillText(b.label, b.cx - ctx.measureText(b.label).width / 2, b.cy + 4);
       ctx.fillStyle = "rgba(210,210,230,0.95)";
       ctx.font = "6px monospace";
-      const sub = b.kind === "swap" ? "SWAP" : "HEDEF";
+      const sub = b.kind === "target" ? "HEDEF" : "POWER";
       ctx.fillText(sub, b.cx - ctx.measureText(sub).width / 2, b.cy + b.r + 7);
       continue;
     }
@@ -10009,7 +10767,16 @@ function handleInteraction() {
       if (npc.merchant && npc.stock) {
         shop.openShop(npc.name, npc.stock, npc.shopPool);
       } else {
-        dialog.show(npc.name, npc.dialog);
+        const bNpc = npc.buildsBoat;
+        dialog.show(npc.name, npc.dialog, () => {
+          if (bNpc && !player.hasBoat) {
+            if (typeof charPanel !== "undefined") charPanel.close();
+            if (typeof petPanel !== "undefined") petPanel.open = false;
+            if (typeof shop !== "undefined") shop.close();
+            if (typeof inventory !== "undefined") inventory.close();
+            craftPanel.open = true;
+          }
+        });
       }
       actionCooldown = 0.3;
       return;
@@ -10155,6 +10922,19 @@ function applyInventorySave(inv, d) {
       if (u > 0) st.upgrade = u;
       inv.equipped[sk] = st;
     } else inv.equipped[sk] = null;
+  }
+  /* Geri uyumluluk: eski kayıtlardaki ring/hands slotlarını yeni yerlere taşır. */
+  if (d.equipped && d.equipped.ring && !inv.equipped.ring1 && !inv.equipped.ring2) {
+    const r = d.equipped.ring;
+    inv.equipped.ring1 = { id: r.id, count: Math.max(1, r.count | 0) };
+    const ur = r.upgrade | 0;
+    if (ur > 0) inv.equipped.ring1.upgrade = ur;
+  }
+  if (d.equipped && d.equipped.hands && !inv.equipped.arms) {
+    const h = d.equipped.hands;
+    inv.equipped.arms = { id: h.id, count: Math.max(1, h.count | 0) };
+    const uh = h.upgrade | 0;
+    if (uh > 0) inv.equipped.arms.upgrade = uh;
   }
   inv.selectedHotbar = Math.max(0, Math.min(inv.hotbar.length - 1, d.selectedHotbar | 0));
   inv.heldItem = null;
@@ -10574,7 +11354,7 @@ function gameLoop(now) {
   }
 
   if (wasJustPressed("Escape")) {
-    if (dialog.active) dialog.close();
+    if (dialog.active) dialog.close(true);
     else if (shop.open) shop.close();
     else if (craftPanel.open) craftPanel.close();
     else if (inventory.open) {
@@ -10606,6 +11386,9 @@ function gameLoop(now) {
     }
   }
   if (wasJustPressed("KeyM")) minimap.toggle();
+  if (wasJustPressed("KeyT") && !dialog.active && !inventory.open && !petPanel.open && !shop.open && !craftPanel.open && !charPanel.open && !worldItemInspect && !inventorySlotInspect) {
+    tryTeleportToVillage();
+  }
 
   if (wasJustPressed("KeyB")) {
     if (craftPanel.open) {
@@ -10630,10 +11413,7 @@ function gameLoop(now) {
         player.inBoat = true;
         pickupMsgText = "Tekneye bindin! \u2693";
         pickupMsgTimer = 1.5;
-      } else if (!player.hasBoat) {
-        charPanel.close();
-        craftPanel.toggle();
-      } else {
+      } else if (player.hasBoat) {
         pickupMsgText = "Su k\u0131y\u0131s\u0131na yakla\u015f!";
         pickupMsgTimer = 1.5;
       }
@@ -10668,10 +11448,11 @@ function gameLoop(now) {
   craftPanel.update(dt);
   const uiOpen = dialog.active || inventory.open || petPanel.open || shop.open || craftPanel.open || charPanel.open || !!worldItemInspect || !!inventorySlotInspect;
 
-  if ((isDown("ShiftLeft") || isDown("ShiftRight")) && !uiOpen && !player.inBoat) {
+  const desktopPowerHold = canvasMouse0Down && !touchState.mobileUI && (performance.now() - mouseAttackT0) >= DESKTOP_POWER_HOLD_MS;
+  if ((isDown("ShiftLeft") || isDown("ShiftRight") || desktopPowerHold) && !uiOpen && !player.inBoat) {
     if (!player.powerCharging) { player.powerCharging = true; player.powerCharge = 0; }
   } else if (player.powerCharging && player.powerCharge < 0.1 &&
-    !isDown("ShiftLeft") && !isDown("ShiftRight")) {
+    !isDown("ShiftLeft") && !isDown("ShiftRight") && !desktopPowerHold) {
     player.powerCharging = false; player.powerCharge = 0;
   }
 
@@ -10682,6 +11463,11 @@ function gameLoop(now) {
     const muted = gameAudio.toggleMute();
     pickupMsgText = muted ? "Ses kapal\u0131 (U)" : "Ses a\u00e7\u0131k (U)";
     pickupMsgTimer = 1.1;
+  }
+  if (wasJustPressed("KeyL") && !uiOpen) {
+    const pr = cycleLootPreset();
+    pickupMsgText = "Loot preset: " + pr.label + " (L)";
+    pickupMsgTimer = 1.2;
   }
   if (wasJustPressed("BracketRight") && !uiOpen) {
     const v = gameAudio.nudgeMaster(0.08);
@@ -10695,14 +11481,9 @@ function gameLoop(now) {
   }
 
   if (!uiOpen && !charPanel.open) {
-    if (wasJustPressed("Tab")) {
-      touchState.skillBarPage = 1 - (touchState.skillBarPage | 0);
-      pickupMsgText = touchState.skillBarPage ? "Beceri \u00e7ubu\u011fu B" : "Beceri \u00e7ubu\u011fu A";
-      pickupMsgTimer = 0.55;
-    }
-    const skKeys = ["KeyZ", "KeyX", "KeyV", "KeyN"];
-    for (let si = 0; si < 4; si++) {
-      if (wasJustPressed(skKeys[si])) tryCastActiveSkill((touchState.skillBarPage | 0) * 4 + si);
+    const skKeys = ["KeyZ", "KeyX", "KeyV"];
+    for (let si = 0; si < skKeys.length; si++) {
+      if (wasJustPressed(skKeys[si])) tryCastActiveSkill(si);
     }
   }
 
@@ -10856,7 +11637,8 @@ function gameLoop(now) {
         if (m.distTo(player.centerX, player.centerY) < TILE_SIZE * 5) {
           const mt = MONSTER_TYPES[m.type];
           const bpre = mt && mt.boss ? "\u2605 BOSS " : "";
-          hud.showInteractPrompt("\u2694 " + bpre + (mt ? mt.name : m.type) + "  " + Math.ceil(m.hp) + "/" + m.maxHp + " HP");
+          const rt = mt && mt.boss ? getBossLootRateSummary(m.type) : "";
+          hud.showInteractPrompt("\u2694 " + bpre + (mt ? mt.name : m.type) + "  " + Math.ceil(m.hp) + "/" + m.maxHp + " HP" + rt);
           nearMonster = true; break;
         }
       }
@@ -10865,6 +11647,8 @@ function gameLoop(now) {
       for (const npc of npcs) {
         if (npc.isNearPlayer(player)) {
           if (npc.merchant) hud.showInteractPrompt(interactPromptActionHint() + " " + npc.name + " - Market");
+          else if (npc.buildsBoat)
+            hud.showInteractPrompt(interactPromptActionHint() + " " + npc.name + (player.hasBoat ? " (tekne: k\u0131y\u0131)" : " (tekne in\u015fa\u0131)"));
           else hud.showInteractPrompt(interactPromptActionHint() + " " + npc.name + " ile konu\u015f");
           nearNPC = true; break;
         }
@@ -10967,15 +11751,35 @@ function gameLoop(now) {
 
   camera.resetTransform(ctx);
 
+  (function drawScreenVignette() {
+    const g = ctx.createRadialGradient(
+      canvasW * 0.5, canvasH * 0.42, Math.min(canvasW, canvasH) * 0.2,
+      canvasW * 0.5, canvasH * 0.5, Math.max(canvasW, canvasH) * 0.72
+    );
+    g.addColorStop(0, "rgba(0,0,0,0)");
+    g.addColorStop(0.65, "rgba(0,0,0,0.12)");
+    g.addColorStop(1, "rgba(0,0,0,0.28)");
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, canvasW, canvasH);
+    ctx.restore();
+  })();
+
   if (!inventory.open && !petPanel.open && !shop.open && !craftPanel.open) {
     const hx = 10, hy = 10, hw = 170, barH = 10, gap = 4, pad = 6;
     const extraRageRow = (player.rageBurstTimer > 0 || player.rageMeter > 0.02) ? barH + gap : 0;
     const extraPwrRow = (player.powerCharging && player.powerCharge > 0) ? barH + gap : 0;
-    const panelH = pad * 2 + barH * 4 + gap * 3 + 22 + extraRageRow + extraPwrRow;
+    const extraComboRow = (player.archerComboTimer > 0 || player.archerComboCount > 0) ? barH + gap : 0;
+    const extraRapidRow = player.archerRapidFireTimer > 0 ? barH + gap : 0;
+    const panelH = pad * 2 + barH * 4 + gap * 3 + 22 + extraRageRow + extraPwrRow + extraComboRow + extraRapidRow;
 
-    ctx.fillStyle = "rgba(10,10,30,0.8)";
+    const hgrd = ctx.createLinearGradient(hx, hy, hx, hy + panelH);
+    hgrd.addColorStop(0, "rgba(16, 18, 42, 0.92)");
+    hgrd.addColorStop(1, "rgba(6, 8, 22, 0.86)");
+    ctx.fillStyle = hgrd;
     roundRect(ctx, hx, hy, hw, panelH, 8); ctx.fill();
-    ctx.strokeStyle = "rgba(100,100,140,0.4)"; ctx.lineWidth = 1;
+    ctx.strokeStyle = "rgba(120, 130, 180, 0.5)"; ctx.lineWidth = 1;
     roundRect(ctx, hx, hy, hw, panelH, 8); ctx.stroke();
 
     ctx.fillStyle = "#f0d050"; ctx.font = "bold 11px monospace";
@@ -11028,6 +11832,15 @@ function gameLoop(now) {
     if (player.powerCharging && player.powerCharge > 0) {
       by += barH + gap;
       drawBar("PWR", player.powerCharge * 100, 100, "#a040d0", "#d080ff", hx + pad, by);
+    }
+    if (player.archerComboTimer > 0 || player.archerComboCount > 0) {
+      by += barH + gap;
+      const lbl = player.archerComboCount >= 5 ? "COMBO ULTI" : "COMBO";
+      drawBar(lbl, player.archerComboCount, 5, "#2090d0", "#70d8ff", hx + pad, by);
+    }
+    if (player.archerRapidFireTimer > 0) {
+      by += barH + gap;
+      drawBar("RAPID", player.archerRapidFireTimer, 3.2, "#8a40ff", "#e090ff", hx + pad, by);
     }
 
     let extraY = hy + panelH + 6;
@@ -11099,6 +11912,16 @@ function gameLoop(now) {
     ctx.fillStyle = "#ff0000";
     ctx.fillRect(0, 0, canvasW, canvasH);
     ctx.globalAlpha = 1;
+  }
+  if (player.comboBlastTimer > 0) {
+    const t = player.comboBlastTimer;
+    const a = Math.min(0.32, t * 0.7);
+    const g = ctx.createRadialGradient(canvasW * 0.5, canvasH * 0.55, 20, canvasW * 0.5, canvasH * 0.55, canvasW * 0.5);
+    g.addColorStop(0, "rgba(160, 240, 255, " + a + ")");
+    g.addColorStop(0.5, "rgba(110, 180, 255, " + (a * 0.5) + ")");
+    g.addColorStop(1, "rgba(0, 0, 0, 0)");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, canvasW, canvasH);
   }
 
   if (pickupMsgTimer > 0) {
