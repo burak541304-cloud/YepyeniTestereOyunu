@@ -782,6 +782,34 @@ const ITEMS = {
       passives: [{ text: "Yava\u015f at\u0131\u015f; y\u00fcksek menzil (rol)." }],
     },
     desc: "Menzil ve isabet.", buyPrice: 0, sellPrice: 85 },
+  bow_storm_legendary: { id: "bow_storm_legendary", name: "Firtina Efsane Yayi", stackable: true, maxStack: 32, rarity: "legendary", equipSlot: "bow", weight: 4.4,
+    stats: { str: 2, agi: 9, wis: 4, maxHp: 12, maxMana: 20, meleeDmg: 0, rangedDmg: 20 },
+    advanced: { attackPower: 196, elemLightning: 140, elemFlame: 20, resLightning: 24, resMagic: 10, critRate: 8 },
+    extras: {
+      itemLevel: { cur: 1, max: 40 },
+      displayBaseDmg: 186,
+      critChance: 16,
+      critDamagePct: 26,
+      bonusPctDmg: [14, 10],
+      firePct: 8,
+      passives: [{ text: "Tam cekiste yildirim izi birakir; yuksek kritik patlamasi." }],
+      special: { text: "Hedef uzaksa +%25 hasar.", dmgBonus: 0.25 },
+    },
+    desc: "Gokten muhurlenmis yay; guclu tekli vuruslar icin.", buyPrice: 0, sellPrice: 620 },
+  bow_dragon_legendary: { id: "bow_dragon_legendary", name: "Ejder Nefesi Yayi", stackable: true, maxStack: 32, rarity: "legendary", equipSlot: "bow", weight: 4.8,
+    stats: { str: 4, agi: 8, wis: 6, maxHp: 20, maxMana: 28, meleeDmg: 0, rangedDmg: 24 },
+    advanced: { attackPower: 224, elemFlame: 180, elemLightning: 45, resFire: 26, resLightning: 14, defense: 10, critRate: 10 },
+    extras: {
+      itemLevel: { cur: 1, max: 40 },
+      displayBaseDmg: 214,
+      critChance: 20,
+      critDamagePct: 35,
+      bonusPctDmg: [18, 12, 8],
+      firePct: 18,
+      passives: [{ text: "Alevli oklar zirhi deler; bosslara karsi cok etkilidir." }],
+      special: { text: "Can %60 ustundeyken +%30 ilave hasar.", dmgBonus: 0.3 },
+    },
+    desc: "Kadim ejderha kalbinden guc alir; en yuksek yay hasarlarindan biri.", buyPrice: 0, sellPrice: 880 },
   rope:   { id: "rope",   name: "Halat",    stackable: true, maxStack: 32, desc: "Sa\u011flam kenevir halat.",     buyPrice: 6,  sellPrice: 2  },
   helm_leather:   { id: "helm_leather",   name: "Deri Mi\u011fer",       stackable: true, maxStack: 32, rarity: "common",    equipSlot: "head",   stats: { str: 1, agi: 0, wis: 0, maxHp: 8, maxMana: 0 },
     extras: { weakTo: [{ kind: "fire", label: "Ate\u015f" }], passives: [{ text: "Deri: a\u015f\u0131r\u0131 \u0131s\u0131da dayan\u0131kl\u0131l\u0131k d\u00fc\u015fer (bilgi)." }] },
@@ -843,6 +871,18 @@ const ITEMS = {
   lucky_charm:    { id: "lucky_charm",    name: "\u015eans T\u0131ls\u0131m\u0131",      stackable: true, maxStack: 32, rarity: "rare",      equipSlot: "amulet", stats: { str: 0, agi: 1, wis: 2, maxHp: 6, maxMana: 12 }, desc: "Eski kervan yollar\u0131ndan.", buyPrice: 175, sellPrice: 42 },
   merchants_ring: { id: "merchants_ring", name: "Lonca Y\u00fcz\u00fc\u011f\u00fc",      stackable: true, maxStack: 32, rarity: "epic",      equipSlot: "ring",   stats: { str: 2, agi: 2, wis: 2, maxHp: 10, maxMana: 14 }, desc: "T\u00fcccar loncas\u0131n\u0131n m\u00fchr\u00fc.", buyPrice: 310, sellPrice: 88 },
   explorer_band:  { id: "explorer_band",  name: "Ka\u015fif Bilezi\u011fi",      stackable: true, maxStack: 32, rarity: "rare",      equipSlot: "arms",  stats: { str: 1, agi: 3, wis: 0, maxHp: 8, maxMana: 0 }, desc: "Harita ve pusula dostu.", buyPrice: 135, sellPrice: 38 },
+  cloak_shadow:   { id: "cloak_shadow",   name: "Golge Pelerini", stackable: true, maxStack: 32, rarity: "rare", equipSlot: "cloak",
+    stats: { str: 1, agi: 3, wis: 1, maxHp: 8, maxMana: 10 }, advanced: { defense: 6, resMagic: 8 }, desc: "Hafif ama savunmaci pelerin.", buyPrice: 0, sellPrice: 56 },
+  shoulder_guard: { id: "shoulder_guard", name: "Muhafiz Omuzluk", stackable: true, maxStack: 32, rarity: "rare", equipSlot: "shoulder",
+    stats: { str: 3, agi: 1, wis: 0, maxHp: 16, maxMana: 0 }, advanced: { defense: 10, defSword: 6 }, desc: "Omuz darbesini emer.", buyPrice: 0, sellPrice: 62 },
+  earring_focus:  { id: "earring_focus",  name: "Odak Kupesi", stackable: true, maxStack: 32, rarity: "epic", equipSlot: "earring",
+    stats: { str: 0, agi: 2, wis: 4, maxHp: 0, maxMana: 22 }, advanced: { attackPower: 42, critRate: 5, resCurse: 8 }, desc: "Nisanciya kritik odak verir.", buyPrice: 0, sellPrice: 120 },
+  bracelet_titan: { id: "bracelet_titan", name: "Titan Bilezigi", stackable: true, maxStack: 32, rarity: "epic", equipSlot: "bracelet",
+    stats: { str: 4, agi: 1, wis: 1, maxHp: 24, maxMana: 8 }, advanced: { attackPower: 36, defense: 12, pctStr: 6 }, desc: "Kuvvet ve dengeyi artirir.", buyPrice: 0, sellPrice: 134 },
+  talisman_void:  { id: "talisman_void",  name: "Bosluk Tilsimi", stackable: true, maxStack: 32, rarity: "legendary", equipSlot: "talisman",
+    stats: { str: 3, agi: 3, wis: 8, maxHp: 18, maxMana: 32 }, advanced: { attackPower: 66, resMagic: 20, resPoison: 12, pctMana: 10 }, desc: "Kadim runelerle kutsanmis.", buyPrice: 0, sellPrice: 360 },
+  artifact_dragon_eye:{ id: "artifact_dragon_eye", name: "Ejder Gozu Artefakti", stackable: true, maxStack: 32, rarity: "legendary", equipSlot: "artifact",
+    stats: { str: 6, agi: 6, wis: 6, maxHp: 30, maxMana: 30 }, advanced: { attackPower: 88, critRate: 10, critDamage: 22, elemFlame: 60, elemLightning: 40 }, desc: "En guclu boss ganimetlerinden biri.", buyPrice: 0, sellPrice: 520 },
   boss_chest:     { id: "boss_chest",     name: "Boss Sand\u0131\u011f\u0131",       stackable: true, maxStack: 99, rarity: "legendary", desc: "A\u00e7\u0131nca nadir ganimet verir.", buyPrice: 0, sellPrice: 0 },
 };
 
@@ -1027,7 +1067,7 @@ function upgradeGoldCost(def, currentLv) {
   return Math.max(8, Math.floor(20 * Math.pow(1.82, currentLv) * (0.65 + rr * 0.38)));
 }
 
-const MAX_ITEM_UPGRADE = 12;
+const MAX_ITEM_UPGRADE = 10;
 
 function upgradeSuccessPct(currentLv) {
   if (currentLv >= MAX_ITEM_UPGRADE) return 0;
@@ -1452,14 +1492,22 @@ function collectItemStatParts(def) {
 }
 
 /** Tooltip: seviye, temel hasar, kritik, zay\u0131fl\u0131k, pasif, y\u00fczde bonuslar, \u00f6zel kutu. */
-function appendItemExtraTooltipLines(def, fonts, measurePush, pushWrapped) {
+function appendItemExtraTooltipLines(def, fonts, measurePush, pushWrapped, upgradeLv) {
   const ex = def && def.extras;
   if (!ex) return;
+  const up = Math.max(0, upgradeLv | 0);
   if (ex.itemLevel) {
-    measurePush(fonts.meta, "#e8ecf8", "Seviye " + ex.itemLevel.cur + "/" + ex.itemLevel.max);
+    const baseCur = Math.max(1, (ex.itemLevel.cur | 0) || 1);
+    const lvlMax = Math.max(baseCur, (ex.itemLevel.max | 0) || 40);
+    const shownCur = Math.min(lvlMax, up > 0 ? Math.max(baseCur, up) : baseCur);
+    measurePush(fonts.meta, "#e8ecf8", "Seviye " + shownCur + "/" + lvlMax);
   }
   if (ex.displayBaseDmg != null) {
-    measurePush(fonts.stat, "#f4f4ff", "\u2694 Temel hasar: " + ex.displayBaseDmg);
+    const baseDmg = Math.max(0, ex.displayBaseDmg | 0);
+    const baseCur = ex.itemLevel ? Math.max(1, (ex.itemLevel.cur | 0) || 1) : 1;
+    const gainLv = Math.max(0, up - baseCur);
+    const scaledBaseDmg = baseDmg + gainLv * 6;
+    measurePush(fonts.stat, "#f4f4ff", "\u2694 Temel hasar: " + scaledBaseDmg);
   }
   if (ex.critChance != null) {
     measurePush(fonts.stat, "#ffd080", "Kritik \u015fans: %" + ex.critChance);
@@ -1645,7 +1693,7 @@ function buildItemTooltipLayout(ctx, def, itemId, canvasW, mobile, metaOpts, tra
     if (/^Attack Power\s*:/.test(row.text)) continue;
     measurePush(fonts.stat, row.color || (row.neg ? "#ff7070" : "#8ae0a8"), row.text);
   }
-  appendItemExtraTooltipLines(def, fonts, measurePush, pushWrapped);
+  appendItemExtraTooltipLines(def, fonts, measurePush, pushWrapped, upLv);
   const meta = collectItemMetaLines(def, itemId, metaOpts);
   for (const m of meta) measurePush(fonts.meta, "#c0d0f0", m);
   pushWrapped(def.desc || "", fonts.desc, "#b4c0dc");
@@ -1863,11 +1911,15 @@ function drawItemIcon(ctx, itemId, x, y, size) {
       break;
     case "bow":
     case "bow_hunter":
-    case "bow_long": {
+    case "bow_long":
+    case "bow_storm_legendary":
+    case "bow_dragon_legendary": {
       ctx.save(); ctx.translate(cx, cy); ctx.rotate(-0.3);
       let limbCol = "#8B5E3C", stringCol = "#d0dce8", rim = "#a07040";
       if (itemId === "bow_hunter") { limbCol = "#3d5030"; stringCol = "#98e878"; rim = "#5a7048"; }
       if (itemId === "bow_long") { limbCol = "#504070"; stringCol = "#f0c8ff"; rim = "#8060b0"; }
+      if (itemId === "bow_storm_legendary") { limbCol = "#2e4f88"; stringCol = "#9ee9ff"; rim = "#80b6ff"; }
+      if (itemId === "bow_dragon_legendary") { limbCol = "#7e2a1e"; stringCol = "#ffd6b0"; rim = "#ff9d52"; }
       ctx.strokeStyle = limbCol; ctx.lineWidth = s * 0.095;
       ctx.beginPath(); ctx.arc(s*0.05, 0, s*0.32, -Math.PI*0.7, Math.PI*0.7); ctx.stroke();
       ctx.strokeStyle = rim; ctx.lineWidth = s * 0.028;
@@ -1877,8 +1929,10 @@ function drawItemIcon(ctx, itemId, x, y, size) {
       ctx.moveTo(s*0.05 + Math.cos(-Math.PI*0.7)*s*0.32, Math.sin(-Math.PI*0.7)*s*0.32);
       ctx.lineTo(s*0.05 + Math.cos(Math.PI*0.7)*s*0.32, Math.sin(Math.PI*0.7)*s*0.32);
       ctx.stroke();
-      if (itemId === "bow_long") {
+      if (itemId === "bow_long" || itemId === "bow_storm_legendary" || itemId === "bow_dragon_legendary") {
         ctx.strokeStyle = "rgba(220,180,255,0.55)"; ctx.lineWidth = s * 0.055;
+        if (itemId === "bow_storm_legendary") ctx.strokeStyle = "rgba(145,225,255,0.65)";
+        if (itemId === "bow_dragon_legendary") ctx.strokeStyle = "rgba(255,178,118,0.65)";
         ctx.beginPath(); ctx.arc(s*0.05, 0, s*0.24, -Math.PI*0.62, Math.PI*0.62); ctx.stroke();
       }
       ctx.restore();
@@ -2334,7 +2388,7 @@ const charPanel = {
 
 /* ── Inventory ───────────────────────────────────────────── */
 
-const EQ_SLOTS = ["blade", "bow", "head", "chest", "feet", "waist", "arms", "wings", "ring1", "ring2", "amulet", "axe"];
+const EQ_SLOTS = ["blade", "bow", "head", "chest", "feet", "waist", "arms", "wings", "ring1", "ring2", "amulet", "axe", "cloak", "shoulder", "earring", "bracelet", "talisman", "artifact"];
 const EQ_LABELS = {
   blade: "K\u0131l\u0131\u00e7",
   bow: "Yay",
@@ -2348,6 +2402,12 @@ const EQ_LABELS = {
   ring2: "Y\u00fcz\u00fck 2",
   amulet: "Kolye",
   axe: "Balta",
+  cloak: "Pelerin",
+  shoulder: "Omuzluk",
+  earring: "K\u00fcpe",
+  bracelet: "Bilezik",
+  talisman: "T\u0131ls\u0131m",
+  artifact: "Artefakt",
   ring: "Y\u00fcz\u00fck",
 };
 
@@ -2393,18 +2453,20 @@ const EQ_GRID = [
     { key: "axe", label: "Balta", sub: "Alet" },
   ],
   [
-    { key: null, label: "\u00b7", sub: "" },
-    { key: null, label: "\u00b7", sub: "" },
-    { key: null, label: "\u2014", sub: "", locked: true },
+    { key: "cloak", label: "Pelerin", sub: "" },
+    { key: "shoulder", label: "Omuz", sub: "" },
+    { key: "earring", label: "K\u00fcpe", sub: "" },
   ],
   [
-    { key: null, label: "\u2014", sub: "", locked: true },
-    { key: null, label: "\u2014", sub: "", locked: true },
-    { key: null, label: "\u2014", sub: "", locked: true },
+    { key: "bracelet", label: "Bilezik", sub: "" },
+    { key: "talisman", label: "T\u0131ls\u0131m", sub: "" },
+    { key: "artifact", label: "Artefakt", sub: "" },
   ],
 ];
 
-const INV_COLS = 7, INV_ROWS = 5, INV_SLOTS = INV_COLS * INV_ROWS;
+const INV_COLS = 7, INV_ROWS = 5, INV_PAGE_SLOTS = INV_COLS * INV_ROWS;
+const INV_PAGES_DEFAULT = 3;
+const INV_TOTAL_SLOTS = INV_PAGE_SLOTS * INV_PAGES_DEFAULT;
 const HOTBAR_SLOTS = 5;
 const PLAYER_MAX_CARRY_WEIGHT = 1330;
 const SLOT_SIZE = 48, SLOT_GAP = 4;
@@ -2416,7 +2478,7 @@ let inventorySlotInspect = null;
 
 class Inventory {
   constructor() {
-    this.slots = new Array(INV_SLOTS).fill(null);
+    this.slots = new Array(INV_TOTAL_SLOTS).fill(null);
     this.hotbar = new Array(HOTBAR_SLOTS).fill(null);
     this.equipped = Object.fromEntries(EQ_SLOTS.map((sk) => [sk, null]));
     this.gold = 0;
@@ -2427,6 +2489,38 @@ class Inventory {
     this.tooltipSource = null;
     this.tooltipEquipKey = null;
     this._slotPress = null;
+    this.invPage = 0;
+    this.sortStrongFirst = true;
+  }
+
+  _invPageCount() {
+    return Math.max(1, Math.ceil(this.slots.length / INV_PAGE_SLOTS));
+  }
+
+  _invPageStart() {
+    return Math.max(0, Math.min(this._invPageCount() - 1, this.invPage)) * INV_PAGE_SLOTS;
+  }
+
+  cycleInvSortMode() {
+    this.sortStrongFirst = !this.sortStrongFirst;
+    this.sortInventoryByPower(this.sortStrongFirst);
+  }
+
+  sortInventoryByPower(desc) {
+    const filled = [];
+    for (const s of this.slots) if (s) filled.push(s);
+    const powerOf = (s) => {
+      const d = ITEMS[s.id];
+      if (!d) return 0;
+      const up = getStackUpgradeLv(s);
+      const m = getEffectiveItemStatsMerged(d, up);
+      const base = itemStatPowerScore(d);
+      const ap = (m.advanced && m.advanced.attackPower) || 0;
+      const rarity = rarityRank(d.rarity || "common");
+      return base * 3 + ap * 0.35 + rarity * 8 + up * 10;
+    };
+    filled.sort((a, b) => (desc ? powerOf(b) - powerOf(a) : powerOf(a) - powerOf(b)));
+    for (let i = 0; i < this.slots.length; i++) this.slots[i] = filled[i] || null;
   }
 
   _mergeSlotCoinsIntoGold() {
@@ -2585,6 +2679,7 @@ class Inventory {
     this.open = !this.open;
     if (this.open) {
       this._consolidateItemStacks();
+      this.invPage = Math.max(0, Math.min(this._invPageCount() - 1, this.invPage));
       closeWorldItemInspect();
       closeInventorySlotInspect();
     }
@@ -2599,6 +2694,7 @@ class Inventory {
     if (!this.open) return;
     this._mergeSlotCoinsIntoGold();
     this._consolidateItemStacks();
+    this.invPage = Math.max(0, Math.min(this._invPageCount() - 1, this.invPage));
     this.open = false;
     if (this.heldItem) this._dropHeld();
     this._clearSlotPress();
@@ -2694,8 +2790,9 @@ class Inventory {
   _hitSamePressSlot(mx, my, canvasW, canvasH, p) {
     const layout = this._invLayout(canvasW, canvasH);
     if (p.container === this.slots) {
-      const invIdx = this._hitTestSlots(mx, my, layout.slotsX, layout.slotsY, INV_SLOTS, INV_COLS, layout.slotSize, layout.slotGap);
-      return invIdx === p.idx;
+      const invIdx = this._hitTestSlots(mx, my, layout.slotsX, layout.slotsY, INV_PAGE_SLOTS, INV_COLS, layout.slotSize, layout.slotGap);
+      const abs = invIdx >= 0 ? layout.invPageStart + invIdx : -1;
+      return abs === p.idx;
     }
     if (p.container === this.hotbar) {
       const hbIdx = this._hitTestSlots(mx, my, layout.hbX, layout.hbY, HOTBAR_SLOTS, HOTBAR_SLOTS, layout.slotSize, layout.slotGap);
@@ -2708,15 +2805,16 @@ class Inventory {
     if (inventorySlotInspect) return false;
     if (this.heldItem) return false;
     const layout = this._invLayout(canvasW, canvasH);
-    const invIdx = this._hitTestSlots(mx, my, layout.slotsX, layout.slotsY, INV_SLOTS, INV_COLS, layout.slotSize, layout.slotGap);
-    if (invIdx >= 0 && this.slots[invIdx]) {
-      const def = ITEMS[this.slots[invIdx].id];
+    const invIdx = this._hitTestSlots(mx, my, layout.slotsX, layout.slotsY, INV_PAGE_SLOTS, INV_COLS, layout.slotSize, layout.slotGap);
+    const invAbsIdx = invIdx >= 0 ? layout.invPageStart + invIdx : -1;
+    if (invIdx >= 0 && this.slots[invAbsIdx]) {
+      const def = ITEMS[this.slots[invAbsIdx].id];
       if (def && def.equipSlot) {
         const targetSlot = firstEquipSlotForItem(this, def);
         const curE = targetSlot ? this.equipped[targetSlot] : null;
-        if (!curE || curE.id !== this.slots[invIdx].id) {
+        if (!curE || curE.id !== this.slots[invAbsIdx].id) {
           this._slotPress = {
-            container: this.slots, idx: invIdx, t0: performance.now(), ox: mx, oy: my,
+            container: this.slots, idx: invAbsIdx, t0: performance.now(), ox: mx, oy: my,
             touchId: touchId !== undefined ? touchId : null,
           };
           return true;
@@ -2802,11 +2900,28 @@ class Inventory {
     }
 
     const layout = this._invLayout(canvasW, canvasH);
+    const inR = (r) => !!r && mx >= r.x && mx < r.x + r.w && my >= r.y && my < r.y + r.h;
+    if (inR(layout.invPagePrev) && this.invPage > 0) {
+      this.invPage--;
+      this.tooltipSlot = null;
+      return true;
+    }
+    if (inR(layout.invPageNext) && this.invPage < this._invPageCount() - 1) {
+      this.invPage++;
+      this.tooltipSlot = null;
+      return true;
+    }
+    if (inR(layout.invSortBtn)) {
+      this.cycleInvSortMode();
+      pickupMsgText = this.sortStrongFirst ? "Envanter: gucluden gucsuze" : "Envanter: gucsuzden gucluye";
+      pickupMsgTimer = 1.2;
+      return true;
+    }
     const eqHit = this._hitTestEquipGrid(mx, my, layout);
     if (eqHit) { this._equipSlotClick(eqHit, rightClick); return true; }
 
-    const invIdx = this._hitTestSlots(mx, my, layout.slotsX, layout.slotsY, INV_SLOTS, INV_COLS, layout.slotSize, layout.slotGap);
-    if (invIdx >= 0) { this._slotClick(this.slots, invIdx, rightClick); return true; }
+    const invIdx = this._hitTestSlots(mx, my, layout.slotsX, layout.slotsY, INV_PAGE_SLOTS, INV_COLS, layout.slotSize, layout.slotGap);
+    if (invIdx >= 0) { this._slotClick(this.slots, layout.invPageStart + invIdx, rightClick); return true; }
 
     const hbIdx = this._hitTestSlots(mx, my, layout.hbX, layout.hbY, HOTBAR_SLOTS, HOTBAR_SLOTS, layout.slotSize, layout.slotGap);
     if (hbIdx >= 0) { this._slotClick(this.hotbar, hbIdx, rightClick); return true; }
@@ -2867,16 +2982,7 @@ class Inventory {
 
   _slotClick(container, idx, rightClick) {
     const slot = container[idx];
-    if (rightClick && slot && slot.id === "boss_chest" && slot.count > 0) {
-      slot.count--;
-      if (slot.count <= 0) container[idx] = null;
-      const pool = [
-        "helm_epic", "chest_epic", "boots_epic", "waist_epic", "arms_epic", "wings_epic",
-        "helm_legendary", "chest_legendary", "waist_legendary", "arms_legendary", "wings_legendary",
-        "ring_power", "merchants_ring", "amulet_wisdom", "gloves_archer", "explorer_band",
-        "sword_elven", "spear_epic", "bow_long", "sword_steel", "bow_hunter", "potion_mana", "potion"
-      ];
-      this.addItem(pool[Math.floor(Math.random() * pool.length)], 1);
+    if (rightClick && tryOpenBossChestInContainer(this, container, idx)) {
       return;
     }
     if (rightClick) {
@@ -2945,8 +3051,8 @@ class Inventory {
       const es = this.equipped[eqHit];
       if (es) { this.tooltipSlot = es; this.tooltipSource = "eq"; this.tooltipEquipKey = eqHit; return; }
     }
-    let idx = this._hitTestSlots(mx, my, layout.slotsX, layout.slotsY, INV_SLOTS, INV_COLS, ss, sg);
-    if (idx >= 0 && this.slots[idx]) { this.tooltipSlot = this.slots[idx]; this.tooltipSource = "inv"; return; }
+    let idx = this._hitTestSlots(mx, my, layout.slotsX, layout.slotsY, INV_PAGE_SLOTS, INV_COLS, ss, sg);
+    if (idx >= 0 && this.slots[layout.invPageStart + idx]) { this.tooltipSlot = this.slots[layout.invPageStart + idx]; this.tooltipSource = "inv"; return; }
     idx = this._hitTestSlots(mx, my, layout.hbX, layout.hbY, HOTBAR_SLOTS, HOTBAR_SLOTS, ss, sg);
     if (idx >= 0 && this.hotbar[idx]) { this.tooltipSlot = this.hotbar[idx]; this.tooltipSource = "hb"; }
   }
@@ -2993,8 +3099,12 @@ class Inventory {
       ({ leftColW, panelW, panelH, eqGridW, eqGridH, eqInnerW, eqInnerH } = compute());
     }
 
-    const px = Math.floor((canvasW - panelW) / 2);
-    const py = Math.max(b.top, Math.min(canvasH - panelH - b.bottom, Math.floor((canvasH - panelH) / 2)));
+    if (touchState.mobileUI) {
+      panelW = b.maxW;
+      panelH = b.maxH;
+    }
+    const px = touchState.mobileUI ? b.side : Math.floor((canvasW - panelW) / 2);
+    const py = touchState.mobileUI ? b.top : Math.max(b.top, Math.min(canvasH - panelH - b.bottom, Math.floor((canvasH - panelH) / 2)));
     const previewX = px + 12;
     const eqGridX = previewX + previewW + previewGap;
     const eqGridY = py + 52;
@@ -3004,11 +3114,19 @@ class Inventory {
     const eqInnerY = eqGridY + eqFramePad;
     const slotsX = px + leftColW + 8, slotsY = py + 40;
     const hbX = px + leftColW + 8, hbY = slotsY + INV_ROWS * (ss + sg) + 16;
+    const invPageStart = this._invPageStart();
+    const invPages = this._invPageCount();
+    const invPageW = Math.max(180, INV_COLS * (ss + sg) - sg);
+    const pageY = hbY + ss + 8;
+    const invPagePrev = { x: hbX, y: pageY, w: 34, h: 24 };
+    const invPageNext = { x: hbX + invPageW - 34, y: pageY, w: 34, h: 24 };
+    const invSortBtn = { x: hbX + 38, y: pageY, w: invPageW - 76, h: 24 };
     return {
       px, py, panelW, panelH, slotsX, slotsY, hbX, hbY, eqColW: leftColW,
       previewX, previewY, previewW, previewH,
       eqGridX, eqGridY, eqGridW, eqGridH, eqInnerX, eqInnerY, eqCellSize, eqGridGap, eqFramePad,
       slotSize: ss, slotGap: sg,
+      invPageStart, invPages, invPagePrev, invPageNext, invSortBtn,
     };
   }
 
@@ -3083,7 +3201,7 @@ class Inventory {
 
     ctx.fillStyle = "#a0c0ff"; ctx.font = "bold 11px monospace";
     ctx.fillStyle = "#6a7090"; ctx.font = "9px monospace";
-    ctx.fillText("3\u00d75 ekipman (\u015famand\u0131ra)", layout.eqGridX + 2, layout.eqGridY - 16);
+    ctx.fillText("3\u00d76 ekipman", layout.eqGridX + 2, layout.eqGridY - 16);
     ctx.fillStyle = "#a0c0ff"; ctx.font = "bold 11px monospace";
     ctx.fillText("Ekipman", layout.eqGridX + 2, layout.eqGridY - 4);
 
@@ -3175,13 +3293,14 @@ class Inventory {
       }
     }
 
-    for (let i = 0; i < INV_SLOTS; i++) {
+    for (let i = 0; i < INV_PAGE_SLOTS; i++) {
       const col = i % INV_COLS, row = Math.floor(i / INV_COLS);
       const sx = layout.slotsX + col * (ss + sg);
       const sy = layout.slotsY + row * (ss + sg);
       ctx.fillStyle = "rgba(40,40,60,0.6)"; ctx.strokeStyle = "#505070"; ctx.lineWidth = 1;
       roundRect(ctx, sx, sy, ss, ss, 4); ctx.fill(); ctx.stroke();
-      if (this.slots[i]) this._renderSlotContent(ctx, this.slots[i], sx, sy, ss);
+      const absIdx = layout.invPageStart + i;
+      if (this.slots[absIdx]) this._renderSlotContent(ctx, this.slots[absIdx], sx, sy, ss);
     }
 
     ctx.fillStyle = "#a0a0c0"; ctx.font = "11px monospace";
@@ -3197,6 +3316,29 @@ class Inventory {
       ctx.fillStyle = "#888"; ctx.font = "10px monospace";
       ctx.fillText(String(i + 1), sx + 3, layout.hbY + Math.min(12, ss * 0.28));
     }
+
+    const pageText = (this.invPage + 1) + " / " + layout.invPages;
+    ctx.fillStyle = "rgba(35,38,64,0.9)";
+    ctx.strokeStyle = "#5a6ca0";
+    roundRect(ctx, layout.invSortBtn.x, layout.invSortBtn.y, layout.invSortBtn.w, layout.invSortBtn.h, 5);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = "#d8e6ff";
+    ctx.font = "10px monospace";
+    const sortTxt = this.sortStrongFirst ? "Gucluden gucsuze sirala" : "Gucsuzden gucluye sirala";
+    ctx.fillText(sortTxt, layout.invSortBtn.x + 8, layout.invSortBtn.y + 16);
+    for (const btn of [layout.invPagePrev, layout.invPageNext]) {
+      ctx.fillStyle = "rgba(35,38,64,0.9)";
+      ctx.strokeStyle = "#5a6ca0";
+      roundRect(ctx, btn.x, btn.y, btn.w, btn.h, 5);
+      ctx.fill();
+      ctx.stroke();
+    }
+    ctx.fillStyle = "#d8e6ff";
+    ctx.fillText("<", layout.invPagePrev.x + 12, layout.invPagePrev.y + 16);
+    ctx.fillText(">", layout.invPageNext.x + 12, layout.invPageNext.y + 16);
+    ctx.fillStyle = "#a8b8d8";
+    ctx.fillText("Sayfa " + pageText, layout.hbX, layout.invSortBtn.y - 4);
 
     if (this.tooltipSlot) {
       const def = ITEMS[this.tooltipSlot.id];
@@ -3658,6 +3800,7 @@ class Player {
     this.rageBurstTimer = 0;
 
     this.statPoints = 0;
+    this.levelDamageBonus = 0;
     this.skills = Object.create(null);
     this.poisonTimer = 0;
     this.activeSkillCd = [0, 0, 0, 0, 0, 0, 0, 0];
@@ -3679,6 +3822,7 @@ class Player {
       this.manaRegen += 0.12;
       this.hpRegen += 0.08;
       this.statPoints += 3;
+      this.levelDamageBonus += 1;
       this.levelUpTimer = 2.5;
       this._pendingFullHeal = true;
       gameAudio.playLevelUp();
@@ -3772,7 +3916,7 @@ class Player {
   }
 
   getDamage() {
-    return 8 + (this.str + this._eqStr) * 1.5 + Math.floor(this.level * 0.8);
+    return 8 + (this.str + this._eqStr) * 1.5 + Math.floor(this.level * 0.8) + (this.levelDamageBonus || 0);
   }
 
   getRangedDamage() {
@@ -4547,6 +4691,8 @@ class Player {
     let wood = "#8a7028", stringCol = "#e8e8e8", limb = "#8B6B3D";
     if (bowId === "bow_hunter") { wood = "#5a6048"; stringCol = "#a0c890"; limb = "#4a5038"; }
     if (bowId === "bow_long") { wood = "#504060"; stringCol = "#d0b0ff"; limb = "#403050"; }
+    if (bowId === "bow_storm_legendary") { wood = "#2b5d90"; stringCol = "#95f0ff"; limb = "#224978"; }
+    if (bowId === "bow_dragon_legendary") { wood = "#8a3a24"; stringCol = "#ffd2aa"; limb = "#6e2416"; }
 
     ctx.save();
     ctx.translate(shoulderX, shoulderY);
@@ -5150,7 +5296,7 @@ const MONSTER_TYPES = {
               rangedKind: "poison", rangedMax: TILE_SIZE*5.5, loot: [{id:"coin",c:12,ch:1},{id:"flower",c:10,ch:0.65},{id:"potion_mana",c:1,ch:0.22},{id:"seed",c:4,ch:0.4}] },
   skywing_dragon: { name: "G\u00f6k Kanatl\u0131 Ejderha", hp: 16500, dmg: 92, speed: 42, xp: 3200, aggroRange: TILE_SIZE*18, atkRange: TILE_SIZE*2.0, atkCd: 0.78,
               boss: true, rangedKind: "fire", rangedMax: TILE_SIZE*15, rangedMin: TILE_SIZE*1.4,
-              loot: [{id:"coin",c:900,ch:1},{id:"coin",c:500,ch:0.9},{id:"helm_legendary",c:1,ch:0.52},{id:"chest_legendary",c:1,ch:0.52},{id:"amulet_wisdom",c:1,ch:0.48},{id:"boss_chest",c:1,ch:0.4},{id:"sword_elven",c:1,ch:0.22},{id:"bow_long",c:1,ch:0.22},{id:"spear_epic",c:1,ch:0.18}] },
+              loot: [{id:"coin",c:900,ch:1},{id:"coin",c:500,ch:0.9},{id:"helm_legendary",c:1,ch:0.52},{id:"chest_legendary",c:1,ch:0.52},{id:"amulet_wisdom",c:1,ch:0.48},{id:"boss_chest",c:1,ch:0.4},{id:"sword_elven",c:1,ch:0.22},{id:"bow_long",c:1,ch:0.22},{id:"bow_storm_legendary",c:1,ch:0.18},{id:"bow_dragon_legendary",c:1,ch:0.14},{id:"spear_epic",c:1,ch:0.18}] },
 };
 
 function drawMonsterSprite(ctx, type, x, y, dir, frame, hitFlash, atkAnim, bw, bh, mstate) {
@@ -9620,6 +9766,24 @@ function openInventorySlotInspect(kind, idx) {
   inventorySlotInspect = { kind, idx };
 }
 
+function tryOpenBossChestInContainer(inv, container, idx) {
+  const slot = container[idx];
+  if (!slot || slot.id !== "boss_chest" || slot.count <= 0) return false;
+  slot.count--;
+  if (slot.count <= 0) container[idx] = null;
+  const pool = [
+    "helm_epic", "chest_epic", "boots_epic", "waist_epic", "arms_epic", "wings_epic",
+    "helm_legendary", "chest_legendary", "waist_legendary", "arms_legendary", "wings_legendary",
+        "ring_power", "merchants_ring", "amulet_wisdom", "gloves_archer", "explorer_band", "cloak_shadow", "shoulder_guard", "earring_focus", "bracelet_titan", "talisman_void", "artifact_dragon_eye",
+    "sword_elven", "spear_epic", "bow_long", "bow_storm_legendary", "bow_dragon_legendary", "sword_steel", "bow_hunter", "potion_mana", "potion"
+  ];
+  inv.addItem(pool[Math.floor(Math.random() * pool.length)], 1);
+  pickupMsgText = "Boss Sandigi acildi!";
+  pickupMsgTimer = 1.1;
+  gameAudio.playPickup();
+  return true;
+}
+
 function dropInventorySlotStackToWorld(kind, idx) {
   const fromEquip = kind === "eq";
   const container = fromEquip ? inventory.equipped : (kind === "slots" ? inventory.slots : inventory.hotbar);
@@ -9745,6 +9909,11 @@ function handleInventorySlotInspectClick(mx, my, cw, ch) {
     return true;
   }
   if (inR(L.btnEquip)) {
+    if (!fromEquip && slot.id === "boss_chest") {
+      tryOpenBossChestInContainer(inventory, container, idx);
+      if (!container[idx] || container[idx].count <= 0) closeInventorySlotInspect();
+      return true;
+    }
     if (fromEquip) {
       const left = inventory.addItem(slot.id, 1, getStackUpgradeLv(slot));
       if (left > 0) {
@@ -9836,10 +10005,11 @@ function renderInventorySlotInspect(ctx, cw, ch) {
   ty = renderInspectStatLinesFitted(ctx, allLines, L.px + 16, ty, maxY, touchState.mobileUI);
 
   const eqCands1 = equipSlotsForItemDef(def);
-  const canEq = fromEquip ? true : eqCands1.some((sk) => {
+  const canUse = !fromEquip && slot.id === "boss_chest";
+  const canEq = canUse || (fromEquip ? true : eqCands1.some((sk) => {
     const curI = inventory.equipped[sk];
     return !curI || curI.id !== slot.id || getStackUpgradeLv(curI) !== getStackUpgradeLv(slot);
-  });
+  }));
   ctx.fillStyle = canEq ? "rgba(45,90,55,0.92)" : "rgba(45,45,58,0.75)";
   ctx.strokeStyle = canEq ? "#70c080" : "#505060";
   roundRect(ctx, L.btnEquip.x, L.btnEquip.y, L.btnEquip.w, L.btnEquip.h, 6);
@@ -9847,7 +10017,7 @@ function renderInventorySlotInspect(ctx, cw, ch) {
   ctx.stroke();
   ctx.fillStyle = canEq ? "#f0fff0" : "#707080";
   ctx.font = "bold 11px monospace";
-  const tEq = fromEquip ? "Çıkar" : "Giy";
+  const tEq = canUse ? "Aç" : (fromEquip ? "Çıkar" : "Giy");
   ctx.fillText(tEq, L.btnEquip.x + (L.btnEquip.w - ctx.measureText(tEq).width) / 2, L.btnEquip.y + 22);
 
   ctx.fillStyle = "rgba(90,55,45,0.92)";
@@ -9891,7 +10061,10 @@ function renderInventorySlotInspect(ctx, cw, ch) {
 
   ctx.fillStyle = "#707890";
   ctx.font = "9px monospace";
-  ctx.fillText(fromEquip ? "Takili esya: ozellik gor, cikar veya yere at." : "Sol t\u0131k: panel; ba\u015far\u0131s\u0131z y\u00fckseltmelerde alt\u0131n harcan\u0131r.", L.px + 16, L.py + L.ph - 6);
+  const hintText = canUse
+    ? "Ac: sandigi acip rastgele ganimet kazanirsin."
+    : (fromEquip ? "Takili esya: ozellik gor, cikar veya yere at." : "Sol t\u0131k: panel; ba\u015far\u0131s\u0131z y\u00fckseltmelerde alt\u0131n harcan\u0131r.");
+  ctx.fillText(hintText, L.px + 16, L.py + L.ph - 6);
 }
 const petPanel = new PetPanel();
 const shop = new Shop();
@@ -10127,16 +10300,18 @@ function dropMonsterLoot(m, worldItems) {
     "helm_leather", "helm_iron", "chest_leather", "chest_steel", "boots_swift",
     "waist_cloth", "waist_chain", "arms_cloth", "arms_iron", "wings_cloth", "wings_azure",
     "gloves_archer", "explorer_band", "lucky_charm", "ring_power", "merchants_ring", "amulet_wisdom",
+    "cloak_shadow", "shoulder_guard",
   ];
   const STRONG_BOSS_EPIC_LEGENDARY = [
     "helm_epic", "helm_legendary", "chest_epic", "chest_legendary", "boots_epic",
     "waist_epic", "waist_legendary", "arms_epic", "arms_legendary", "wings_epic", "wings_legendary",
-    "sword_elven", "spear_epic", "bow_long", "ring_power", "merchants_ring", "amulet_wisdom",
+    "sword_elven", "spear_epic", "bow_long", "bow_storm_legendary", "bow_dragon_legendary", "ring_power", "merchants_ring", "amulet_wisdom",
+    "earring_focus", "bracelet_titan", "talisman_void", "artifact_dragon_eye",
   ];
   const ANY_BOSS_LEGENDARY = [
-    "helm_legendary", "chest_legendary", "waist_legendary", "arms_legendary", "wings_legendary", "amulet_wisdom",
+    "helm_legendary", "chest_legendary", "waist_legendary", "arms_legendary", "wings_legendary", "amulet_wisdom", "bow_storm_legendary", "bow_dragon_legendary", "talisman_void", "artifact_dragon_eye",
   ];
-  const DRAGON_GUARANTEE_LEGENDARY = ["helm_legendary", "chest_legendary", "waist_legendary", "arms_legendary", "wings_legendary", "amulet_wisdom"];
+  const DRAGON_GUARANTEE_LEGENDARY = ["helm_legendary", "chest_legendary", "waist_legendary", "arms_legendary", "wings_legendary", "amulet_wisdom", "bow_storm_legendary", "bow_dragon_legendary", "talisman_void", "artifact_dragon_eye"];
 
   const strongBoss = !!(m.boss && STRONG_BOSS_TYPES.has(m.type));
   const bRate = LOOT_BALANCE_PANEL.bossRateTable[m.type] || { legendMul: 1, hiTierMul: 1 };
@@ -11285,7 +11460,7 @@ function playerToSave(p) {
     animTimer: p.animTimer, animFrame: p.animFrame, moving: p.moving,
     shootCooldown: p.shootCooldown, shootAnim: p.shootAnim, meleeCooldown: p.meleeCooldown, swingAnim: p.swingAnim,
     inBoat: p.inBoat, hasBoat: p.hasBoat, boatWaveTimer: p.boatWaveTimer, boatAutoBoardCooldown: p.boatAutoBoardCooldown,
-    level: p.level, xp: p.xp, xpToNext: p.xpToNext,
+    level: p.level, xp: p.xp, xpToNext: p.xpToNext, levelDamageBonus: p.levelDamageBonus || 0,
     baseMaxHp: p.baseMaxHp, baseMaxMana: p.baseMaxMana, maxHp: p.maxHp, hp: p.hp, hpRegen: p.hpRegen,
     maxMana: p.maxMana, mana: p.mana, manaRegen: p.manaRegen,
     str: p.str, agi: p.agi, wis: p.wis,
@@ -11317,6 +11492,7 @@ function applyPlayerSave(p, d) {
   if (!p.activeSkillCd || p.activeSkillCd.length < 8) p.activeSkillCd = [0, 0, 0, 0, 0, 0, 0, 0];
   if (d.rageMeter == null) p.rageMeter = 0;
   if (d.rageBurstTimer == null) p.rageBurstTimer = 0;
+  if (d.levelDamageBonus == null) p.levelDamageBonus = Math.max(0, (p.level | 0) - 1);
 }
 
 function slotStackToSave(s) {
