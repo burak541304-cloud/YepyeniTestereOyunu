@@ -662,10 +662,11 @@ function getMovementVector() {
 
 function isActionPressed() { return isDown("KeyE") || isDown("Space"); }
 
-const WORLD_ZOOM_MIN = 1;
-const WORLD_ZOOM_MAX = 1.42;
-const WORLD_ZOOM_NEAR = 1.28;
-let worldZoom = WORLD_ZOOM_MIN;
+const WORLD_ZOOM_STEPS = [0.86, 1.0, 1.2, 1.34];
+const WORLD_ZOOM_MIN = WORLD_ZOOM_STEPS[0];
+const WORLD_ZOOM_MAX = WORLD_ZOOM_STEPS[WORLD_ZOOM_STEPS.length - 1];
+const WORLD_ZOOM_NEAR = WORLD_ZOOM_STEPS[2];
+let worldZoom = WORLD_ZOOM_STEPS[1];
 
 function clampWorldZoom(z) {
   return Math.max(WORLD_ZOOM_MIN, Math.min(WORLD_ZOOM_MAX, z));
@@ -679,9 +680,15 @@ function setWorldZoom(z) {
 }
 
 function toggleWorldZoom() {
-  const next = worldZoom > WORLD_ZOOM_MIN + 0.02 ? WORLD_ZOOM_MIN : WORLD_ZOOM_NEAR;
-  setWorldZoom(next);
-  pickupMsgText = worldZoom > WORLD_ZOOM_MIN + 0.02 ? "Zoom: Yakin" : "Zoom: Normal";
+  let bestI = 0;
+  let bestD = 1e9;
+  for (let i = 0; i < WORLD_ZOOM_STEPS.length; i++) {
+    const d = Math.abs(worldZoom - WORLD_ZOOM_STEPS[i]);
+    if (d < bestD) { bestD = d; bestI = i; }
+  }
+  const nextI = (bestI + 1) % WORLD_ZOOM_STEPS.length;
+  setWorldZoom(WORLD_ZOOM_STEPS[nextI]);
+  pickupMsgText = "Zoom " + (nextI + 1) + "/" + WORLD_ZOOM_STEPS.length;
   pickupMsgTimer = 0.9;
 }
 
@@ -873,11 +880,11 @@ const ITEMS = {
   explorer_band:  { id: "explorer_band",  name: "Ka\u015fif Bilezi\u011fi",      stackable: true, maxStack: 32, rarity: "rare",      equipSlot: "arms",  stats: { str: 1, agi: 3, wis: 0, maxHp: 8, maxMana: 0 }, desc: "Harita ve pusula dostu.", buyPrice: 135, sellPrice: 38 },
   cloak_shadow:   { id: "cloak_shadow",   name: "Golge Pelerini", stackable: true, maxStack: 32, rarity: "rare", equipSlot: "cloak",
     stats: { str: 1, agi: 3, wis: 1, maxHp: 8, maxMana: 10 }, advanced: { defense: 6, resMagic: 8 }, desc: "Hafif ama savunmaci pelerin.", buyPrice: 0, sellPrice: 56 },
-  shoulder_guard: { id: "shoulder_guard", name: "Muhafiz Omuzluk", stackable: true, maxStack: 32, rarity: "rare", equipSlot: "shoulder",
+  shoulder_guard: { id: "shoulder_guard", name: "Muhafiz Omuzluk", stackable: true, maxStack: 32, rarity: "rare", equipSlot: "arms",
     stats: { str: 3, agi: 1, wis: 0, maxHp: 16, maxMana: 0 }, advanced: { defense: 10, defSword: 6 }, desc: "Omuz darbesini emer.", buyPrice: 0, sellPrice: 62 },
-  earring_focus:  { id: "earring_focus",  name: "Odak Kupesi", stackable: true, maxStack: 32, rarity: "epic", equipSlot: "earring",
+  earring_focus:  { id: "earring_focus",  name: "Odak Kupesi", stackable: true, maxStack: 32, rarity: "epic", equipSlot: "ring",
     stats: { str: 0, agi: 2, wis: 4, maxHp: 0, maxMana: 22 }, advanced: { attackPower: 42, critRate: 5, resCurse: 8 }, desc: "Nisanciya kritik odak verir.", buyPrice: 0, sellPrice: 120 },
-  bracelet_titan: { id: "bracelet_titan", name: "Titan Bilezigi", stackable: true, maxStack: 32, rarity: "epic", equipSlot: "bracelet",
+  bracelet_titan: { id: "bracelet_titan", name: "Titan Bilezigi", stackable: true, maxStack: 32, rarity: "epic", equipSlot: "arms",
     stats: { str: 4, agi: 1, wis: 1, maxHp: 24, maxMana: 8 }, advanced: { attackPower: 36, defense: 12, pctStr: 6 }, desc: "Kuvvet ve dengeyi artirir.", buyPrice: 0, sellPrice: 134 },
   talisman_void:  { id: "talisman_void",  name: "Bosluk Tilsimi", stackable: true, maxStack: 32, rarity: "legendary", equipSlot: "talisman",
     stats: { str: 3, agi: 3, wis: 8, maxHp: 18, maxMana: 32 }, advanced: { attackPower: 66, resMagic: 20, resPoison: 12, pctMana: 10 }, desc: "Kadim runelerle kutsanmis.", buyPrice: 0, sellPrice: 360 },
@@ -2388,7 +2395,7 @@ const charPanel = {
 
 /* ── Inventory ───────────────────────────────────────────── */
 
-const EQ_SLOTS = ["blade", "bow", "head", "chest", "feet", "waist", "arms", "wings", "ring1", "ring2", "amulet", "axe", "cloak", "shoulder", "earring", "bracelet", "talisman", "artifact"];
+const EQ_SLOTS = ["blade", "bow", "head", "chest", "feet", "waist", "arms", "wings", "ring1", "ring2", "amulet", "axe", "cloak", "talisman", "artifact"];
 const EQ_LABELS = {
   blade: "K\u0131l\u0131\u00e7",
   bow: "Yay",
@@ -2403,9 +2410,6 @@ const EQ_LABELS = {
   amulet: "Kolye",
   axe: "Balta",
   cloak: "Pelerin",
-  shoulder: "Omuzluk",
-  earring: "K\u00fcpe",
-  bracelet: "Bilezik",
   talisman: "T\u0131ls\u0131m",
   artifact: "Artefakt",
   ring: "Y\u00fcz\u00fck",
@@ -2429,7 +2433,7 @@ function firstEquipSlotForItem(inv, def) {
 }
 
 /** Knight Online tarz\u0131 3 s\u00fctun \u00d7 6 sat\u0131r: key=null dekoratif/kilitli slot */
-const EQ_GRID_ROWS = 6;
+const EQ_GRID_ROWS = 5;
 const EQ_GRID_COLS = 3;
 const EQ_GRID = [
   [
@@ -2454,11 +2458,6 @@ const EQ_GRID = [
   ],
   [
     { key: "cloak", label: "Pelerin", sub: "" },
-    { key: "shoulder", label: "Omuz", sub: "" },
-    { key: "earring", label: "K\u00fcpe", sub: "" },
-  ],
-  [
-    { key: "bracelet", label: "Bilezik", sub: "" },
     { key: "talisman", label: "T\u0131ls\u0131m", sub: "" },
     { key: "artifact", label: "Artefakt", sub: "" },
   ],
@@ -2821,21 +2820,6 @@ class Inventory {
         }
       }
     }
-    const hbIdx = this._hitTestSlots(mx, my, layout.hbX, layout.hbY, HOTBAR_SLOTS, HOTBAR_SLOTS, layout.slotSize, layout.slotGap);
-    if (hbIdx >= 0 && this.hotbar[hbIdx]) {
-      const def = ITEMS[this.hotbar[hbIdx].id];
-      if (def && def.equipSlot) {
-        const targetSlot2 = firstEquipSlotForItem(this, def);
-        const curE2 = targetSlot2 ? this.equipped[targetSlot2] : null;
-        if (!curE2 || curE2.id !== this.hotbar[hbIdx].id) {
-          this._slotPress = {
-            container: this.hotbar, idx: hbIdx, t0: performance.now(), ox: mx, oy: my,
-            touchId: touchId !== undefined ? touchId : null,
-          };
-          return true;
-        }
-      }
-    }
     return false;
   }
 
@@ -2893,9 +2877,6 @@ class Inventory {
 
   handleClick(mx, my, canvasW, canvasH, rightClick = false) {
     if (!this.open) {
-      const hbInfo = this._hotbarLayout(canvasW, canvasH);
-      const idx = this._hitTestSlots(mx, my, hbInfo.x, hbInfo.y, HOTBAR_SLOTS, HOTBAR_SLOTS, hbInfo.slotSz, hbInfo.slotGap);
-      if (idx >= 0) { this.selectedHotbar = idx; return true; }
       return false;
     }
 
@@ -2922,9 +2903,6 @@ class Inventory {
 
     const invIdx = this._hitTestSlots(mx, my, layout.slotsX, layout.slotsY, INV_PAGE_SLOTS, INV_COLS, layout.slotSize, layout.slotGap);
     if (invIdx >= 0) { this._slotClick(this.slots, layout.invPageStart + invIdx, rightClick); return true; }
-
-    const hbIdx = this._hitTestSlots(mx, my, layout.hbX, layout.hbY, HOTBAR_SLOTS, HOTBAR_SLOTS, layout.slotSize, layout.slotGap);
-    if (hbIdx >= 0) { this._slotClick(this.hotbar, hbIdx, rightClick); return true; }
 
     return false;
   }
@@ -3053,8 +3031,7 @@ class Inventory {
     }
     let idx = this._hitTestSlots(mx, my, layout.slotsX, layout.slotsY, INV_PAGE_SLOTS, INV_COLS, ss, sg);
     if (idx >= 0 && this.slots[layout.invPageStart + idx]) { this.tooltipSlot = this.slots[layout.invPageStart + idx]; this.tooltipSource = "inv"; return; }
-    idx = this._hitTestSlots(mx, my, layout.hbX, layout.hbY, HOTBAR_SLOTS, HOTBAR_SLOTS, ss, sg);
-    if (idx >= 0 && this.hotbar[idx]) { this.tooltipSlot = this.hotbar[idx]; this.tooltipSource = "hb"; }
+    return;
   }
 
   _hitTestSlots(mx, my, startX, startY, count, cols, slotSz = SLOT_SIZE, slotGap = SLOT_GAP) {
@@ -3100,6 +3077,13 @@ class Inventory {
     }
 
     if (touchState.mobileUI) {
+      const availGridW = Math.max(220, b.maxW - (leftColW + 20));
+      const fittedSlot = Math.floor((availGridW + sg) / INV_COLS) - sg;
+      if (fittedSlot > ss) {
+        ss = Math.min(74, fittedSlot);
+        eqCellSize = Math.max(eqCellSize, Math.min(60, ss + 2));
+        ({ leftColW, panelW, panelH, eqGridW, eqGridH, eqInnerW, eqInnerH } = compute());
+      }
       panelW = b.maxW;
       panelH = b.maxH;
     }
@@ -3117,7 +3101,7 @@ class Inventory {
     const invPageStart = this._invPageStart();
     const invPages = this._invPageCount();
     const invPageW = Math.max(180, INV_COLS * (ss + sg) - sg);
-    const pageY = hbY + ss + 8;
+    const pageY = slotsY + INV_ROWS * (ss + sg) + 6;
     const invPagePrev = { x: hbX, y: pageY, w: 34, h: 24 };
     const invPageNext = { x: hbX + invPageW - 34, y: pageY, w: 34, h: 24 };
     const invSortBtn = { x: hbX + 38, y: pageY, w: invPageW - 76, h: 24 };
@@ -3142,27 +3126,10 @@ class Inventory {
 
   render(ctx, canvasW, canvasH, mouseX, mouseY) {
     if (this.open) this._renderFullInventory(ctx, canvasW, canvasH, mouseX, mouseY);
-    else this._renderHotbar(ctx, canvasW, canvasH);
   }
 
   _renderHotbar(ctx, canvasW, canvasH) {
-    const { x, y, slotSz, slotGap } = this._hotbarLayout(canvasW, canvasH);
-    const totalW = HOTBAR_SLOTS * (slotSz + slotGap) - slotGap;
-    ctx.fillStyle = "rgba(10, 10, 30, 0.7)";
-    roundRect(ctx, x - 6, y - 6, totalW + 12, slotSz + 12, 6);
-    ctx.fill();
-    const numFont = touchState.mobileUI ? "9px monospace" : "10px monospace";
-    for (let i = 0; i < HOTBAR_SLOTS; i++) {
-      const sx = x + i * (slotSz + slotGap);
-      const selected = i === this.selectedHotbar;
-      ctx.fillStyle = selected ? "rgba(255,255,200,0.25)" : "rgba(40,40,60,0.6)";
-      ctx.strokeStyle = selected ? "#f0d050" : "#606080";
-      ctx.lineWidth = selected ? 2 : 1;
-      roundRect(ctx, sx, y, slotSz, slotSz, 4); ctx.fill(); ctx.stroke();
-      if (this.hotbar[i]) this._renderSlotContent(ctx, this.hotbar[i], sx, y, slotSz);
-      ctx.fillStyle = "#888"; ctx.font = numFont;
-      ctx.fillText(String(i + 1), sx + 2, y + Math.min(12, slotSz * 0.35));
-    }
+    return;
   }
 
   _renderFullInventory(ctx, canvasW, canvasH, mouseX, mouseY) {
@@ -3201,7 +3168,7 @@ class Inventory {
 
     ctx.fillStyle = "#a0c0ff"; ctx.font = "bold 11px monospace";
     ctx.fillStyle = "#6a7090"; ctx.font = "9px monospace";
-    ctx.fillText("3\u00d76 ekipman", layout.eqGridX + 2, layout.eqGridY - 16);
+    ctx.fillText("3\u00d75 ekipman", layout.eqGridX + 2, layout.eqGridY - 16);
     ctx.fillStyle = "#a0c0ff"; ctx.font = "bold 11px monospace";
     ctx.fillText("Ekipman", layout.eqGridX + 2, layout.eqGridY - 4);
 
@@ -3301,20 +3268,6 @@ class Inventory {
       roundRect(ctx, sx, sy, ss, ss, 4); ctx.fill(); ctx.stroke();
       const absIdx = layout.invPageStart + i;
       if (this.slots[absIdx]) this._renderSlotContent(ctx, this.slots[absIdx], sx, sy, ss);
-    }
-
-    ctx.fillStyle = "#a0a0c0"; ctx.font = "11px monospace";
-    ctx.fillText("H\u0131zl\u0131 Eri\u015fim", layout.hbX, layout.hbY - 4);
-    for (let i = 0; i < HOTBAR_SLOTS; i++) {
-      const sx = layout.hbX + i * (ss + sg);
-      const selected = i === this.selectedHotbar;
-      ctx.fillStyle = selected ? "rgba(255,255,200,0.25)" : "rgba(40,40,60,0.6)";
-      ctx.strokeStyle = selected ? "#f0d050" : "#505070";
-      ctx.lineWidth = selected ? 2 : 1;
-      roundRect(ctx, sx, layout.hbY, ss, ss, 4); ctx.fill(); ctx.stroke();
-      if (this.hotbar[i]) this._renderSlotContent(ctx, this.hotbar[i], sx, layout.hbY, ss);
-      ctx.fillStyle = "#888"; ctx.font = "10px monospace";
-      ctx.fillText(String(i + 1), sx + 3, layout.hbY + Math.min(12, ss * 0.28));
     }
 
     const pageText = (this.invPage + 1) + " / " + layout.invPages;
@@ -8513,7 +8466,7 @@ class HUD {
     ctx.fillStyle = "#f0f0f0"; ctx.font = "11px monospace";
     if (touchState.mobileUI) {
       ctx.fillText(
-        "Mobil: joystick | \u2694 | beceri | Q/R | oto-iksir e\u015fi\u011fi [C] | \u00d7 kapat",
+        "Mobil: joystick | \u2694 | beceri | sagda Q/R | oto-iksir [C] | zoom (+)",
         10,
         canvasH - 10
       );
@@ -8535,31 +8488,17 @@ function layoutCombatPotions(cw, ch) {
   let y = ch - h - bottomPad;
 
   if (touchState.mobileUI) {
-    const hb = inventory._hotbarLayout(cw, ch);
-    const J = joyAnchorForLayout();
-    const joyRight = J.cx + J.r * 1.7;
-    const potW = 44, potH = 44, innerGap = 12;
-    const pairW = potW * 2 + innerGap;
-    let hpX = hb.x - pairW - 18;
-    const hpY = Math.round(hb.y + (hb.slotSz - potH) / 2);
-    let manaX = hpX + potW + innerGap;
-    if (hpX < joyRight + 8) {
-      hpX = Math.max(joyRight + 8, hb.x - potW - 14);
-      manaX = hpX;
-      const manaY = hpY + potH + innerGap;
-      combatTownTeleportRect = null;
-      combatZoomRect = { x: hpX - potW - 12, y: hpY, w: potW, h: potH, key: "Z" };
-      combatPotionRects = [
-        { kind: "hp", x: hpX, y: hpY, w: potW, h: potH, key: "Q" },
-        { kind: "mana", x: manaX, y: manaY, w: potW, h: potH, key: "R" },
-      ];
-      return combatPotionRects;
-    }
+    const G = mobileCombatClusterGeom(cw, ch);
+    const potW = 42, potH = 42, innerGap = 10;
+    const hpX = Math.round(G.centerX - G.atkR - potW - 14);
+    const hpY = Math.round(G.centerY - potH - 6);
+    const manaX = hpX;
+    const manaY = Math.round(hpY + potH + innerGap);
     combatTownTeleportRect = null;
-    combatZoomRect = { x: hpX - potW - 12, y: hpY, w: potW, h: potH, key: "Z" };
+    combatZoomRect = { x: hpX + 4, y: hpY - 34, w: 30, h: 30, key: "+" };
     combatPotionRects = [
       { kind: "hp", x: hpX, y: hpY, w: potW, h: potH, key: "Q" },
-      { kind: "mana", x: manaX, y: hpY, w: potW, h: potH, key: "R" },
+      { kind: "mana", x: manaX, y: manaY, w: potW, h: potH, key: "R" },
     ];
     return combatPotionRects;
   } else {
@@ -8574,7 +8513,7 @@ function layoutCombatPotions(cw, ch) {
     { kind: "mana", x: x2, y, w, h, key: "R" },
   ];
   combatTownTeleportRect = { x: x1 - w - gap - 8, y, w: w + 8, h, key: "T" };
-  combatZoomRect = { x: combatTownTeleportRect.x - w - gap - 8, y, w: w + 8, h, key: "Z" };
+  combatZoomRect = { x: combatTownTeleportRect.x - w - gap - 8, y, w: w + 8, h, key: "+" };
   return combatPotionRects;
 }
 
@@ -8616,20 +8555,26 @@ function drawCombatPotions(ctx, cw, ch, inventory) {
   }
   if (combatZoomRect) {
     const r = combatZoomRect;
-    const on = worldZoom > WORLD_ZOOM_MIN + 0.02;
-    ctx.fillStyle = on ? "rgba(44,22,66,0.92)" : "rgba(12,18,32,0.9)";
-    roundRect(ctx, r.x - 2, r.y - 14, r.w + 4, r.h + 18, 6);
+    const on = worldZoom > WORLD_ZOOM_STEPS[1] + 0.02;
+    const cx = r.x + r.w * 0.5;
+    const cy = r.y + r.h * 0.5;
+    const rr = Math.min(r.w, r.h) * 0.5;
+    ctx.fillStyle = on ? "rgba(44,22,66,0.94)" : "rgba(12,18,32,0.92)";
+    ctx.beginPath();
+    ctx.arc(cx, cy, rr, 0, Math.PI * 2);
     ctx.fill();
     ctx.strokeStyle = on ? "#c890ff" : "#6f8fb8";
-    ctx.lineWidth = 1;
-    roundRect(ctx, r.x - 2, r.y - 14, r.w + 4, r.h + 18, 6);
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(cx, cy, rr - 0.5, 0, Math.PI * 2);
     ctx.stroke();
     ctx.fillStyle = on ? "#f0d8ff" : "#d8e8ff";
-    ctx.font = "bold 10px monospace";
-    ctx.fillText("Zoom", r.x + 10, r.y + 18);
-    ctx.fillStyle = on ? "#d8a8ff" : "#9fb8d8";
-    ctx.font = "9px monospace";
-    ctx.fillText(on ? "Yakin" : "Normal", r.x + 7, r.y + r.h - 4);
+    ctx.font = "bold 16px monospace";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("+", cx, cy - 1);
+    ctx.textAlign = "start";
+    ctx.textBaseline = "alphabetic";
   }
 }
 
@@ -8700,7 +8645,8 @@ function tryUseManaPotion() {
 function tryCombatPotionClick(mx, my) {
   if (combatZoomRect) {
     const r = combatZoomRect;
-    if (mx >= r.x - 2 && mx < r.x + r.w + 2 && my >= r.y - 14 && my < r.y + r.h + 6) {
+    const cx = r.x + r.w * 0.5, cy = r.y + r.h * 0.5, rr = Math.min(r.w, r.h) * 0.5 + 3;
+    if ((mx - cx) * (mx - cx) + (my - cy) * (my - cy) <= rr * rr) {
       toggleWorldZoom();
       return true;
     }
@@ -8724,12 +8670,13 @@ function tryCombatPotionClick(mx, my) {
 }
 
 function tryCloseZoomOnBlankTap(mx, my) {
-  if (worldZoom <= WORLD_ZOOM_MIN + 0.02) return false;
+  if (worldZoom <= WORLD_ZOOM_STEPS[1] + 0.02) return false;
   if (combatZoomRect) {
     const r = combatZoomRect;
-    if (mx >= r.x - 2 && mx < r.x + r.w + 2 && my >= r.y - 14 && my < r.y + r.h + 6) return false;
+    const cx = r.x + r.w * 0.5, cy = r.y + r.h * 0.5, rr = Math.min(r.w, r.h) * 0.5 + 3;
+    if ((mx - cx) * (mx - cx) + (my - cy) * (my - cy) <= rr * rr) return false;
   }
-  setWorldZoom(WORLD_ZOOM_MIN);
+  setWorldZoom(WORLD_ZOOM_STEPS[1]);
   pickupMsgText = "Zoom kapatildi";
   pickupMsgTimer = 0.65;
   return true;
