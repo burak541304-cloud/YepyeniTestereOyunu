@@ -504,22 +504,23 @@ function uiModalBounds(cw, ch) {
 
 /** Sa\u011f alt MMORPG k\u00fcmesi: merkez sald\u0131r\u0131 + y\u00f6r\u00fcnge (beceri, HEDEF, POWER). */
 function mobileCombatClusterGeom(cw, ch) {
+  const isLandscape = cw > ch * 1.05;
   const pad = 6;
   const margin = 5;
-  const atkR = 32;
-  const skillR = 16;
-  let orbitR = 60;
-  const auxR = 14;
+  const atkR = isLandscape ? 36 : 32;
+  const skillR = isLandscape ? 18 : 16;
+  let orbitR = isLandscape ? 66 : 60;
+  const auxR = isLandscape ? 16 : 14;
   /** Yard\u0131mc\u0131 butonlar sa\u011f s\u0131n\u0131r\u0131 a\u015fmas\u0131n. */
   const swapAng = 0.12;
   if (touchState.mobileUI && cw < 520) {
     orbitR = Math.max(52, Math.round(60 - (520 - cw) * 0.11));
   }
   const rightExtent = Math.cos(swapAng) * orbitR + auxR;
-  let centerX = cw - pad - 52;
+  let centerX = cw - pad - (isLandscape ? 60 : 52);
   const maxCx = cw - margin - rightExtent;
   if (centerX > maxCx) centerX = maxCx;
-  const centerY = ch - pad - 62;
+  const centerY = ch - pad - (isLandscape ? 70 : 62);
   return { centerX, centerY, atkR, skillR, orbitR, auxR, pad };
 }
 
@@ -544,6 +545,7 @@ function mobileAttackButtonRect(cw, ch) {
 
 function mobileButtonsLayout(cw, ch) {
   const G = mobileCombatClusterGeom(cw, ch);
+  const isLandscape = cw > ch * 1.05;
   const out = [];
   const side = G.atkR * 2 + 4;
   out.push({ key: "attack", kind: "attack", label: "\u2694", x: G.centerX - G.atkR - 2, y: G.centerY - G.atkR - 2, w: side, h: side, cx: G.centerX, cy: G.centerY, r: G.atkR });
@@ -567,11 +569,23 @@ function mobileButtonsLayout(cw, ch) {
     });
   }
   const auxR = G.auxR;
-  const targetRad = Math.max(36, G.orbitR - 6);
-  const powerRad = G.orbitR + 16;
-  const tAng = -Math.PI / 2 + 0.38;
-  const tcx = G.centerX + Math.cos(tAng) * targetRad;
-  const tcy = G.centerY + Math.sin(tAng) * targetRad;
+  let tcx, tcy, pcx, pcy;
+  if (isLandscape) {
+    /* Sabit yatay preset: yardimci butonlar kesin ayrik dursun */
+    tcx = G.centerX + G.atkR + auxR + 14;
+    tcy = G.centerY - G.atkR - auxR - 6;
+    pcx = G.centerX - G.atkR - auxR - 14;
+    pcy = G.centerY - G.atkR - auxR - 6;
+  } else {
+    const targetRad = Math.max(36, G.orbitR - 6);
+    const powerRad = G.orbitR + 16;
+    const tAng = -Math.PI / 2 + 0.38;
+    const pAng = -Math.PI / 2 - 0.24;
+    tcx = G.centerX + Math.cos(tAng) * targetRad;
+    tcy = G.centerY + Math.sin(tAng) * targetRad;
+    pcx = G.centerX + Math.cos(pAng) * powerRad;
+    pcy = G.centerY + Math.sin(pAng) * powerRad;
+  }
   out.push({
     key: "target",
     kind: "target",
@@ -579,9 +593,6 @@ function mobileButtonsLayout(cw, ch) {
     cx: tcx, cy: tcy, r: auxR,
     x: tcx - auxR, y: tcy - auxR, w: auxR * 2, h: auxR * 2,
   });
-  const pAng = -Math.PI / 2 - 0.24;
-  const pcx = G.centerX + Math.cos(pAng) * powerRad;
-  const pcy = G.centerY + Math.sin(pAng) * powerRad;
   out.push({
     key: MOBILE_POWER_BUTTON_KEY,
     kind: "power",
@@ -6859,6 +6870,8 @@ class Shop {
     this.feedbackText = "";
     this.feedbackTimer = 0;
     this.feedbackColor = "#50e050";
+    this.buyFilter = "all";
+    this.buySort = "default";
     this.sellPicker = null;
     /** Sat\u0131n al onay diyalo\u011fu: { stockIndex, itemId } */
     this.buyPicker = null;
@@ -6886,6 +6899,8 @@ class Shop {
     this.buyPicker = null;
     this._buyPickerMetrics = null;
     this.gridScrollTouchId = -1;
+    this.buyFilter = "all";
+    this.buySort = "default";
   }
 
   rebuildStockFromTemplate() {
@@ -6973,12 +6988,77 @@ class Shop {
     const tabY = land ? py + 14 : py + 38;
     const tabW = land ? 72 : 90;
     const tabH = land ? 18 : 24;
-    const gridYStart = land ? py + 44 : py + 96;
+    const gridYStart = land ? py + 72 : py + 128;
     return {
       px, py, pw, ph, shopSlot, shopGap, shopPriceBand, shopCols, shopLand: land,
       tabBuyX, tabSellX, tabY, tabW, tabH, gridYStart,
       canvasW: cw, canvasH: ch,
     };
+  }
+
+  _buyControlsLayout(L) {
+    const y = L.tabY + L.tabH + 8;
+    const h = L.shopLand ? 18 : 22;
+    const gap = 4;
+    const sortW = L.shopLand ? 110 : 124;
+    const labels = [
+      { id: "all", label: "Tum" },
+      { id: "equip", label: "Ekip" },
+      { id: "consumable", label: "Sarf" },
+      { id: "material", label: "Malz" },
+    ];
+    const avail = L.pw - 24 - sortW - gap * labels.length;
+    const fw = Math.max(42, Math.floor(avail / labels.length));
+    const filters = [];
+    let x = L.px + 12;
+    for (const it of labels) {
+      filters.push({ id: it.id, label: it.label, x, y, w: fw, h });
+      x += fw + gap;
+    }
+    const sort = { x: L.px + L.pw - 12 - sortW, y, w: sortW, h };
+    return { filters, sort };
+  }
+
+  _buySortLabel() {
+    if (this.buySort === "priceAsc") return "Fiyat: Artan";
+    if (this.buySort === "powerDesc") return "Guc: Yuksek";
+    return "Sirala: Varsayilan";
+  }
+
+  _cycleBuySort() {
+    if (this.buySort === "default") this.buySort = "priceAsc";
+    else if (this.buySort === "priceAsc") this.buySort = "powerDesc";
+    else this.buySort = "default";
+  }
+
+  _matchesBuyFilter(si) {
+    if (!si) return false;
+    if (this.buyFilter === "all") return true;
+    const def = ITEMS[si.id];
+    if (!def) return false;
+    if (this.buyFilter === "equip") return !!def.equipSlot;
+    if (this.buyFilter === "consumable") {
+      return si.id === "potion" || si.id === "potion_mana" || si.id === "apple" || si.id === "fish";
+    }
+    if (this.buyFilter === "material") {
+      return !def.equipSlot && !["potion", "potion_mana", "apple", "fish"].includes(si.id);
+    }
+    return true;
+  }
+
+  _getFilteredSortedBuyIndices() {
+    const list = [];
+    for (let i = 0; i < this.stock.length; i++) {
+      const si = this.stock[i];
+      if (!this._matchesBuyFilter(si)) continue;
+      list.push(i);
+    }
+    if (this.buySort === "priceAsc") {
+      list.sort((a, b) => this._shopUnitPrice(this.stock[a]) - this._shopUnitPrice(this.stock[b]));
+    } else if (this.buySort === "powerDesc") {
+      list.sort((a, b) => itemStatPowerScore(ITEMS[this.stock[b].id] || {}) - itemStatPowerScore(ITEMS[this.stock[a].id] || {}));
+    }
+    return list;
   }
 
   _shopRowStride(L) {
@@ -6997,7 +7077,7 @@ class Shop {
 
   _maxScrollBuy(L) {
     const rowStride = this._shopRowStride(L);
-    const n = this.stock.length;
+    const n = this._getFilteredSortedBuyIndices().length;
     const cols = L.shopCols;
     const rows = Math.ceil(Math.max(1, n) / cols);
     const totalH = rows * rowStride;
@@ -7484,6 +7564,21 @@ class Shop {
 
     if (this.tab === 0) {
       if (button !== 0) return true;
+      const ctl = this._buyControlsLayout(L);
+      for (const f of ctl.filters) {
+        if (this._pointInRect(mx, my, f)) {
+          this.buyFilter = f.id;
+          this.scrollBuy = 0;
+          this.buyPicker = null;
+          return true;
+        }
+      }
+      if (this._pointInRect(mx, my, ctl.sort)) {
+        this._cycleBuySort();
+        this.scrollBuy = 0;
+        this.buyPicker = null;
+        return true;
+      }
       if (this.buyPicker) {
         const B = this._buyPickerLayout(L);
         const si0 = this._getBuyPickerStockEntry(this.buyPicker);
@@ -7528,8 +7623,10 @@ class Shop {
         }
         this.buyPicker = null;
       }
-      for (let i = 0; i < this.stock.length; i++) {
-        const row = Math.floor(i / L.shopCols), col = i % L.shopCols;
+      const buyIdx = this._getFilteredSortedBuyIndices();
+      for (let vi = 0; vi < buyIdx.length; vi++) {
+        const i = buyIdx[vi];
+        const row = Math.floor(vi / L.shopCols), col = vi % L.shopCols;
         const sx = gridX + col * (L.shopSlot + L.shopGap);
         const sy = gridY + row * rowStride - this.scrollBuy;
         if (sy < gridY - sSlot || sy > L.py + L.ph) continue;
@@ -7658,12 +7755,19 @@ class Shop {
     const rowStride = this._shopRowStride(L);
     const sSlot = L.shopSlot;
     if (this.tab === 0) {
+      const ctl = this._buyControlsLayout(L);
+      for (const f of ctl.filters) {
+        if (this._pointInRect(mx, my, f)) return;
+      }
+      if (this._pointInRect(mx, my, ctl.sort)) return;
       if (this.buyPicker) {
         const B = this._buyPickerLayout(L);
         if (this._pointInRect(mx, my, B.dialog)) return;
       }
-      for (let i = 0; i < this.stock.length; i++) {
-        const row = Math.floor(i / L.shopCols), col = i % L.shopCols;
+      const buyIdx = this._getFilteredSortedBuyIndices();
+      for (let vi = 0; vi < buyIdx.length; vi++) {
+        const i = buyIdx[vi];
+        const row = Math.floor(vi / L.shopCols), col = vi % L.shopCols;
         const sx = gridX + col * (L.shopSlot + L.shopGap);
         const sy = gridY + row * rowStride - this.scrollBuy;
         if (mx >= sx && mx < sx + sSlot && my >= sy && my < sy + sSlot) {
@@ -7731,6 +7835,32 @@ class Shop {
     ctx.fillStyle = this.tab === 1 ? "#f0d050" : "#888"; ctx.font = land ? "bold 10px monospace" : "bold 12px monospace";
     const sellLab = "Sat";
     ctx.fillText(sellLab, tabSellX + (tabW - ctx.measureText(sellLab).width) / 2, tabY + (land ? 14 : 16));
+    if (this.tab === 0) {
+      const ctl = this._buyControlsLayout(L);
+      for (const f of ctl.filters) {
+        const active = this.buyFilter === f.id;
+        ctx.fillStyle = active ? "rgba(80,120,185,0.45)" : "rgba(36,40,62,0.72)";
+        ctx.strokeStyle = active ? "#90b8ff" : "#5a6288";
+        ctx.lineWidth = active ? 1.4 : 1;
+        roundRect(ctx, f.x, f.y, f.w, f.h, 4);
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = active ? "#e8f0ff" : "#aeb6d6";
+        ctx.font = land ? "bold 9px monospace" : "bold 10px monospace";
+        ctx.fillText(f.label, f.x + (f.w - ctx.measureText(f.label).width) / 2, f.y + (land ? 12 : 15));
+      }
+      const srt = ctl.sort;
+      const sortLabel = this._buySortLabel();
+      ctx.fillStyle = "rgba(46,56,86,0.78)";
+      ctx.strokeStyle = "#7b8fc8";
+      ctx.lineWidth = 1;
+      roundRect(ctx, srt.x, srt.y, srt.w, srt.h, 4);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = "#d8e4ff";
+      ctx.font = land ? "bold 9px monospace" : "bold 10px monospace";
+      ctx.fillText(sortLabel, srt.x + (srt.w - ctx.measureText(sortLabel).width) / 2, srt.y + (land ? 12 : 15));
+    }
 
     const rotLeft = Math.max(0, SHOP_SPECIAL_ROTATE_SEC - this.specialT);
     const mm = Math.floor(rotLeft / 60);
@@ -7835,11 +7965,19 @@ class Shop {
   _renderBuyTab(ctx, gridX, gridY, gold, L) {
     const rowStride = this._shopRowStride(L);
     const s = L.shopSlot;
-    for (let i = 0; i < this.stock.length; i++) {
+    const buyIdx = this._getFilteredSortedBuyIndices();
+    if (!buyIdx.length) {
+      ctx.fillStyle = "#7d86a8";
+      ctx.font = "12px monospace";
+      ctx.fillText("Bu filtrede urun yok.", gridX, gridY + 26);
+      return;
+    }
+    for (let vi = 0; vi < buyIdx.length; vi++) {
+      const i = buyIdx[vi];
       const si = this.stock[i];
       const def = ITEMS[si.id];
       if (!def) continue;
-      const row = Math.floor(i / L.shopCols), col = i % L.shopCols;
+      const row = Math.floor(vi / L.shopCols), col = vi % L.shopCols;
       const sx = gridX + col * (L.shopSlot + L.shopGap);
       const sy = gridY + row * rowStride - this.scrollBuy;
 
