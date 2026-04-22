@@ -662,6 +662,36 @@ function getMovementVector() {
 
 function isActionPressed() { return isDown("KeyE") || isDown("Space"); }
 
+const WORLD_ZOOM_MIN = 1;
+const WORLD_ZOOM_MAX = 1.42;
+const WORLD_ZOOM_NEAR = 1.28;
+let worldZoom = WORLD_ZOOM_MIN;
+
+function clampWorldZoom(z) {
+  return Math.max(WORLD_ZOOM_MIN, Math.min(WORLD_ZOOM_MAX, z));
+}
+
+function setWorldZoom(z) {
+  worldZoom = clampWorldZoom(z);
+  if (typeof camera !== "undefined" && camera && typeof canvasW !== "undefined" && typeof canvasH !== "undefined") {
+    camera.resize(canvasW / worldZoom, canvasH / worldZoom);
+  }
+}
+
+function toggleWorldZoom() {
+  const next = worldZoom > WORLD_ZOOM_MIN + 0.02 ? WORLD_ZOOM_MIN : WORLD_ZOOM_NEAR;
+  setWorldZoom(next);
+  pickupMsgText = worldZoom > WORLD_ZOOM_MIN + 0.02 ? "Zoom: Yakin" : "Zoom: Normal";
+  pickupMsgTimer = 0.9;
+}
+
+function screenToWorld(sx, sy) {
+  return {
+    x: camera.x + sx / Math.max(0.01, worldZoom),
+    y: camera.y + sy / Math.max(0.01, worldZoom),
+  };
+}
+
 /* ── tile constants ──────────────────────────────────────── */
 
 const TILE_SIZE = 32;
@@ -696,7 +726,9 @@ const ITEMS = {
   flower: { id: "flower", name: "\u00c7i\u00e7ek",      stackable: true, maxStack: 32, desc: "G\u00fczel kokulu k\u0131r \u00e7i\u00e7e\u011fi.", buyPrice: 4,  sellPrice: 1  },
   apple:  { id: "apple",  name: "Elma",      stackable: true, maxStack: 16, desc: "Canl\u0131 k\u0131rm\u0131z\u0131 bir elma.",   buyPrice: 6,  sellPrice: 2  },
   fish:   { id: "fish",   name: "Bal\u0131k",     stackable: true, maxStack: 16, desc: "Taze tutulmu\u015f bal\u0131k.",      buyPrice: 10, sellPrice: 4  },
-  axe:    { id: "axe",    name: "Balta",     stackable: true, maxStack: 32, desc: "A\u011fa\u00e7 kesmek i\u00e7in.",       buyPrice: 30, sellPrice: 12 },
+  axe:    { id: "axe",    name: "Balta",     stackable: false, maxStack: 1, rarity: "common", equipSlot: "axe",
+    stats: { repairHp: 120 }, advanced: { durabilityMax: 120 },
+    desc: "A\u011fa\u00e7 kesmek i\u00e7in. Dayan\u0131kl\u0131l\u0131k azal\u0131r; tamir can\u0131 biterse k\u0131r\u0131l\u0131r.", buyPrice: 30, sellPrice: 12 },
   sword:  { id: "sword",  name: "Demir K\u0131l\u0131\u00e7", stackable: true, maxStack: 32, rarity: "common", equipSlot: "blade",
     stats: { str: 3, agi: 1, wis: 0, maxHp: 0, maxMana: 0, meleeDmg: 2, rangedDmg: 0 },
     desc: "D\u00fczg\u00fcn demir k\u0131l\u0131\u00e7.", buyPrice: 50, sellPrice: 20 },
@@ -952,6 +984,38 @@ function getStackUpgradeLv(s) {
   if (!s || s.upgrade == null) return 0;
   const u = s.upgrade | 0;
   return u > 0 ? u : 0;
+}
+
+function getAxeDurabilityMax(stackOrId) {
+  const itemId = typeof stackOrId === "string" ? stackOrId : (stackOrId && stackOrId.id);
+  const def = ITEMS[itemId];
+  if (!def) return 0;
+  const fromAdvanced = def.advanced && (def.advanced.durabilityMax | 0);
+  const fromStats = def.stats && (def.stats.repairHp | 0);
+  const v = Math.max(fromAdvanced || 0, fromStats || 0);
+  return v > 0 ? v : 0;
+}
+
+function ensureStackAxeDurability(s) {
+  if (!s || s.id !== "axe") return s;
+  const mx = getAxeDurabilityMax(s);
+  if (mx <= 0) return s;
+  if (!(s.durability > 0)) s.durability = mx;
+  if (s.durability > mx) s.durability = mx;
+  return s;
+}
+
+function copyStackMetaTo(target, src) {
+  if (!target) return target;
+  if (!src) return ensureStackAxeDurability(target);
+  const u = getStackUpgradeLv(src);
+  if (u > 0) target.upgrade = u;
+  if (target.id === "axe") {
+    const mx = getAxeDurabilityMax(target);
+    const d = src.durability | 0;
+    target.durability = d > 0 ? Math.min(d, mx || d) : (mx > 0 ? mx : 0);
+  }
+  return ensureStackAxeDurability(target);
 }
 
 function itemCanUpgrade(def) {
@@ -1499,7 +1563,12 @@ function collectItemMetaLines(def, itemId, opts) {
       lines.push("Her at\u0131\u015fta mana harcan\u0131r");
       break;
     case "axe":
-      lines.push("A\u011fa\u00e7 kesmek i\u00e7in [E] ile kullan\u0131m");
+      lines.push("A\u011fa\u00e7a yakla\u015f\u0131nca otomatik keser");
+      if (opts && opts.stackRef) {
+        ensureStackAxeDurability(opts.stackRef);
+        const mx = getAxeDurabilityMax(opts.stackRef);
+        if (mx > 0) lines.push("Tamir Can\u0131: " + (opts.stackRef.durability | 0) + "/" + mx);
+      }
       break;
     case "coin":
       lines.push("Evrensel para birimi");
@@ -2265,7 +2334,7 @@ const charPanel = {
 
 /* ── Inventory ───────────────────────────────────────────── */
 
-const EQ_SLOTS = ["blade", "bow", "head", "chest", "feet", "waist", "arms", "wings", "ring1", "ring2", "amulet"];
+const EQ_SLOTS = ["blade", "bow", "head", "chest", "feet", "waist", "arms", "wings", "ring1", "ring2", "amulet", "axe"];
 const EQ_LABELS = {
   blade: "K\u0131l\u0131\u00e7",
   bow: "Yay",
@@ -2278,6 +2347,7 @@ const EQ_LABELS = {
   ring1: "Y\u00fcz\u00fck 1",
   ring2: "Y\u00fcz\u00fck 2",
   amulet: "Kolye",
+  axe: "Balta",
   ring: "Y\u00fcz\u00fck",
 };
 
@@ -2320,7 +2390,7 @@ const EQ_GRID = [
   [
     { key: "feet", label: "Ayakl\u0131k", sub: "" },
     { key: "wings", label: "Kanat", sub: "" },
-    { key: null, label: "\u00b7", sub: "Aksesuar" },
+    { key: "axe", label: "Balta", sub: "Alet" },
   ],
   [
     { key: null, label: "\u00b7", sub: "" },
@@ -2397,7 +2467,7 @@ class Inventory {
     }
   }
 
-  addItem(itemId, count = 1, upgradeLevel = 0) {
+  addItem(itemId, count = 1, upgradeLevel = 0, sourceMeta = null) {
     const def = ITEMS[itemId];
     if (!def) return count;
     const u = upgradeLevel | 0;
@@ -2432,6 +2502,7 @@ class Inventory {
           const add = Math.min(count, def.maxStack);
           const stack = { id: itemId, count: add };
           if (u > 0) stack.upgrade = u;
+          copyStackMetaTo(stack, sourceMeta);
           container[i] = stack;
           count -= add;
           if (count <= 0) {
@@ -2559,11 +2630,12 @@ class Inventory {
     const prev = this.equipped[sk];
     if (prev && prev.id === itemId && getStackUpgradeLv(prev) === uWant) return "Zaten bu e\u015fya giyili.";
     if (prev) {
-      const left = this.addItem(prev.id, 1, getStackUpgradeLv(prev));
+      const left = this.addItem(prev.id, 1, getStackUpgradeLv(prev), prev);
       if (left > 0) return "Eski e\u015fya i\u00e7in envanterde yer yok; \u00f6nce yer a\u00e7.";
     }
     const eq = { id: itemId, count: 1 };
     if (uWant > 0) eq.upgrade = uWant;
+    ensureStackAxeDurability(eq);
     this.equipped[sk] = eq;
     this._scanAutoEquipAllEmpty();
     return null;
@@ -2585,13 +2657,14 @@ class Inventory {
     if (this.equipped[sk] && this.equipped[sk].id === id && stackUpgradesMatch(this.equipped[sk], slot)) return "Zaten bu e\u015fya giyili.";
     if (this.equipped[sk]) {
       const old = this.equipped[sk];
-      const left = this.addItem(old.id, 1, getStackUpgradeLv(old));
+      const left = this.addItem(old.id, 1, getStackUpgradeLv(old), old);
       if (left > 0) return "Eski e\u015fya i\u00e7in envanterde yer yok; \u00f6nce yer a\u00e7.";
     }
     slot.count--;
     if (slot.count <= 0) container[idx] = null;
     const eq = { id, count: 1 };
     if (uNew > 0) eq.upgrade = uNew;
+    copyStackMetaTo(eq, slot);
     this.equipped[sk] = eq;
     this._scanAutoEquipAllEmpty();
     return null;
@@ -2759,13 +2832,13 @@ class Inventory {
   _equipSlotClick(slotKey, rightClick) {
     if (inventorySlotInspect) closeInventorySlotInspect();
     const cur = this.equipped[slotKey];
-    const packEq = (id, u) => {
+    const packEq = (id, u, src) => {
       const o = { id, count: 1 };
       if ((u | 0) > 0) o.upgrade = u | 0;
-      return o;
+      return copyStackMetaTo(o, src);
     };
     if (rightClick && cur && !this.heldItem) {
-      this.heldItem = packEq(cur.id, getStackUpgradeLv(cur));
+      this.heldItem = packEq(cur.id, getStackUpgradeLv(cur), cur);
       this.equipped[slotKey] = null;
       return;
     }
@@ -2773,19 +2846,20 @@ class Inventory {
       const def = ITEMS[this.heldItem.id];
       if (!def || !def.equipSlot) return;
       if (!itemFitsEquipSlot(def, slotKey)) return;
+      const heldMeta = this.heldItem;
       const oneId = this.heldItem.id;
       const uHeld = getStackUpgradeLv(this.heldItem);
       this.heldItem.count--;
       if (this.heldItem.count <= 0) this.heldItem = null;
       if (cur) {
-        const left = this.addItem(cur.id, 1, getStackUpgradeLv(cur));
+        const left = this.addItem(cur.id, 1, getStackUpgradeLv(cur), cur);
         if (left > 0) {
-          if (!this.heldItem) this.heldItem = packEq(oneId, uHeld);
+          if (!this.heldItem) this.heldItem = packEq(oneId, uHeld, heldMeta);
           else this.heldItem.count++;
           return;
         }
       }
-      this.equipped[slotKey] = packEq(oneId, uHeld);
+      this.equipped[slotKey] = packEq(oneId, uHeld, heldMeta);
       return;
     }
     if (cur && !this.heldItem) openInventorySlotInspect("eq", slotKey);
@@ -2810,7 +2884,7 @@ class Inventory {
         const o = { id: src.id, count: 1 };
         const u = getStackUpgradeLv(src);
         if (u > 0) o.upgrade = u;
-        return o;
+        return copyStackMetaTo(o, src);
       };
       if (this.heldItem && !slot) {
         container[idx] = packOne(this.heldItem);
@@ -3503,7 +3577,8 @@ class Camera {
 
   applyTransform(ctx) {
     const ox = (this.shakeX || 0), oy = (this.shakeY || 0);
-    ctx.setTransform(1, 0, 0, 1, -Math.round(this.x + ox), -Math.round(this.y + oy));
+    const z = Math.max(0.01, typeof worldZoom !== "undefined" ? worldZoom : 1);
+    ctx.setTransform(z, 0, 0, z, -Math.round((this.x + ox) * z), -Math.round((this.y + oy) * z));
   }
 
   resetTransform(ctx) { ctx.setTransform(1, 0, 0, 1, 0, 0); }
@@ -3777,6 +3852,14 @@ class Player {
     } else {
       this.animFrame = 0; this.animTimer = 0;
       this.walkPhase += dt * 1.35;
+    }
+
+    /* Okçu gövdesi/kanadı nişan yönünü takip etsin. */
+    const bowOn = !!(typeof inventory !== "undefined" && inventory && inventory.equipped && inventory.equipped.bow);
+    if (bowOn) {
+      const ax = Math.cos(this.angle), ay = Math.sin(this.angle);
+      if (Math.abs(ax) > Math.abs(ay)) this.direction = ax >= 0 ? DIR.RIGHT : DIR.LEFT;
+      else this.direction = ay >= 0 ? DIR.DOWN : DIR.UP;
     }
   }
 
@@ -6124,8 +6207,9 @@ class Monster {
         return;
       }
       const rMax = this.rangedMax != null ? this.rangedMax : TILE_SIZE * 9;
+      const rMaxBossNear = this.boss ? Math.min(rMax, TILE_SIZE * 4.6) : rMax;
       const rMin = this.rangedMin != null ? this.rangedMin : 16;
-      const inRangedBand = this.rangedKind && dist > rMin && dist < rMax && dist > this.atkRange;
+      const inRangedBand = this.rangedKind && dist > rMin && dist < rMaxBossNear && dist > this.atkRange;
       if (inRangedBand) {
         this.state = "attack";
         this.atkTimer = 0;
@@ -6144,7 +6228,8 @@ class Monster {
       }
       if (this.rangedKind) {
         const rMax2 = this.rangedMax != null ? this.rangedMax : TILE_SIZE * 9;
-        if (dist > rMax2) {
+        const rMax2BossNear = this.boss ? Math.min(rMax2, TILE_SIZE * 5.2) : rMax2;
+        if (dist > rMax2BossNear) {
           this.state = "chase";
           return;
         }
@@ -6160,8 +6245,9 @@ class Monster {
         this.atkAnim = 0.25;
         if (!(player.inBoat && playerBoatFullyOnWater(map, player))) {
           const rMax3 = this.rangedMax != null ? this.rangedMax : TILE_SIZE * 9;
+          const rMax3BossNear = this.boss ? Math.min(rMax3, TILE_SIZE * 4.8) : rMax3;
           const inMelee = dist <= this.atkRange;
-          const canRanged = this.rangedKind && !inMelee && dist < rMax3 && dist > (this.rangedMin != null ? this.rangedMin : 0);
+          const canRanged = this.rangedKind && !inMelee && dist < rMax3BossNear && dist > (this.rangedMin != null ? this.rangedMin : 0);
           if (canRanged) {
             monsterSpells.push(new MonSpell(this.cx, this.cy, player.centerX, player.centerY, this.dmg, this.rangedKind));
             if (this.boss) addScreenShake(this.type === "skywing_dragon" ? 6.5 : 3.5);
@@ -8294,6 +8380,7 @@ class HUD {
 /** T\u0131klanabilir can/mana iksiri d\u00fc\u011fmeleri (son kare hit-test i\u00e7in) */
 let combatPotionRects = null;
 let combatTownTeleportRect = null;
+let combatZoomRect = null;
 
 function layoutCombatPotions(cw, ch) {
   const w = 46, h = 46, gap = 6;
@@ -8315,6 +8402,7 @@ function layoutCombatPotions(cw, ch) {
       manaX = hpX;
       const manaY = hpY + potH + innerGap;
       combatTownTeleportRect = null;
+      combatZoomRect = { x: hpX - potW - 12, y: hpY, w: potW, h: potH, key: "Z" };
       combatPotionRects = [
         { kind: "hp", x: hpX, y: hpY, w: potW, h: potH, key: "Q" },
         { kind: "mana", x: manaX, y: manaY, w: potW, h: potH, key: "R" },
@@ -8322,6 +8410,7 @@ function layoutCombatPotions(cw, ch) {
       return combatPotionRects;
     }
     combatTownTeleportRect = null;
+    combatZoomRect = { x: hpX - potW - 12, y: hpY, w: potW, h: potH, key: "Z" };
     combatPotionRects = [
       { kind: "hp", x: hpX, y: hpY, w: potW, h: potH, key: "Q" },
       { kind: "mana", x: manaX, y: hpY, w: potW, h: potH, key: "R" },
@@ -8339,6 +8428,7 @@ function layoutCombatPotions(cw, ch) {
     { kind: "mana", x: x2, y, w, h, key: "R" },
   ];
   combatTownTeleportRect = { x: x1 - w - gap - 8, y, w: w + 8, h, key: "T" };
+  combatZoomRect = { x: combatTownTeleportRect.x - w - gap - 8, y, w: w + 8, h, key: "Z" };
   return combatPotionRects;
 }
 
@@ -8378,6 +8468,23 @@ function drawCombatPotions(ctx, cw, ch, inventory) {
     ctx.font = "9px monospace";
     ctx.fillText("[T]", r.x + 16, r.y + r.h - 4);
   }
+  if (combatZoomRect) {
+    const r = combatZoomRect;
+    const on = worldZoom > WORLD_ZOOM_MIN + 0.02;
+    ctx.fillStyle = on ? "rgba(44,22,66,0.92)" : "rgba(12,18,32,0.9)";
+    roundRect(ctx, r.x - 2, r.y - 14, r.w + 4, r.h + 18, 6);
+    ctx.fill();
+    ctx.strokeStyle = on ? "#c890ff" : "#6f8fb8";
+    ctx.lineWidth = 1;
+    roundRect(ctx, r.x - 2, r.y - 14, r.w + 4, r.h + 18, 6);
+    ctx.stroke();
+    ctx.fillStyle = on ? "#f0d8ff" : "#d8e8ff";
+    ctx.font = "bold 10px monospace";
+    ctx.fillText("Zoom", r.x + 10, r.y + 18);
+    ctx.fillStyle = on ? "#d8a8ff" : "#9fb8d8";
+    ctx.font = "9px monospace";
+    ctx.fillText(on ? "Yakin" : "Normal", r.x + 7, r.y + r.h - 4);
+  }
 }
 
 function tryTeleportToVillage() {
@@ -8406,8 +8513,8 @@ function tryTeleportToVillage() {
   player.powerCharging = false;
   player.powerCharge = 0;
   player.inBoat = false;
-  camera.x = player.x - canvasW * 0.5;
-  camera.y = player.y - canvasH * 0.5;
+  camera.x = player.x - camera.viewW * 0.5;
+  camera.y = player.y - camera.viewH * 0.5;
   pickupMsgText = "Kasabaya \u0131\u015f\u0131nland\u0131n! [T]";
   pickupMsgTimer = 1.2;
   addScreenShake(1.2);
@@ -8445,6 +8552,13 @@ function tryUseManaPotion() {
 }
 
 function tryCombatPotionClick(mx, my) {
+  if (combatZoomRect) {
+    const r = combatZoomRect;
+    if (mx >= r.x - 2 && mx < r.x + r.w + 2 && my >= r.y - 14 && my < r.y + r.h + 6) {
+      toggleWorldZoom();
+      return true;
+    }
+  }
   if (combatTownTeleportRect) {
     const r = combatTownTeleportRect;
     if (mx >= r.x - 2 && mx < r.x + r.w + 2 && my >= r.y - 14 && my < r.y + r.h + 6) {
@@ -8461,6 +8575,18 @@ function tryCombatPotionClick(mx, my) {
     }
   }
   return false;
+}
+
+function tryCloseZoomOnBlankTap(mx, my) {
+  if (worldZoom <= WORLD_ZOOM_MIN + 0.02) return false;
+  if (combatZoomRect) {
+    const r = combatZoomRect;
+    if (mx >= r.x - 2 && mx < r.x + r.w + 2 && my >= r.y - 14 && my < r.y + r.h + 6) return false;
+  }
+  setWorldZoom(WORLD_ZOOM_MIN);
+  pickupMsgText = "Zoom kapatildi";
+  pickupMsgTimer = 0.65;
+  return true;
 }
 
 const WORLD_ITEM_AUTO_PICKUP_RANGE = TILE_SIZE * 1.2;
@@ -8505,7 +8631,8 @@ function closeWorldItemInspect() {
 
 function pickWorldItemAtScreen(smx, smy) {
   if (player.inBoat) return null;
-  const wx = smx + camera.x, wy = smy + camera.y;
+  const wpt = screenToWorld(smx, smy);
+  const wx = wpt.x, wy = wpt.y;
   const hitR = 28;
   const maxPl = TILE_SIZE * 2.4;
   let best = null;
@@ -8531,10 +8658,29 @@ function tryOpenWorldItemInspect(smx, smy) {
   return true;
 }
 
+function renderInspectStatLinesFitted(ctx, lines, x, startY, maxY, mobile) {
+  if (!lines || !lines.length) return startY;
+  const avail = Math.max(8, maxY - startY);
+  const lineHBase = mobile ? 19 : 15;
+  const needBase = lines.length * lineHBase;
+  const compact = needBase > avail;
+  const lineH = compact ? (mobile ? 14 : 12) : lineHBase;
+  let y = startY;
+  for (const ln of lines) {
+    if (y > maxY) break;
+    ctx.font = compact ? (mobile ? "11px monospace" : "10px monospace") : ln.font;
+    ctx.fillStyle = ln.color;
+    ctx.fillText(ln.text, x, y);
+    y += lineH;
+  }
+  return y;
+}
+
 function worldItemInspectLayout(cw, ch) {
   const b = uiModalBounds(cw, ch);
-  const pw = Math.min(340, b.maxW);
-  const ph = Math.min(420, b.maxH);
+  const land = cw > ch * 1.02;
+  const pw = Math.min(land ? 430 : 340, b.maxW);
+  const ph = Math.min(land ? 500 : 420, b.maxH);
   const px = Math.floor((cw - pw) / 2);
   const py = Math.max(b.top, Math.min(ch - ph - b.bottom, Math.floor((ch - ph) / 2)));
   const btnH = 34;
@@ -8645,24 +8791,13 @@ function renderWorldItemInspect(ctx, cw, ch) {
   const layoutTt = buildItemTooltipLayout(ctx, def, wi.itemId, cw, touchState.mobileUI, { omitPrices: true, omitIdentity: true, upgradeLv: uWiPre }, []);
   let ty = iy + iconS + 12;
   const maxY = L.btnEquip.y - 8;
-  for (const ln of layoutTt.lines) {
-    if (ty > maxY) break;
-    ctx.font = ln.font;
-    ctx.fillStyle = ln.color;
-    ctx.fillText(ln.text, L.px + 16, ty);
-    ty += touchState.mobileUI ? 19 : 15;
-  }
-  const cmpLines = buildInspectCompareLines(def, slot, kind, idx);
-  if (cmpLines.length && ty < maxY - 6) {
-    ty += 4;
-    for (const cLn of cmpLines) {
-      if (ty > maxY) break;
-      ctx.font = touchState.mobileUI ? "11px monospace" : "10px monospace";
-      ctx.fillStyle = cLn.color || "#b8c8e8";
-      ctx.fillText(cLn.text, L.px + 16, ty);
-      ty += touchState.mobileUI ? 16 : 13;
-    }
-  }
+  const cmpLines = buildInspectCompareLines(def, { id: wi.itemId, count: 1, upgrade: uWiPre }, "world", "world");
+  const allLines = layoutTt.lines.concat(cmpLines.map((r) => ({
+    text: r.text,
+    color: r.color || "#b8c8e8",
+    font: touchState.mobileUI ? "11px monospace" : "10px monospace",
+  })));
+  ty = renderInspectStatLinesFitted(ctx, allLines, L.px + 16, ty, maxY, touchState.mobileUI);
 
   const eqCands0 = equipSlotsForItemDef(def);
   const canEq = eqCands0.some((sk) => {
@@ -9513,8 +9648,9 @@ function dropInventorySlotStackToWorld(kind, idx) {
 
 function inventorySlotInspectLayout(cw, ch) {
   const b = uiModalBounds(cw, ch);
-  const pw = Math.min(320, b.maxW);
-  const ph = Math.min(430, b.maxH);
+  const land = cw > ch * 1.02;
+  const pw = Math.min(land ? 430 : 320, b.maxW);
+  const ph = Math.min(land ? 500 : 430, b.maxH);
   const px = Math.floor((cw - pw) / 2);
   const py = Math.max(b.top, Math.min(ch - ph - b.bottom, Math.floor((ch - ph) / 2)));
   const btnH = 34;
@@ -9691,13 +9827,13 @@ function renderInventorySlotInspect(ctx, cw, ch) {
   const layoutTt = buildItemTooltipLayout(ctx, def, slot.id, cw, touchState.mobileUI, { omitPrices: true, omitIdentity: true, stackRef: slot }, []);
   let ty = iy + iconS + 12;
   const maxY = L.btnUpgrade.y - 6;
-  for (const ln of layoutTt.lines) {
-    if (ty > maxY) break;
-    ctx.font = ln.font;
-    ctx.fillStyle = ln.color;
-    ctx.fillText(ln.text, L.px + 16, ty);
-    ty += touchState.mobileUI ? 19 : 15;
-  }
+  const cmpLines = buildInspectCompareLines(def, slot, kind, idx);
+  const allLines = layoutTt.lines.concat(cmpLines.map((r) => ({
+    text: r.text,
+    color: r.color || "#b8c8e8",
+    font: touchState.mobileUI ? "11px monospace" : "10px monospace",
+  })));
+  ty = renderInspectStatLinesFitted(ctx, allLines, L.px + 16, ty, maxY, touchState.mobileUI);
 
   const eqCands1 = equipSlotsForItemDef(def);
   const canEq = fromEquip ? true : eqCands1.some((sk) => {
@@ -10526,6 +10662,10 @@ canvas.addEventListener("mousedown", (e) => {
       e.preventDefault();
       return;
     }
+    if (tryCloseZoomOnBlankTap(e.clientX, e.clientY)) {
+      e.preventDefault();
+      return;
+    }
   }
 
   if (e.button === 0 && !inventory.open && !petPanel.open && !dialog.active && !shop.open && !craftPanel.open && !charPanel.open && !player.inBoat) {
@@ -10636,6 +10776,8 @@ function handleCanvasTouchStart(e) {
     if (!touchState.mobileUI) continue;
 
     if (!shop.open && !craftPanel.open && tryCombatPotionClick(mx, my)) continue;
+    if (!shop.open && !craftPanel.open && !inventory.open && !petPanel.open && !dialog.active && !charPanel.open &&
+        !worldItemInspect && !inventorySlotInspect && tryCloseZoomOnBlankTap(mx, my)) continue;
 
     const br = hitMobileButton(mx, my, canvasW, canvasH);
     if (br) {
@@ -10923,7 +11065,7 @@ function resize() {
   canvasH = window.innerHeight;
   canvas.width = canvasW;
   canvas.height = canvasH;
-  camera.resize(canvasW, canvasH);
+  camera.resize(canvasW / Math.max(0.01, worldZoom), canvasH / Math.max(0.01, worldZoom));
   refreshMobileUI();
   updateTouchLayout();
 }
@@ -10945,7 +11087,7 @@ function playerBoatFullyOnWater(map, player) {
 
 function canChopFacingTree(player, map, inventory) {
   if (player.inBoat) return false;
-  if (inventory.countItem("axe") < 1) return false;
+  if (!getUsableAxeStack(inventory)) return false;
   const ft = player.getFacingTile();
   const col = ft.col, row = ft.row;
   const tcx = (col + 0.5) * TILE_SIZE, tcy = (row + 0.5) * TILE_SIZE;
@@ -10957,6 +11099,8 @@ function canChopFacingTree(player, map, inventory) {
 
 function tryChopTree(player, map, inventory) {
   if (!canChopFacingTree(player, map, inventory)) return false;
+  const axeStack = getUsableAxeStack(inventory);
+  if (!axeStack) return false;
   const ft = player.getFacingTile();
   const col = ft.col, row = ft.row;
   if (map.getDetail(col, row) === TileType.TREE) {
@@ -10972,9 +11116,48 @@ function tryChopTree(player, map, inventory) {
   player.gainXP(1);
   pickupMsgText = "+" + woodAmt + " Odun";
   pickupMsgTimer = 1.5;
+  if (axeStack.id === "axe") {
+    ensureStackAxeDurability(axeStack);
+    if (axeStack.durability > 0) axeStack.durability -= 1;
+    if (axeStack.durability <= 0) {
+      const eqAxe = inventory.equipped && inventory.equipped.axe === axeStack;
+      if (eqAxe) inventory.equipped.axe = null;
+      else axeStack.count = 0;
+      pickupMsgText = "Balta kirildi! (tamir cani sifir)";
+    } else if (axeStack.durability <= Math.max(8, Math.floor(getAxeDurabilityMax(axeStack) * 0.2))) {
+      pickupMsgText = "+" + woodAmt + " Odun  |  Balta: " + axeStack.durability + "/" + getAxeDurabilityMax(axeStack);
+    }
+  }
   actionCooldown = 0.28;
   gameAudio.playChop();
   return true;
+}
+
+function getUsableAxeStack(inv) {
+  if (!inv) return null;
+  const eq = inv.equipped && inv.equipped.axe;
+  if (eq && eq.id === "axe") {
+    ensureStackAxeDurability(eq);
+    if (eq.durability > 0) return eq;
+  }
+  const probe = (container) => {
+    for (let i = 0; i < container.length; i++) {
+      const s = container[i];
+      if (!s) continue;
+      if (s.id !== "axe") continue;
+      if (s.count <= 0) { container[i] = null; continue; }
+      ensureStackAxeDurability(s);
+      if (s.durability > 0) return s;
+    }
+    return null;
+  };
+  return probe(inv.hotbar) || probe(inv.slots) || null;
+}
+
+function tryAutoChopNearbyTree(dt) {
+  if (actionCooldown > 0 || !dt) return false;
+  if (player.inBoat || inventory.open || petPanel.open || shop.open || craftPanel.open || charPanel.open || dialog.active || !!worldItemInspect || !!inventorySlotInspect) return false;
+  return tryChopTree(player, map, inventory);
 }
 
 function handleInteraction() {
@@ -11141,6 +11324,10 @@ function slotStackToSave(s) {
   const o = { id: s.id, count: s.count | 0 };
   const u = getStackUpgradeLv(s);
   if (u > 0) o.upgrade = u;
+  if (s.id === "axe") {
+    ensureStackAxeDurability(s);
+    o.durability = s.durability | 0;
+  }
   return o;
 }
 
@@ -11166,6 +11353,8 @@ function applyInventorySave(inv, d) {
       const st = { id: s.id, count: Math.max(1, s.count | 0) };
       const u = s.upgrade | 0;
       if (u > 0) st.upgrade = u;
+      if (st.id === "axe") st.durability = Math.max(0, s.durability | 0);
+      ensureStackAxeDurability(st);
       inv.slots[i] = st;
     } else inv.slots[i] = null;
   }
@@ -11175,6 +11364,8 @@ function applyInventorySave(inv, d) {
       const st = { id: s.id, count: Math.max(1, s.count | 0) };
       const u = s.upgrade | 0;
       if (u > 0) st.upgrade = u;
+      if (st.id === "axe") st.durability = Math.max(0, s.durability | 0);
+      ensureStackAxeDurability(st);
       inv.hotbar[i] = st;
     } else inv.hotbar[i] = null;
   }
@@ -11184,6 +11375,8 @@ function applyInventorySave(inv, d) {
       const st = { id: e.id, count: Math.max(1, e.count | 0) };
       const u = e.upgrade | 0;
       if (u > 0) st.upgrade = u;
+      if (st.id === "axe") st.durability = Math.max(0, e.durability | 0);
+      ensureStackAxeDurability(st);
       inv.equipped[sk] = st;
     } else inv.equipped[sk] = null;
   }
@@ -11753,7 +11946,8 @@ function gameLoop(now) {
 
   if (!uiOpen) {
     if (touchState.mobileUI && touchState.aimId >= 0) {
-      player.aimAt(touchState.aimX + camera.x, touchState.aimY + camera.y);
+      const wa = screenToWorld(touchState.aimX, touchState.aimY);
+      player.aimAt(wa.x, wa.y);
     } else if (touchState.mobileUI && touchState.joyId >= 0 &&
       (Math.abs(touchState.joyDx) > 0.04 || Math.abs(touchState.joyDy) > 0.04)) {
       player.aimAt(
@@ -11761,9 +11955,11 @@ function gameLoop(now) {
         player.centerY + touchState.joyDy * 200
       );
     } else {
-      player.aimAt(mouseX + camera.x, mouseY + camera.y);
+      const wm = screenToWorld(mouseX, mouseY);
+      player.aimAt(wm.x, wm.y);
     }
     player.update(dt, map);
+    tryAutoChopNearbyTree(dt);
     tryAutoAttackWhileHeld();
     if (touchState.mobileUI) {
       if (mobileAutoPotionCooldown > 0) mobileAutoPotionCooldown -= dt;
@@ -11882,7 +12078,7 @@ function gameLoop(now) {
       }
     }
     if (!nearItem && canChopFacingTree(player, map, inventory)) {
-      hud.showInteractPrompt(interactPromptActionHint() + " A\u011fac\u0131 kes (balta)");
+      hud.showInteractPrompt("Balta yakinda: otomatik agac kesimi");
       nearTreeChop = true;
     }
     if (!nearItem && !nearTreeChop) {
