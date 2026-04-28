@@ -9,8 +9,9 @@
   <style>
     *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
     html, body { width: 100%; height: 100%; overflow: hidden; background: radial-gradient(ellipse 85% 70% at 50% 45%, #152028 0%, #0a0c12 55%, #050608 100%); touch-action: none; overscroll-behavior: none; -webkit-touch-callout: none; }
-    #game-canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; touch-action: none; -webkit-user-select: none; user-select: none; }
-    #save-menu-overlay { display: none; position: fixed; inset: 0; z-index: 100; background: rgba(6, 8, 20, 0.96); overflow: auto; font-family: system-ui, "Segoe UI", sans-serif; color: #e8eaf0; padding: 16px; box-sizing: border-box; }
+    #game-canvas { display: block; position: relative; z-index: 0; width: 100%; height: 100%; image-rendering: pixelated; touch-action: none; -webkit-user-select: none; user-select: none; background: #152028; }
+    /* Varsay\u0131lan: g\u00f6r\u00fcn\u00fcr. JS a\u00e7\u0131lmazsa da kay\u0131t penceresi g\u00f6r\u00fcs\u00fcn (siyah ekran yerine). Oyun ba\u015flay\u0131nca hideSaveMenu gizler. */
+    #save-menu-overlay { display: block; position: fixed; inset: 0; z-index: 10000; background: rgba(6, 8, 20, 0.98); overflow: auto; font-family: system-ui, 'Segoe UI', sans-serif; color: #e8eaf0; padding: 16px; box-sizing: border-box; }
     #save-menu-overlay h1 { text-align: center; font-size: 1.35rem; margin: 8px 0 4px; color: #f0d050; }
     #save-menu-overlay .sub { text-align: center; opacity: 0.88; font-size: 0.88rem; margin-bottom: 20px; line-height: 1.4; }
     .save-slot-card { max-width: 640px; margin: 0 auto 14px; padding: 14px 16px; border-radius: 12px; background: rgba(22, 26, 48, 0.95); border: 1px solid #506090; }
@@ -32,7 +33,33 @@
   <div id="save-slots-root"></div>
 </div>
 <script>
+(function () {
+  try {
+    var ov = document.getElementById("save-menu-overlay");
+    if (ov) {
+      ov.style.display = "block";
+      ov.style.zIndex = "2147483647";
+      ov.setAttribute("aria-hidden", "false");
+    }
+  } catch (e) {}
+})();
+</script>
+<script>
 "use strict";
+
+/* Ağır init (const map, player) patlarsa da kayıt arayüzü çizilsin: setTimeout(0) en sonda da çalışır. */
+const SAVE_KEY_PREFIX = "chopgrow_save_v3_";
+const SAVE_META_PREFIX = "chopgrow_savemeta_v3_";
+const NUM_SAVE_SLOTS = 3;
+let currentSaveSlot = -1;
+let nextAutoSaveAt = 0;
+setTimeout(function chopgrowRenderSaveMenu() {
+  try {
+    if (typeof showSaveMenu === "function") showSaveMenu();
+  } catch (e) {
+    console.error("chopgrowRenderSaveMenu", e);
+  }
+}, 0);
 
 /* ── helpers ─────────────────────────────────────────────── */
 
@@ -325,9 +352,7 @@ const touchState = {
 
 /** Mobil / masa\u00fcst\u00fc: sadele\u015ftirilmi\u015f 3 aktif beceri. */
 const ACTIVE_SKILL_DEFS = [
-  { id: "powerburst", icon: "P", mana: 12, cooldown: 5.2 },
-  { id: "volley", icon: "\u27F3", mana: 14, cooldown: 8.2 },
-  { id: "mend", icon: "\u2764", mana: 10, cooldown: 8.5 },
+  { id: "powerburst", icon: "OK", mana: 12, cooldown: 5.2 },
 ];
 
 /** Masa\u00fcst\u00fcnde minimap ile sa\u011f UI \u00e7ak\u0131\u015fmas\u0131 i\u00e7in bo\u015fluk (mobilde kullan\u0131lmaz). */
@@ -502,7 +527,7 @@ function uiModalBounds(cw, ch) {
   };
 }
 
-/** Sa\u011f alt MMORPG k\u00fcmesi: merkez sald\u0131r\u0131 + y\u00f6r\u00fcnge (beceri, HEDEF, POWER). */
+/** Sa\u011f alt MMORPG k\u00fcmeyi: merkez sald\u0131r\u0131 + y\u00f6r\u00fcnge (beceri, HEDEF, POWER). */
 function mobileCombatClusterGeom(cw, ch) {
   const isLandscape = cw > ch * 1.05;
   const pad = 6;
@@ -511,21 +536,20 @@ function mobileCombatClusterGeom(cw, ch) {
   const skillR = isLandscape ? 18 : 16;
   let orbitR = isLandscape ? 66 : 60;
   const auxR = isLandscape ? 16 : 14;
-  /** Yard\u0131mc\u0131 butonlar sa\u011f s\u0131n\u0131r\u0131 a\u015fmas\u0131n. */
   const swapAng = 0.12;
   if (touchState.mobileUI && cw < 520) {
     orbitR = Math.max(52, Math.round(60 - (520 - cw) * 0.11));
   }
   const rightExtent = Math.cos(swapAng) * orbitR + auxR;
-  let centerX = cw - pad - (isLandscape ? 60 : 52);
+  let centerX = cw - pad - (isLandscape ? 46 : 42);
   const maxCx = cw - margin - rightExtent;
   if (centerX > maxCx) centerX = maxCx;
-  const centerY = ch - pad - (isLandscape ? 70 : 62);
+  const centerY = ch - pad - (isLandscape ? 52 : 48);
   return { centerX, centerY, atkR, skillR, orbitR, auxR, pad };
 }
 
 /**
- * Beceri yayı: sol yarım halka (iksir / HEDEF / POWER alanlar\u0131ndan ayr\u0131).
+ * Beceri yay\u0131: sol yar\u0131m halka (iksir / HEDEF / POWER alanlar\u0131ndan ayr\u0131).
  * ~158\u00b0 \u2013 256\u00b0
  */
 function mobileSkillSlotAngles(count) {
@@ -569,51 +593,52 @@ function mobileButtonsLayout(cw, ch) {
     });
   }
   const auxR = G.auxR;
-  let tcx, tcy, pcx, pcy;
+  let pcx, pcy;
   if (isLandscape) {
-    /* Sabit yatay preset: yardimci butonlar kesin ayrik dursun */
-    tcx = G.centerX + G.atkR + auxR + 14;
-    tcy = G.centerY - G.atkR - auxR - 6;
     pcx = G.centerX - G.atkR - auxR - 14;
     pcy = G.centerY - G.atkR - auxR - 6;
   } else {
-    const targetRad = Math.max(36, G.orbitR - 6);
-    const powerRad = G.orbitR + 16;
-    const tAng = -Math.PI / 2 + 0.38;
-    const pAng = -Math.PI / 2 - 0.24;
-    tcx = G.centerX + Math.cos(tAng) * targetRad;
-    tcy = G.centerY + Math.sin(tAng) * targetRad;
-    pcx = G.centerX + Math.cos(pAng) * powerRad;
-    pcy = G.centerY + Math.sin(pAng) * powerRad;
+    pcx = G.centerX;
+    pcy = G.centerY - G.atkR - auxR - 14;
   }
-  out.push({
-    key: "target",
-    kind: "target",
-    label: "\u25CE",
-    cx: tcx, cy: tcy, r: auxR,
-    x: tcx - auxR, y: tcy - auxR, w: auxR * 2, h: auxR * 2,
-  });
   out.push({
     key: MOBILE_POWER_BUTTON_KEY,
     kind: "power",
-    label: "P",
+    label: "PW",
     cx: pcx, cy: pcy, r: auxR,
     x: pcx - auxR, y: pcy - auxR, w: auxR * 2, h: auxR * 2,
   });
   const topY = 4;
   const topH = 30;
   const menuItems = [
-    { key: "KeyI", label: "\u00c7ant" },
+    { key: "KeyI", label: "\u00c7anta" },
     { key: "KeyC", label: "K" },
     { key: "KeyM", label: "H" },
     { key: "KeyT", label: "\u015eehir" },
   ];
-  const tw = 44;
-  const totalW = menuItems.length * tw + (menuItems.length - 1) * 4;
-  let tx = Math.floor((cw - totalW) / 2);
-  for (const m of menuItems) {
-    out.push({ key: m.key, kind: "menu", label: m.label, x: tx, y: topY, w: tw, h: topH });
-    tx += tw + 4;
+  if (touchState.mobileUI) {
+    const menuH = isLandscape ? 30 : 28;
+    const menuW = isLandscape ? 54 : 50;
+    const menuGap = 6;
+    const rowW = menuItems.length * menuW + (menuItems.length - 1) * menuGap;
+    let gx = Math.round(G.centerX - G.atkR - 16 - rowW);
+    let gy = Math.round(ch - menuH - 10);
+    if (gx < 8) gx = 8;
+    if (gy < 8) gy = 8;
+    if (gy + menuH > ch - 4) gy = ch - 4 - menuH;
+    for (let i = 0; i < menuItems.length; i++) {
+      const m = menuItems[i];
+      const x = gx + i * (menuW + menuGap);
+      out.push({ key: m.key, kind: "menu", label: m.label, x, y: gy, w: menuW, h: menuH });
+    }
+  } else {
+    const tw = 44;
+    const totalW = menuItems.length * tw + (menuItems.length - 1) * 4;
+    let tx = Math.floor((cw - totalW) / 2);
+    for (const m of menuItems) {
+      out.push({ key: m.key, kind: "menu", label: m.label, x: tx, y: topY, w: tw, h: topH });
+      tx += tw + 4;
+    }
   }
   return out;
 }
@@ -627,7 +652,7 @@ function hitMobileButton(mx, my, cw, ch) {
       if (dx * dx + dy * dy <= G.atkR * G.atkR) return b;
       continue;
     }
-    if (b.kind === "skill" || b.kind === "target" || b.kind === "power") {
+    if (b.kind === "skill" || b.kind === "power") {
       const dx = mx - b.cx, dy = my - b.cy;
       if (dx * dx + dy * dy <= b.r * b.r) return b;
       continue;
@@ -666,7 +691,7 @@ const WORLD_ZOOM_STEPS = [0.86, 1.0, 1.2, 1.34];
 const WORLD_ZOOM_MIN = WORLD_ZOOM_STEPS[0];
 const WORLD_ZOOM_MAX = WORLD_ZOOM_STEPS[WORLD_ZOOM_STEPS.length - 1];
 const WORLD_ZOOM_NEAR = WORLD_ZOOM_STEPS[2];
-let worldZoom = WORLD_ZOOM_STEPS[1];
+let worldZoom = WORLD_ZOOM_MIN;
 
 function clampWorldZoom(z) {
   return Math.max(WORLD_ZOOM_MIN, Math.min(WORLD_ZOOM_MAX, z));
@@ -710,17 +735,17 @@ const TileType = {
 };
 
 const TILE_COLORS = {
-  [TileType.GRASS]:       "#3d8a42",
-  [TileType.DIRT]:        "#7a5a35",
-  [TileType.WATER]:       "#2a6aa8",
-  [TileType.SAND]:        "#c9ae58",
-  [TileType.STONE_FLOOR]: "#7a7a82",
-  [TileType.WALL]:        "#4a4a52",
-  [TileType.TREE]:        "#2a6a1c",
-  [TileType.FLOWER]:      "#3d8440",
-  [TileType.BRIDGE]:      "#6a5030",
-  [TileType.TALL_GRASS]:  "#2e7238",
-  [TileType.SNOW]:        "#dceaf4",
+  [TileType.GRASS]:       "#3f9550",
+  [TileType.DIRT]:        "#8a6941",
+  [TileType.WATER]:       "#2d78bb",
+  [TileType.SAND]:        "#d7c078",
+  [TileType.STONE_FLOOR]: "#8c8f98",
+  [TileType.WALL]:        "#5a5f6d",
+  [TileType.TREE]:        "#2d7d2b",
+  [TileType.FLOWER]:      "#5aa85e",
+  [TileType.BRIDGE]:      "#785a36",
+  [TileType.TALL_GRASS]:  "#2f8047",
+  [TileType.SNOW]:        "#e7f3fb",
 };
 
 const SOLID_TILES = new Set([TileType.WATER, TileType.WALL, TileType.TREE]);
@@ -728,9 +753,9 @@ const SOLID_TILES = new Set([TileType.WATER, TileType.WALL, TileType.TREE]);
 /* ── Items ───────────────────────────────────────────────── */
 
 const ITEMS = {
-  wood:   { id: "wood",   name: "Odun",      stackable: true, maxStack: 64, desc: "Sert me\u015fe odunu.",         buyPrice: 5,  sellPrice: 2  },
+  wood:   { id: "wood",   name: "Odun",      stackable: true, maxStack: 500, desc: "Sert me\u015fe odunu.",         buyPrice: 5,  sellPrice: 2  },
   stone:  { id: "stone",  name: "Ta\u015f",       stackable: true, maxStack: 64, desc: "D\u00fczg\u00fcn bir ta\u015f par\u00e7as\u0131.",  buyPrice: 8,  sellPrice: 3  },
-  flower: { id: "flower", name: "\u00c7i\u00e7ek",      stackable: true, maxStack: 32, desc: "G\u00fczel kokulu k\u0131r \u00e7i\u00e7e\u011fi.", buyPrice: 4,  sellPrice: 1  },
+  flower: { id: "flower", name: "\u00c7i\u00e7ek",      stackable: true, maxStack: 150, desc: "G\u00fczel kokulu k\u0131r \u00e7i\u00e7e\u011fi.", buyPrice: 4,  sellPrice: 1  },
   apple:  { id: "apple",  name: "Elma",      stackable: true, maxStack: 16, desc: "Canl\u0131 k\u0131rm\u0131z\u0131 bir elma.",   buyPrice: 6,  sellPrice: 2  },
   fish:   { id: "fish",   name: "Bal\u0131k",     stackable: true, maxStack: 16, desc: "Taze tutulmu\u015f bal\u0131k.",      buyPrice: 10, sellPrice: 4  },
   axe:    { id: "axe",    name: "Balta",     stackable: false, maxStack: 1, rarity: "common", equipSlot: "axe",
@@ -767,21 +792,22 @@ const ITEMS = {
       },
     },
     desc: "Karanl\u0131k metal u\u00e7 ve b\u00fcy\u00fcl\u00fc \u015fiddet.", buyPrice: 0, sellPrice: 130 },
-  potion:      { id: "potion",      name: "Can \u0130ksiri",  stackable: true, maxStack: 16, desc: "Anında can verir. [Q] veya HUD.", buyPrice: 20,  sellPrice: 8  },
-  potion_mana: { id: "potion_mana", name: "Mana \u0130ksiri", stackable: true, maxStack: 16, desc: "Anında mana verir. [R] veya HUD.", buyPrice: 26, sellPrice: 10 },
+  potion:      { id: "potion",      name: "Can \u0130ksiri",  stackable: true, maxStack: 100, desc: "Anında can verir. [Q] veya HUD.", buyPrice: 20,  sellPrice: 8  },
+  potion_mana: { id: "potion_mana", name: "Mana \u0130ksiri", stackable: true, maxStack: 100, desc: "Anında mana verir. [R] veya HUD.", buyPrice: 26, sellPrice: 10 },
   seed:   { id: "seed",   name: "Tohum",     stackable: true, maxStack: 64, desc: "Ekilmeyi bekliyor.",        buyPrice: 3,  sellPrice: 1  },
   coin:   { id: "coin",   name: "Alt\u0131n",     stackable: true, maxStack: 999,desc: "P\u0131r\u0131l p\u0131r\u0131l alt\u0131n.",      buyPrice: 0,  sellPrice: 0  },
-  arrow:  { id: "arrow",  name: "Ok",       stackable: true, maxStack: 99, desc: "Keskin u\u00e7lu ok.",           buyPrice: 2,  sellPrice: 1  },
+  arrow:  { id: "arrow",  name: "Ok",       stackable: true, maxStack: 1000, desc: "Keskin u\u00e7lu ok.",           buyPrice: 2,  sellPrice: 1  },
   bow:    { id: "bow",    name: "Tahta Yay", stackable: true, maxStack: 32, rarity: "common", equipSlot: "bow",
-    stats: { str: 0, agi: 2, wis: 0, maxHp: 0, maxMana: 0, meleeDmg: 0, rangedDmg: 3 },
+    stats: { str: 0, agi: 1, wis: 0, maxHp: 0, maxMana: 0, meleeDmg: 0, rangedDmg: 1 },
+    advanced: { attackPower: 1 },
     desc: "Sa\u011flam ah\u015fap yay.", buyPrice: 25, sellPrice: 10 },
   bow_hunter: { id: "bow_hunter", name: "Avc\u0131 Yay\u0131", stackable: true, maxStack: 32, rarity: "rare", equipSlot: "bow", weight: 3.2,
-    stats: { str: 1, agi: 4, wis: 0, maxHp: 0, maxMana: 5, meleeDmg: 0, rangedDmg: 7 },
-    advanced: { attackPower: 118, defArrow: 4, resPoison: 6 },
+    stats: { str: 1, agi: 4, wis: 0, maxHp: 0, maxMana: 5, meleeDmg: 0, rangedDmg: 45 },
+    advanced: { attackPower: 55, defArrow: 4, resPoison: 6 },
     desc: "G\u00fc\u00e7l\u00fc gerilim.", buyPrice: 0, sellPrice: 35 },
   bow_long: { id: "bow_long", name: "Uzun Yay", stackable: true, maxStack: 32, rarity: "epic", equipSlot: "bow", weight: 4,
-    stats: { str: 0, agi: 3, wis: 2, maxHp: 0, maxMana: 10, meleeDmg: 0, rangedDmg: 12 },
-    advanced: { attackPower: 132, elemFlame: 78, resFire: 8, resLightning: 6, defense: 5 },
+    stats: { str: 0, agi: 3, wis: 2, maxHp: 0, maxMana: 10, meleeDmg: 0, rangedDmg: 180 },
+    advanced: { attackPower: 190, elemFlame: 78, resFire: 8, resLightning: 6, defense: 5 },
     extras: {
       itemLevel: { cur: 1, max: 40 },
       displayBaseDmg: 132,
@@ -790,8 +816,8 @@ const ITEMS = {
     },
     desc: "Menzil ve isabet.", buyPrice: 0, sellPrice: 85 },
   bow_storm_legendary: { id: "bow_storm_legendary", name: "Firtina Efsane Yayi", stackable: true, maxStack: 32, rarity: "legendary", equipSlot: "bow", weight: 4.4,
-    stats: { str: 2, agi: 9, wis: 4, maxHp: 12, maxMana: 20, meleeDmg: 0, rangedDmg: 20 },
-    advanced: { attackPower: 196, elemLightning: 140, elemFlame: 20, resLightning: 24, resMagic: 10, critRate: 8 },
+    stats: { str: 2, agi: 9, wis: 4, maxHp: 12, maxMana: 20, meleeDmg: 0, rangedDmg: 340 },
+    advanced: { attackPower: 380, elemLightning: 140, elemFlame: 20, resLightning: 24, resMagic: 10, critRate: 8 },
     extras: {
       itemLevel: { cur: 1, max: 40 },
       displayBaseDmg: 186,
@@ -804,8 +830,8 @@ const ITEMS = {
     },
     desc: "Gokten muhurlenmis yay; guclu tekli vuruslar icin.", buyPrice: 0, sellPrice: 620 },
   bow_dragon_legendary: { id: "bow_dragon_legendary", name: "Ejder Nefesi Yayi", stackable: true, maxStack: 32, rarity: "legendary", equipSlot: "bow", weight: 4.8,
-    stats: { str: 4, agi: 8, wis: 6, maxHp: 20, maxMana: 28, meleeDmg: 0, rangedDmg: 24 },
-    advanced: { attackPower: 224, elemFlame: 180, elemLightning: 45, resFire: 26, resLightning: 14, defense: 10, critRate: 10 },
+    stats: { str: 4, agi: 8, wis: 6, maxHp: 20, maxMana: 28, meleeDmg: 0, rangedDmg: 500 },
+    advanced: { attackPower: 500, elemFlame: 180, elemLightning: 45, resFire: 26, resLightning: 14, defense: 10, critRate: 10 },
     extras: {
       itemLevel: { cur: 1, max: 40 },
       displayBaseDmg: 214,
@@ -817,7 +843,31 @@ const ITEMS = {
       special: { text: "Can %60 ustundeyken +%30 ilave hasar.", dmgBonus: 0.3 },
     },
     desc: "Kadim ejderha kalbinden guc alir; en yuksek yay hasarlarindan biri.", buyPrice: 0, sellPrice: 880 },
-  rope:   { id: "rope",   name: "Halat",    stackable: true, maxStack: 32, desc: "Sa\u011flam kenevir halat.",     buyPrice: 6,  sellPrice: 2  },
+  bow_short: { id: "bow_short", name: "Kisa Av Yayi", stackable: true, maxStack: 32, rarity: "common", equipSlot: "bow", weight: 2.9,
+    stats: { str: 0, agi: 2, wis: 0, maxHp: 0, maxMana: 0, meleeDmg: 0, rangedDmg: 8 },
+    advanced: { attackPower: 8, defArrow: 1 }, desc: "Baslangic ustu bir av yayi.", buyPrice: 0, sellPrice: 14 },
+  bow_recurve: { id: "bow_recurve", name: "Kivrimli Yay", stackable: true, maxStack: 32, rarity: "common", equipSlot: "bow", weight: 3.0,
+    stats: { str: 0, agi: 2, wis: 1, maxHp: 0, maxMana: 2, meleeDmg: 0, rangedDmg: 16 },
+    advanced: { attackPower: 16, defArrow: 1 }, desc: "Daha duzgun cekis verir.", buyPrice: 0, sellPrice: 20 },
+  bow_composite: { id: "bow_composite", name: "Kompozit Yay", stackable: true, maxStack: 32, rarity: "rare", equipSlot: "bow", weight: 3.5,
+    stats: { str: 1, agi: 5, wis: 1, maxHp: 0, maxMana: 6, meleeDmg: 0, rangedDmg: 90 },
+    advanced: { attackPower: 90, defArrow: 5, critRate: 2 }, desc: "Kemik ve ahsap katmanli yay.", buyPrice: 0, sellPrice: 60 },
+  bow_war: { id: "bow_war", name: "Savas Yayi", stackable: true, maxStack: 32, rarity: "rare", equipSlot: "bow", weight: 3.8,
+    stats: { str: 2, agi: 6, wis: 1, maxHp: 4, maxMana: 8, meleeDmg: 0, rangedDmg: 130 },
+    advanced: { attackPower: 130, defArrow: 6, critRate: 3 }, desc: "On cephe okcularinin favorisi.", buyPrice: 0, sellPrice: 90 },
+  bow_moon_epic: { id: "bow_moon_epic", name: "Ay Isigi Yayi", stackable: true, maxStack: 32, rarity: "epic", equipSlot: "bow", weight: 4.1,
+    stats: { str: 1, agi: 6, wis: 3, maxHp: 8, maxMana: 14, meleeDmg: 0, rangedDmg: 260 },
+    advanced: { attackPower: 260, elemMagic: 80, resMagic: 10, critRate: 5 },
+    desc: "Gece avlarinda oldurucu isabet saglar.", buyPrice: 0, sellPrice: 180 },
+  bow_sun_epic: { id: "bow_sun_epic", name: "Gunes Kiri Yayi", stackable: true, maxStack: 32, rarity: "epic", equipSlot: "bow", weight: 4.2,
+    stats: { str: 2, agi: 7, wis: 2, maxHp: 10, maxMana: 12, meleeDmg: 0, rangedDmg: 300 },
+    advanced: { attackPower: 300, elemFlame: 95, resFire: 12, critRate: 6 },
+    desc: "Yuksek gerilimli sicak cekis.", buyPrice: 0, sellPrice: 220 },
+  bow_void_legendary: { id: "bow_void_legendary", name: "Bosluk Ucu Yayi", stackable: true, maxStack: 32, rarity: "legendary", equipSlot: "bow", weight: 4.7,
+    stats: { str: 3, agi: 10, wis: 6, maxHp: 18, maxMana: 26, meleeDmg: 0, rangedDmg: 440 },
+    advanced: { attackPower: 440, elemMagic: 140, resMagic: 18, critRate: 9, critDamage: 18 },
+    desc: "Oklar hedefte bosluk izi birakir.", buyPrice: 0, sellPrice: 760 },
+  rope:   { id: "rope",   name: "Halat",    stackable: true, maxStack: 150, desc: "Sa\u011flam kenevir halat.",     buyPrice: 6,  sellPrice: 2  },
   helm_leather:   { id: "helm_leather",   name: "Deri Mi\u011fer",       stackable: true, maxStack: 32, rarity: "common",    equipSlot: "head",   stats: { str: 1, agi: 0, wis: 0, maxHp: 8, maxMana: 0 },
     extras: { weakTo: [{ kind: "fire", label: "Ate\u015f" }], passives: [{ text: "Deri: a\u015f\u0131r\u0131 \u0131s\u0131da dayan\u0131kl\u0131l\u0131k d\u00fc\u015fer (bilgi)." }] },
     desc: "Basit koruma.", buyPrice: 0, sellPrice: 15 },
@@ -890,8 +940,65 @@ const ITEMS = {
     stats: { str: 3, agi: 3, wis: 8, maxHp: 18, maxMana: 32 }, advanced: { attackPower: 66, resMagic: 20, resPoison: 12, pctMana: 10 }, desc: "Kadim runelerle kutsanmis.", buyPrice: 0, sellPrice: 360 },
   artifact_dragon_eye:{ id: "artifact_dragon_eye", name: "Ejder Gozu Artefakti", stackable: true, maxStack: 32, rarity: "legendary", equipSlot: "artifact",
     stats: { str: 6, agi: 6, wis: 6, maxHp: 30, maxMana: 30 }, advanced: { attackPower: 88, critRate: 10, critDamage: 22, elemFlame: 60, elemLightning: 40 }, desc: "En guclu boss ganimetlerinden biri.", buyPrice: 0, sellPrice: 520 },
+  boots_leather:   { id: "boots_leather", name: "Deri Bot", stackable: true, maxStack: 32, rarity: "common", equipSlot: "feet",
+    stats: { str: 0, agi: 1, wis: 0, maxHp: 4, maxMana: 0 }, desc: "Basit yuruyus botu.", buyPrice: 0, sellPrice: 10 },
+  ring_copper:     { id: "ring_copper", name: "Bakir Yuzuk", stackable: true, maxStack: 32, rarity: "common", equipSlot: "ring",
+    stats: { str: 1, agi: 0, wis: 1, maxHp: 4, maxMana: 4 }, desc: "Acemi maceracilar icin.", buyPrice: 0, sellPrice: 9 },
+  amulet_wood:     { id: "amulet_wood", name: "Tahta Tilsim", stackable: true, maxStack: 32, rarity: "common", equipSlot: "amulet",
+    stats: { str: 0, agi: 0, wis: 2, maxHp: 0, maxMana: 8 }, desc: "Zayif ama faydali mana t\u0131ls\u0131m\u0131.", buyPrice: 0, sellPrice: 11 },
+  cloak_common:    { id: "cloak_common", name: "Gezgin Pelerini", stackable: true, maxStack: 32, rarity: "common", equipSlot: "cloak",
+    stats: { str: 0, agi: 1, wis: 0, maxHp: 6, maxMana: 0 }, desc: "Ruzgari keser.", buyPrice: 0, sellPrice: 13 },
+  cloak_epic:      { id: "cloak_epic", name: "Ay Golgesi Pelerini", stackable: true, maxStack: 32, rarity: "epic", equipSlot: "cloak",
+    stats: { str: 2, agi: 5, wis: 2, maxHp: 16, maxMana: 10 }, desc: "Sessiz adim bonusu saglar.", buyPrice: 0, sellPrice: 140 },
+  cloak_legendary: { id: "cloak_legendary", name: "Ebedi Gece Pelerini", stackable: true, maxStack: 32, rarity: "legendary", equipSlot: "cloak",
+    stats: { str: 4, agi: 8, wis: 4, maxHp: 28, maxMana: 22 }, desc: "Cok nadir golge kumas.", buyPrice: 0, sellPrice: 420 },
+  talisman_common: { id: "talisman_common", name: "Cirak Tilsimi", stackable: true, maxStack: 32, rarity: "common", equipSlot: "talisman",
+    stats: { str: 0, agi: 0, wis: 2, maxHp: 2, maxMana: 10 }, desc: "Temel buyu odak esyasi.", buyPrice: 0, sellPrice: 12 },
+  talisman_epic:   { id: "talisman_epic", name: "Kadim Tilsim", stackable: true, maxStack: 32, rarity: "epic", equipSlot: "talisman",
+    stats: { str: 2, agi: 2, wis: 6, maxHp: 10, maxMana: 26 }, desc: "Buyusel direnc saglar.", buyPrice: 0, sellPrice: 190 },
+  artifact_common: { id: "artifact_common", name: "Eski Relik", stackable: true, maxStack: 32, rarity: "common", equipSlot: "artifact",
+    stats: { str: 1, agi: 1, wis: 1, maxHp: 6, maxMana: 6 }, desc: "Tozlu ama ise yarar.", buyPrice: 0, sellPrice: 15 },
+  artifact_epic:   { id: "artifact_epic", name: "Yildiz Religi", stackable: true, maxStack: 32, rarity: "epic", equipSlot: "artifact",
+    stats: { str: 4, agi: 4, wis: 4, maxHp: 16, maxMana: 16 }, desc: "Nadir guc tasi.", buyPrice: 0, sellPrice: 220 },
   boss_chest:     { id: "boss_chest",     name: "Boss Sand\u0131\u011f\u0131",       stackable: true, maxStack: 99, rarity: "legendary", desc: "A\u00e7\u0131nca nadir ganimet verir.", buyPrice: 0, sellPrice: 0 },
 };
+
+function cloneScaledNumericMap(src, mul) {
+  if (!src || typeof src !== "object") return src || {};
+  const out = {};
+  for (const k of Object.keys(src)) {
+    const v = src[k];
+    out[k] = (typeof v === "number") ? Math.max(1, Math.round(v * mul)) : v;
+  }
+  return out;
+}
+
+function ensureLegendaryForAllEquipments() {
+  const ids = Object.keys(ITEMS);
+  for (const id of ids) {
+    const def = ITEMS[id];
+    if (!def || !def.equipSlot) continue;
+    if (def.rarity === "legendary") continue;
+    const lid = id + "_legendary";
+    if (ITEMS[lid]) continue;
+
+    const niceName = /efsane/i.test(def.name || "") ? def.name : ("Efsanevi " + (def.name || id));
+    ITEMS[lid] = {
+      ...def,
+      id: lid,
+      name: niceName,
+      rarity: "legendary",
+      minLevel: Math.max(1, estimateEquipRequiredLevel(def) + 10),
+      stats: cloneScaledNumericMap(def.stats || {}, 1.45),
+      advanced: cloneScaledNumericMap(def.advanced || {}, 1.35),
+      sellPrice: Math.max((def.sellPrice | 0), Math.round((def.sellPrice | 0) * 3.2), 120),
+      buyPrice: 0,
+      desc: (def.desc ? (def.desc + " ") : "") + "Efsanevi gucle guclendirilmis versiyon.",
+    };
+  }
+}
+
+ensureLegendaryForAllEquipments();
 
 const RARITY_COLOR = {
   common: "#9aa0b0",
@@ -918,6 +1025,25 @@ function rarityRank(r) {
   if (r === "rare") return 2;
   if (r === "common") return 1;
   return 0;
+}
+
+function estimateEquipRequiredLevel(def) {
+  if (!def || !def.equipSlot) return 1;
+  if (def.minLevel != null) return Math.max(1, def.minLevel | 0);
+  const rr = rarityRank(def.rarity || "common");
+  const score = itemStatPowerScore(def);
+  const slotBase = (def.equipSlot === "blade" || def.equipSlot === "bow") ? 2 : 1;
+  let lv = slotBase + rr * 4 + Math.floor(score / 14);
+  if (rr >= 4) lv += 6;
+  else if (rr >= 3) lv += 2;
+  return Math.max(1, Math.min(70, lv));
+}
+
+function canPlayerEquipItem(def, playerRef) {
+  if (!def || !def.equipSlot) return { ok: true, needLevel: 1 };
+  const needLevel = estimateEquipRequiredLevel(def);
+  const pLv = playerRef && playerRef.level ? (playerRef.level | 0) : 1;
+  return { ok: pLv >= needLevel, needLevel };
 }
 
 function normalizeBonusPct(v) {
@@ -1157,6 +1283,15 @@ function getEffectiveItemStatsMerged(def, upgradeLv) {
   const stats = {};
   if (def.stats) {
     for (const k of Object.keys(def.stats)) stats[k] = def.stats[k];
+  }
+  if (def.equipSlot) {
+    const rr = rarityRank(def.rarity || "common");
+    const dmgMul = rr >= 4 ? 2.2 : rr >= 3 ? 1.7 : rr >= 2 ? 1.35 : 1;
+    const hpMul = rr >= 4 ? 1.35 : rr >= 3 ? 1.2 : rr >= 2 ? 1.08 : 1;
+    if (typeof stats.meleeDmg === "number" && stats.meleeDmg > 0) stats.meleeDmg = Math.max(1, Math.round(stats.meleeDmg * dmgMul));
+    if (typeof stats.rangedDmg === "number" && stats.rangedDmg > 0) stats.rangedDmg = Math.max(1, Math.round(stats.rangedDmg * dmgMul));
+    if (typeof stats.maxHp === "number" && stats.maxHp > 0) stats.maxHp = Math.max(1, Math.round(stats.maxHp * hpMul));
+    if (def.equipSlot === "bow" && typeof stats.rangedDmg === "number") stats.rangedDmg = Math.min(500, stats.rangedDmg);
   }
   const advanced = {};
   if (def.advanced) {
@@ -1648,8 +1783,11 @@ function buildItemTooltipLayout(ctx, def, itemId, canvasW, mobile, metaOpts, tra
   metaOpts = metaOpts || {};
   const padX = mobile ? 14 : 11;
   const padY = mobile ? 12 : 9;
+  const colGap = 10;
   const innerMaxDefault = mobile ? Math.min(canvasW - 16, 300) : Math.min(248, canvasW - 36);
   const innerMax = metaOpts.innerMax != null ? metaOpts.innerMax : innerMaxDefault;
+  /** Sütun basina sarma genisligi: iki sutun (market / envanter tooltip). */
+  const innerCol = Math.max(72, Math.floor((innerMax - colGap) / 2));
   const lh = mobile ? 20 : 16;
   const fonts = {
     title: mobile ? "bold 16px monospace" : "bold 13px monospace",
@@ -1659,16 +1797,13 @@ function buildItemTooltipLayout(ctx, def, itemId, canvasW, mobile, metaOpts, tra
     desc: mobile ? "13px monospace" : "11px monospace",
   };
   const lines = [];
-  let maxInnerMeasured = 0;
   const measurePush = (font, color, text) => {
     ctx.font = font;
-    const w = ctx.measureText(text).width;
-    maxInnerMeasured = Math.max(maxInnerMeasured, w);
     lines.push({ font, color, text });
   };
   const pushWrapped = (text, font, color) => {
     ctx.font = font;
-    const parts = wrapTextToLinesWithFont(ctx, text, innerMax, font);
+    const parts = wrapTextToLinesWithFont(ctx, text, innerCol, font);
     for (const t of parts) measurePush(font, color, t);
   };
 
@@ -1710,9 +1845,23 @@ function buildItemTooltipLayout(ctx, def, itemId, canvasW, mobile, metaOpts, tra
     }
   }
 
-  const tw = Math.min(canvasW - 12, Math.max(innerMax + padX * 2, maxInnerMeasured + padX * 2 + 8));
-  const th = padY * 2 + lines.length * lh;
-  return { lines, tw, th, lh, padX, padY, innerMax };
+  const splitN = Math.ceil(lines.length / 2);
+  const leftLines = lines.slice(0, splitN);
+  const rightLines = lines.slice(splitN);
+  let maxL = 0, maxR = 0;
+  for (const Ln of leftLines) {
+    ctx.font = Ln.font;
+    maxL = Math.max(maxL, ctx.measureText(Ln.text).width);
+  }
+  for (const Ln of rightLines) {
+    ctx.font = Ln.font;
+    maxR = Math.max(maxR, ctx.measureText(Ln.text).width);
+  }
+  const colRows = Math.max(leftLines.length, rightLines.length);
+  const contentW = maxL + colGap + maxR;
+  const tw = Math.min(canvasW - 12, Math.max(160, contentW + padX * 2 + 4));
+  const th = padY * 2 + colRows * lh + (mobile ? 2 : 0);
+  return { lines, tw, th, lh, padX, padY, innerMax, twoColumn: true, colGap };
 }
 
 function placeTooltipPosition(anchorX, anchorY, tw, th, canvasW, canvasH) {
@@ -1726,7 +1875,7 @@ function placeTooltipPosition(anchorX, anchorY, tw, th, canvasW, canvasH) {
 }
 
 function drawItemTooltipFromLayout(ctx, tx, ty, layout, mobile, strokeOpts) {
-  const { lines, tw, th, lh, padX, padY } = layout;
+  const { lines, tw, th, lh, padX, padY, colGap: cgIn } = layout;
   strokeOpts = strokeOpts || {};
   ctx.fillStyle = "rgba(6,8,24,0.97)";
   ctx.strokeStyle = strokeOpts.strokeStyle || (mobile ? "#8098d0" : "#6070a0");
@@ -1734,24 +1883,76 @@ function drawItemTooltipFromLayout(ctx, tx, ty, layout, mobile, strokeOpts) {
   roundRect(ctx, tx, ty, tw, th, 8);
   ctx.fill();
   ctx.stroke();
-  let ly = ty + padY + (mobile ? 14 : 12);
-  for (const Ln of lines) {
-    ctx.font = Ln.font;
-    ctx.fillStyle = Ln.color;
-    ctx.fillText(Ln.text, tx + padX, ly);
-    ly += lh;
+  const cGap = cgIn != null ? cgIn : 10;
+  const innerW = tw - padX * 2;
+  const colW = (innerW - cGap) / 2;
+  const startY = ty + padY + (mobile ? 14 : 12);
+  if (layout.twoColumn && lines && lines.length) {
+    const splitN = Math.ceil(lines.length / 2);
+    const leftLines = lines.slice(0, splitN);
+    const rightLines = lines.slice(splitN);
+    let ly = startY, ry = startY;
+    const c1x = tx + padX;
+    const c2x = c1x + colW + cGap;
+    for (const Ln of leftLines) {
+      ctx.font = Ln.font;
+      ctx.fillStyle = Ln.color;
+      ctx.fillText(Ln.text, c1x, ly);
+      ly += lh;
+    }
+    for (const Ln of rightLines) {
+      ctx.font = Ln.font;
+      ctx.fillStyle = Ln.color;
+      ctx.fillText(Ln.text, c2x, ry);
+      ry += lh;
+    }
+  } else {
+    let ly = startY;
+    for (const Ln of lines) {
+      ctx.font = Ln.font;
+      ctx.fillStyle = Ln.color;
+      ctx.fillText(Ln.text, tx + padX, ly);
+      ly += lh;
+    }
   }
 }
 
 /** Arka plan kutusu olmadan tooltip sat\u0131rlar\u0131 (sat\u0131n al diyalo\u011fu vb.). */
-function drawItemTooltipTextOnly(ctx, tx, ty, layout, mobile) {
-  const { lines, lh, padX, padY } = layout;
-  let ly = ty + padY + (mobile ? 14 : 12);
-  for (const Ln of lines) {
-    ctx.font = Ln.font;
-    ctx.fillStyle = Ln.color;
-    ctx.fillText(Ln.text, tx + padX, ly);
-    ly += lh;
+function drawItemTooltipTextOnly(ctx, tx, ty, layout, mobile, clipContentW) {
+  const { lines, tw, lh, padX, padY, colGap: cgIn } = layout;
+  const cGap = cgIn != null ? cgIn : 10;
+  const innerW = clipContentW != null
+    ? clipContentW
+    : ((tw != null ? tw : 280) - padX * 2);
+  const colW = Math.max(40, (innerW - cGap) / 2);
+  const startY = ty + padY + (mobile ? 14 : 12);
+  if (layout.twoColumn && lines && lines.length) {
+    const splitN = Math.ceil(lines.length / 2);
+    const leftLines = lines.slice(0, splitN);
+    const rightLines = lines.slice(splitN);
+    let ly = startY, ry = startY;
+    const c1x = tx + padX;
+    const c2x = c1x + colW + cGap;
+    for (const Ln of leftLines) {
+      ctx.font = Ln.font;
+      ctx.fillStyle = Ln.color;
+      ctx.fillText(Ln.text, c1x, ly);
+      ly += lh;
+    }
+    for (const Ln of rightLines) {
+      ctx.font = Ln.font;
+      ctx.fillStyle = Ln.color;
+      ctx.fillText(Ln.text, c2x, ry);
+      ry += lh;
+    }
+  } else {
+    let ly = startY;
+    for (const Ln of lines) {
+      ctx.font = Ln.font;
+      ctx.fillStyle = Ln.color;
+      ctx.fillText(Ln.text, tx + padX, ly);
+      ly += lh;
+    }
   }
 }
 
@@ -2173,7 +2374,9 @@ const charPanel = {
       if (typeof craftPanel !== "undefined") craftPanel.close();
     }
   },
-  close() { this.open = false; },
+  close() {
+    this.open = false;
+  },
   tryAllocStat(player, stat) {
     if (player.statPoints <= 0) return "Stat puan\u0131n yok.";
     if (stat === "str") player.str++;
@@ -2474,6 +2677,11 @@ const INV_PRESS_MOVE_CANCEL = 16;
 
 /** Envanterde sol t\u0131k: ta\u015f\u0131ma yerine Giy / Yere at paneli */
 let inventorySlotInspect = null;
+let inventoryInspectScrollY = 0;
+let inventoryInspectScrollMax = 0;
+let inventoryInspectScrollTouchId = -1;
+let inventoryInspectScrollLastY = 0;
+let inventoryInspectScrollRect = null;
 
 class Inventory {
   constructor() {
@@ -2490,6 +2698,7 @@ class Inventory {
     this._slotPress = null;
     this.invPage = 0;
     this.sortStrongFirst = true;
+    this.autoEquipOnPickup = false;
   }
 
   _invPageCount() {
@@ -2567,12 +2776,12 @@ class Inventory {
 
     if (itemId === "coin") {
       this.gold += count;
-      this._scanAutoEquipAllEmpty();
+      if (this.autoEquipOnPickup) this._scanAutoEquipAllEmpty();
       return 0;
     }
 
     if (def.stackable) {
-      for (const container of [this.hotbar, this.slots]) {
+      for (const container of [this.slots, this.hotbar]) {
         for (let i = 0; i < container.length; i++) {
           const s = container[i];
           if (s && s.id === itemId && stackUpgradesMatch(s, { upgrade: u }) && s.count < def.maxStack) {
@@ -2581,7 +2790,7 @@ class Inventory {
             s.count += add;
             count -= add;
             if (count <= 0) {
-              this._scanAutoEquipAllEmpty();
+              if (this.autoEquipOnPickup) this._scanAutoEquipAllEmpty();
               return 0;
             }
           }
@@ -2589,7 +2798,7 @@ class Inventory {
       }
     }
 
-    for (const container of [this.hotbar, this.slots]) {
+    for (const container of [this.slots, this.hotbar]) {
       for (let i = 0; i < container.length; i++) {
         if (!container[i]) {
           const add = Math.min(count, def.maxStack);
@@ -2599,13 +2808,13 @@ class Inventory {
           container[i] = stack;
           count -= add;
           if (count <= 0) {
-            this._scanAutoEquipAllEmpty();
+            if (this.autoEquipOnPickup) this._scanAutoEquipAllEmpty();
             return 0;
           }
         }
       }
     }
-    this._scanAutoEquipAllEmpty();
+    if (this.autoEquipOnPickup) this._scanAutoEquipAllEmpty();
     return count;
   }
 
@@ -2719,6 +2928,8 @@ class Inventory {
   tryEquipOneFromId(itemId, upgradeOpt) {
     const def = ITEMS[itemId];
     if (!def || !def.equipSlot) return "Giyilebilir bir e\u015fya de\u011fil.";
+    const gate = canPlayerEquipItem(def, player);
+    if (!gate.ok) return "Bu esya icin Seviye " + gate.needLevel + "+ gerekli.";
     const sk = firstEquipSlotForItem(this, def);
     if (!sk) return "Bu e\u015fya i\u00e7in uygun slot yok.";
     const uWant = upgradeOpt | 0;
@@ -2745,6 +2956,8 @@ class Inventory {
     if (!slot || slot.count < 1) return "B\u00f6yle bir e\u015fya yok.";
     const def = ITEMS[slot.id];
     if (!def || !def.equipSlot) return "Giyilebilir bir e\u015fya de\u011fil.";
+    const gate = canPlayerEquipItem(def, player);
+    if (!gate.ok) return "Bu esya icin Seviye " + gate.needLevel + "+ gerekli.";
     const sk = firstEquipSlotForItem(this, def);
     if (!sk) return "Bu e\u015fya i\u00e7in uygun slot yok.";
     const id = slot.id;
@@ -2777,7 +2990,7 @@ class Inventory {
           const s = container[i];
           if (!s) continue;
           const d = ITEMS[s.id];
-          if (d && itemFitsEquipSlot(d, sk)) {
+          if (d && itemFitsEquipSlot(d, sk) && canPlayerEquipItem(d, player).ok) {
             this._equipFromContainerSlot(container, i);
             break;
           }
@@ -2882,15 +3095,12 @@ class Inventory {
 
     const layout = this._invLayout(canvasW, canvasH);
     const inR = (r) => !!r && mx >= r.x && mx < r.x + r.w && my >= r.y && my < r.y + r.h;
-    if (inR(layout.invPagePrev) && this.invPage > 0) {
-      this.invPage--;
-      this.tooltipSlot = null;
-      return true;
-    }
-    if (inR(layout.invPageNext) && this.invPage < this._invPageCount() - 1) {
-      this.invPage++;
-      this.tooltipSlot = null;
-      return true;
+    for (const tab of layout.invPageTabs) {
+      if (inR(tab) && tab.page !== this.invPage) {
+        this.invPage = tab.page;
+        this.tooltipSlot = null;
+        return true;
+      }
     }
     if (inR(layout.invSortBtn)) {
       this.cycleInvSortMode();
@@ -3048,10 +3258,11 @@ class Inventory {
     const b = uiModalBounds(canvasW, canvasH);
     const eqFramePad = 10;
     const eqGridGap = 5;
+    const mob = touchState.mobileUI;
     let ss = SLOT_SIZE;
     let sg = SLOT_GAP;
-    let eqCellSize = 44;
-    let previewW = touchState.mobileUI ? 86 : 108;
+    let eqCellSize = mob ? 38 : 44;
+    let previewW = mob ? 72 : 108;
     const previewGap = 10;
 
     const compute = () => {
@@ -3062,33 +3273,35 @@ class Inventory {
       const leftColW = previewW + previewGap + eqGridW + 18;
       const panelW = leftColW + INV_COLS * (ss + sg) - sg + 32;
       const eqPanelH = eqGridH + 22;
-      const gridH = (INV_ROWS + 1) * (ss + sg) - sg + (touchState.mobileUI ? 64 : 80);
-      const panelH = Math.max(gridH, eqPanelH + (touchState.mobileUI ? 72 : 88));
+      const invGridH = INV_ROWS * (ss + sg) - sg;
+      const controlsH = 8 + 24 + 6 + 24 + 10;
+      const hotbarH = ss;
+      const gridH = 40 + invGridH + controlsH + hotbarH + 16;
+      const panelH = Math.max(gridH, eqPanelH + (mob ? 72 : 88));
       return { leftColW, panelW, panelH, eqPanelH, gridH, eqGridW, eqGridH, eqInnerW, eqInnerH };
     };
 
     let { leftColW, panelW, panelH, eqGridW, eqGridH, eqInnerW, eqInnerH } = compute();
-    while ((panelH > b.maxH || panelW > b.maxW) && ss > 28) {
+    while ((panelH > b.maxH || panelW > b.maxW) && ss > 20) {
       ss -= 2;
       sg = Math.max(2, sg - 1);
-      eqCellSize = Math.min(eqCellSize, Math.max(30, ss + 2));
-      if (panelW > b.maxW && previewW > 72) previewW -= 6;
+      eqCellSize = Math.max(24, Math.min(eqCellSize, Math.max(28, ss + 2)));
+      if (panelW > b.maxW && previewW > 52) previewW -= 4;
       ({ leftColW, panelW, panelH, eqGridW, eqGridH, eqInnerW, eqInnerH } = compute());
     }
 
-    if (touchState.mobileUI) {
-      const availGridW = Math.max(220, b.maxW - (leftColW + 20));
-      const fittedSlot = Math.floor((availGridW + sg) / INV_COLS) - sg;
-      if (fittedSlot > ss) {
-        ss = Math.min(74, fittedSlot);
-        eqCellSize = Math.max(eqCellSize, Math.min(60, ss + 2));
+    if (mob) {
+      while ((panelH > b.maxH || panelW > b.maxW) && ss > 18) {
+        ss -= 1;
+        sg = Math.max(2, sg - 1);
+        eqCellSize = Math.max(22, eqCellSize - 1);
+        if (panelW > b.maxW && previewW > 46) previewW -= 1;
         ({ leftColW, panelW, panelH, eqGridW, eqGridH, eqInnerW, eqInnerH } = compute());
       }
-      panelW = b.maxW;
-      panelH = b.maxH;
     }
-    const px = touchState.mobileUI ? b.side : Math.floor((canvasW - panelW) / 2);
-    const py = touchState.mobileUI ? b.top : Math.max(b.top, Math.min(canvasH - panelH - b.bottom, Math.floor((canvasH - panelH) / 2)));
+
+    const px = Math.max(b.side, Math.floor((canvasW - panelW) / 2));
+    const py = Math.max(b.top, Math.min(canvasH - panelH - b.bottom, Math.floor((canvasH - panelH) / 2)));
     const previewX = px + 12;
     const eqGridX = previewX + previewW + previewGap;
     const eqGridY = py + 52;
@@ -3097,20 +3310,27 @@ class Inventory {
     const eqInnerX = eqGridX + eqFramePad;
     const eqInnerY = eqGridY + eqFramePad;
     const slotsX = px + leftColW + 8, slotsY = py + 40;
-    const hbX = px + leftColW + 8, hbY = slotsY + INV_ROWS * (ss + sg) + 16;
+    const hbX = px + leftColW + 8;
     const invPageStart = this._invPageStart();
     const invPages = this._invPageCount();
     const invPageW = Math.max(180, INV_COLS * (ss + sg) - sg);
-    const pageY = slotsY + INV_ROWS * (ss + sg) + 6;
-    const invPagePrev = { x: hbX, y: pageY, w: 34, h: 24 };
-    const invPageNext = { x: hbX + invPageW - 34, y: pageY, w: 34, h: 24 };
-    const invSortBtn = { x: hbX + 38, y: pageY, w: invPageW - 76, h: 24 };
+    const gridBottom = slotsY + INV_ROWS * (ss + sg) - sg;
+    const pageY = gridBottom + 8;
+    const tabGap = 6;
+    const tabCount = Math.max(1, invPages);
+    const tabW = Math.floor((invPageW - tabGap * (tabCount - 1)) / tabCount);
+    const invPageTabs = [];
+    for (let i = 0; i < tabCount; i++) {
+      invPageTabs.push({ x: hbX + i * (tabW + tabGap), y: pageY, w: tabW, h: 24, page: i });
+    }
+    const invSortBtn = { x: hbX, y: pageY + 30, w: invPageW, h: 24 };
+    const hbY = invSortBtn.y + invSortBtn.h + 10;
     return {
       px, py, panelW, panelH, slotsX, slotsY, hbX, hbY, eqColW: leftColW,
       previewX, previewY, previewW, previewH,
       eqGridX, eqGridY, eqGridW, eqGridH, eqInnerX, eqInnerY, eqCellSize, eqGridGap, eqFramePad,
       slotSize: ss, slotGap: sg,
-      invPageStart, invPages, invPagePrev, invPageNext, invSortBtn,
+      invPageStart, invPages, invPageTabs, invSortBtn,
     };
   }
 
@@ -3270,28 +3490,26 @@ class Inventory {
       if (this.slots[absIdx]) this._renderSlotContent(ctx, this.slots[absIdx], sx, sy, ss);
     }
 
-    const pageText = (this.invPage + 1) + " / " + layout.invPages;
+    ctx.font = "10px monospace";
+    for (const tab of layout.invPageTabs) {
+      const active = tab.page === this.invPage;
+      ctx.fillStyle = active ? "rgba(88, 64, 145, 0.95)" : "rgba(35,38,64,0.9)";
+      ctx.strokeStyle = active ? "#b78cff" : "#5a6ca0";
+      roundRect(ctx, tab.x, tab.y, tab.w, tab.h, 5);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = active ? "#f0e4ff" : "#d8e6ff";
+      ctx.fillText("Sayfa " + (tab.page + 1), tab.x + 8, tab.y + 16);
+    }
+
     ctx.fillStyle = "rgba(35,38,64,0.9)";
     ctx.strokeStyle = "#5a6ca0";
     roundRect(ctx, layout.invSortBtn.x, layout.invSortBtn.y, layout.invSortBtn.w, layout.invSortBtn.h, 5);
     ctx.fill();
     ctx.stroke();
     ctx.fillStyle = "#d8e6ff";
-    ctx.font = "10px monospace";
     const sortTxt = this.sortStrongFirst ? "Gucluden gucsuze sirala" : "Gucsuzden gucluye sirala";
     ctx.fillText(sortTxt, layout.invSortBtn.x + 8, layout.invSortBtn.y + 16);
-    for (const btn of [layout.invPagePrev, layout.invPageNext]) {
-      ctx.fillStyle = "rgba(35,38,64,0.9)";
-      ctx.strokeStyle = "#5a6ca0";
-      roundRect(ctx, btn.x, btn.y, btn.w, btn.h, 5);
-      ctx.fill();
-      ctx.stroke();
-    }
-    ctx.fillStyle = "#d8e6ff";
-    ctx.fillText("<", layout.invPagePrev.x + 12, layout.invPagePrev.y + 16);
-    ctx.fillText(">", layout.invPageNext.x + 12, layout.invPageNext.y + 16);
-    ctx.fillStyle = "#a8b8d8";
-    ctx.fillText("Sayfa " + pageText, layout.hbX, layout.invSortBtn.y - 4);
 
     if (this.tooltipSlot) {
       const def = ITEMS[this.tooltipSlot.id];
@@ -3545,12 +3763,23 @@ class TileMap {
   }
 
   _drawTileDecoration(ctx, tile, x, y) {
+    const seed = ((x * 73856093) ^ (y * 19349663)) >>> 0;
+    const r01 = (n) => (((seed >> n) & 255) / 255);
     switch (tile) {
       case TileType.GRASS:
-        ctx.fillStyle = "#57994a";
-        ctx.fillRect(x + 6, y + 8, 2, 6);
-        ctx.fillRect(x + 20, y + 4, 2, 5);
-        ctx.fillRect(x + 14, y + 20, 2, 5);
+        ctx.fillStyle = "#4f9448";
+        ctx.fillRect(x + 5, y + 9, 2, 7);
+        ctx.fillRect(x + 20, y + 5, 2, 6);
+        ctx.fillRect(x + 14, y + 20, 2, 6);
+        if (r01(0) > 0.58) {
+          ctx.fillStyle = "rgba(180, 210, 145, 0.28)";
+          ctx.fillRect(x + 9, y + 12, 10, 2);
+        }
+        if (r01(8) > 0.72) {
+          ctx.fillStyle = "#6f7b72";
+          ctx.fillRect(x + 11, y + 16, 3, 2);
+          if (r01(16) > 0.5) ctx.fillRect(x + 15, y + 18, 2, 2);
+        }
         break;
       case TileType.WATER:
         ctx.fillStyle = "#4a8ed4";
@@ -3561,6 +3790,10 @@ class TileMap {
         ctx.fillStyle = "#c4ac5a";
         ctx.fillRect(x + 10, y + 14, 3, 2);
         ctx.fillRect(x + 22, y + 6, 2, 2);
+        if (r01(4) > 0.66) {
+          ctx.fillStyle = "#8f8770";
+          ctx.fillRect(x + 7, y + 20, 2, 2);
+        }
         break;
       case TileType.WALL:
         ctx.fillStyle = "#4a4a4a";
@@ -3577,6 +3810,11 @@ class TileMap {
           ctx.fillRect(gx, y + 4, 2, 10);
           ctx.fillRect(gx - 1, y + 3, 4, 2);
         }
+        if (r01(12) > 0.64) {
+          ctx.fillStyle = "#758268";
+          ctx.fillRect(x + 23, y + 21, 2, 2);
+          ctx.fillRect(x + 25, y + 20, 2, 2);
+        }
         break;
       case TileType.BRIDGE:
         ctx.fillStyle = "#6a4c28";
@@ -3592,34 +3830,68 @@ class TileMap {
         ctx.fillRect(x + 18, y + 20, 4, 2);
         ctx.fillRect(x + 12, y + 14, 2, 3);
         break;
+      case TileType.DIRT:
+        ctx.fillStyle = "#8a6941";
+        ctx.fillRect(x + 7, y + 10, 3, 2);
+        ctx.fillRect(x + 20, y + 17, 2, 2);
+        if (r01(20) > 0.6) {
+          ctx.fillStyle = "#798070";
+          ctx.fillRect(x + 12, y + 21, 3, 2);
+        }
+        break;
     }
   }
 
   _drawDetailTile(ctx, detail, x, y) {
     switch (detail) {
-      case TileType.TREE:
+      case TileType.TREE: {
+        const tCol = Math.floor((x + 16) / TILE_SIZE);
+        const tRow = Math.floor((y + 16) / TILE_SIZE);
+        const tHp = getTreeHp(tCol, tRow);
+        const tDmgRatio = 1 - tHp / TREE_MAX_HP;
         ctx.fillStyle = "#5a3a1a";
         ctx.fillRect(x + 13, y + 18, 6, 14);
-        ctx.fillStyle = "#1f5e10";
+        const leafColor = tDmgRatio > 0.5 ? "#8a6a20" : tDmgRatio > 0.2 ? "#4a6a10" : "#1f5e10";
+        ctx.fillStyle = leafColor;
         ctx.beginPath();
         ctx.arc(x + 16, y + 14, 11, 0, Math.PI * 2);
         ctx.fill();
-        ctx.fillStyle = "#2a7a18";
+        const innerColor = tDmgRatio > 0.5 ? "#6a5a18" : tDmgRatio > 0.2 ? "#3a7a14" : "#2a7a18";
+        ctx.fillStyle = innerColor;
         ctx.beginPath();
         ctx.arc(x + 14, y + 12, 6, 0, Math.PI * 2);
         ctx.fill();
+        if (tDmgRatio > 0) {
+          ctx.fillStyle = "rgba(0,0,0,0.5)";
+          ctx.fillRect(x + 4, y - 4, 24, 4);
+          ctx.fillStyle = tDmgRatio < 0.5 ? "#64e87f" : tDmgRatio < 0.8 ? "#e8c447" : "#e85050";
+          ctx.fillRect(x + 4, y - 4, 24 * (1 - tDmgRatio), 4);
+        }
         break;
+      }
       case TileType.FLOWER:
-        ctx.fillStyle = "#2d6e1e";
-        ctx.fillRect(x + 15, y + 18, 2, 8);
-        ctx.fillStyle = "#e84040";
-        ctx.beginPath();
-        ctx.arc(x + 16, y + 16, 4, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = "#f0d040";
-        ctx.beginPath();
-        ctx.arc(x + 16, y + 16, 2, 0, Math.PI * 2);
-        ctx.fill();
+        {
+          const seed = ((x * 92837111) ^ (y * 689287499)) >>> 0;
+          const pick = seed % 20;
+          let petal = "#e8e2dc";
+          if (pick === 0) petal = "#ead07a"; // sarı artık çok daha seyrek
+          else if (pick <= 4) petal = "#e9f3ff";
+          else if (pick <= 8) petal = "#d9c7ff";
+          else if (pick <= 12) petal = "#ffd3e8";
+          else if (pick <= 15) petal = "#ffc89f";
+          else if (pick <= 18) petal = "#d6ffd1";
+          else petal = "#ff8f8f"; // kırmızı seyrek
+          ctx.fillStyle = "#2d6e1e";
+          ctx.fillRect(x + 15, y + 18, 2, 8);
+          ctx.fillStyle = petal;
+          ctx.beginPath();
+          ctx.arc(x + 16, y + 16, 4, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = "#c9b26a";
+          ctx.beginPath();
+          ctx.arc(x + 16, y + 16, 2, 0, Math.PI * 2);
+          ctx.fill();
+        }
         break;
       case TileType.BRIDGE:
         ctx.fillStyle = "#7a5c30";
@@ -3628,6 +3900,17 @@ class TileMap {
         ctx.fillRect(x, y, TILE_SIZE, 3);
         ctx.fillRect(x, y + TILE_SIZE - 3, TILE_SIZE, 3);
         ctx.fillRect(x + 14, y, 4, TILE_SIZE);
+        break;
+      case TileType.STONE_FLOOR:
+        // Zemin üzerinde küçük dekoratif kaya parçası
+        ctx.fillStyle = "#6a6c74";
+        ctx.beginPath();
+        ctx.ellipse(x + 16, y + 20, 5 + (x % 3), 3 + (y % 2), 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#858790";
+        ctx.beginPath();
+        ctx.ellipse(x + 14, y + 18, 2.5, 1.8, -0.3, 0, Math.PI * 2);
+        ctx.fill();
         break;
     }
   }
@@ -3762,6 +4045,11 @@ class Player {
     this.archerComboTimer = 0;
     this.comboBlastTimer = 0;
     this.archerRapidFireTimer = 0;
+    this.equipPowerToastTimer = 0;
+    this.equipPowerToastText = "";
+    this.equipPowerToastColor = "#ffffff";
+    this._lastEquipSig = null;
+    this._lastEquipTotalHit = null;
   }
 
   gainXP(amount) {
@@ -3825,6 +4113,42 @@ class Player {
       this.hp = Math.min(this.maxHp, this.hp);
       this.mana = Math.min(this.maxMana, this.mana);
     }
+    const equipSig = this._equipSignature(inv);
+    const totalHit = this._computeTotalHitForDisplay(inv);
+    if (this._lastEquipSig != null && equipSig !== this._lastEquipSig && this._lastEquipTotalHit != null) {
+      const delta = totalHit - this._lastEquipTotalHit;
+      if (delta !== 0) {
+        this.equipPowerToastColor = delta > 0 ? "#4cff79" : "#ff5a5a";
+        const sign = delta > 0 ? "+" : "";
+        this.equipPowerToastText = sign + delta + "  Total Vurus: " + totalHit;
+        this.equipPowerToastTimer = 1.35;
+      }
+    }
+    this._lastEquipSig = equipSig;
+    this._lastEquipTotalHit = totalHit;
+  }
+
+  _equipSignature(inv) {
+    if (!inv || !inv.equipped) return "";
+    const parts = [];
+    for (const sk of EQ_SLOTS) {
+      const s = inv.equipped[sk];
+      if (!s) continue;
+      parts.push(sk + ":" + s.id + ":" + getStackUpgradeLv(s));
+    }
+    return parts.join("|");
+  }
+
+  _computeTotalHitForDisplay(inv) {
+    const hasBow = !!(inv && inv.equipped && inv.equipped.bow && ITEMS[inv.equipped.bow.id]);
+    const base = 8 + (this.str + this._eqStr) * 1.5 + Math.floor(this.level * 0.8) + (this.levelDamageBonus || 0);
+    let ranged = hasBow
+      ? Math.max(1, this._eqRangedDmg) + Math.floor((this.agi + this._eqAgi) * 0.05) + Math.floor((this.level - 1) * 0.35)
+      : base + this._eqRangedDmg;
+    if (this.skills.marksman) ranged *= 1.1;
+    let melee = Math.floor(base * 1.2) + this._eqMeleeDmg;
+    if (this.skills.brawler) melee += 4;
+    return Math.max(1, Math.floor(Math.max(melee, ranged)));
   }
 
   takeDamage(amount, opts) {
@@ -3873,7 +4197,13 @@ class Player {
   }
 
   getRangedDamage() {
-    let d = this.getDamage() + this._eqRangedDmg;
+    const eqBow = (typeof inventory !== "undefined" && inventory && inventory.equipped) ? inventory.equipped.bow : null;
+    let d;
+    if (eqBow && ITEMS[eqBow.id]) {
+      d = Math.max(1, this._eqRangedDmg) + Math.floor((this.agi + this._eqAgi) * 0.05) + Math.floor((this.level - 1) * 0.35);
+    } else {
+      d = this.getDamage() + this._eqRangedDmg;
+    }
     if (this.skills.marksman) d *= 1.1;
     return d;
   }
@@ -3911,6 +4241,7 @@ class Player {
     if (this.archerComboTimer <= 0) this.archerComboCount = 0;
     if (this.comboBlastTimer > 0) this.comboBlastTimer -= dt;
     if (this.archerRapidFireTimer > 0) this.archerRapidFireTimer -= dt;
+    if (this.equipPowerToastTimer > 0) this.equipPowerToastTimer -= dt;
 
     this.hp = Math.min(this.maxHp, this.hp + this.hpRegen * dt);
     this.mana = Math.min(this.maxMana, this.mana + this.manaRegen * dt);
@@ -4047,14 +4378,57 @@ class Player {
       else if (chest.id === "chest_epic") Object.assign(shirt, { main: "#1a5028", dark: "#0e3018", trim: "#70ffa8" });
       else if (chest.id === "chest_legendary") Object.assign(shirt, { main: "#1a1830", dark: "#0a0818", trim: "#b8a0ff" });
     }
+
+    // Miğfer ten rengi ve trim etkisi
+    if (helmId === "helm_leather") { shirt.skin = "#dcc8a0"; shirt.trim = "#b09860"; }
+    else if (helmId === "helm_iron") { shirt.skin = "#d8d0c8"; shirt.trim = "#8898a8"; }
+    else if (helmId === "helm_epic") { shirt.skin = "#e8c8e8"; shirt.trim = "#c080ff"; }
+    else if (helmId === "helm_legendary") { shirt.skin = "#f0d8a8"; shirt.trim = "#ffd080"; }
+
+    // Ayak bileği (greave) ve pantolon renkleri
+    let greaveColor = "#c4a035";
     const feet = hasFeet ? ITEMS[inv.equipped.feet.id] : null;
     if (feet) {
-      if (feet.id === "boots_swift") shirt.pants = "#284858";
-      else if (feet.id === "boots_epic") shirt.pants = "#203848";
+      if (feet.id === "boots_swift") { shirt.pants = "#284858"; greaveColor = "#284858"; }
+      else if (feet.id === "boots_epic") { shirt.pants = "#203848"; greaveColor = "#305878"; }
+      else if (feet.id === "boots_leather") { shirt.pants = "#6a5a3a"; greaveColor = "#6a5a3a"; }
     }
+
+    // Eldiven rengi
+    let handsColor = "#d0dce8";
+    if (handsId === "gloves_archer") handsColor = "#6a8a5a";
+
+    // Kemer etkisi
+    const waist = inv?.equipped?.waist ? ITEMS[inv.equipped.waist.id] : null;
+    if (waist && waist.id === "waist_cloth") { shirt.pants = "#9a8a70"; }
+
+    // Zırh seti teması (2+ parça eşleşirse bütünleşik görünüm)
+    let setTheme = null;
+    const setPieces = { leather: 0, steel: 0, epic: 0, legendary: 0 };
+    if (helmId === "helm_leather") setPieces.leather++;
+    if (chest && chest.id === "chest_leather") setPieces.leather++;
+    if (feet && feet.id === "boots_leather") setPieces.leather++;
+    if (helmId === "helm_iron") setPieces.steel++;
+    if (chest && chest.id === "chest_steel") setPieces.steel++;
+    if (feet && feet.id === "boots_swift") setPieces.steel++;
+    if (helmId === "helm_epic") setPieces.epic++;
+    if (chest && chest.id === "chest_epic") setPieces.epic++;
+    if (feet && feet.id === "boots_epic") setPieces.epic++;
+    if (helmId === "helm_legendary") setPieces.legendary++;
+    if (chest && chest.id === "chest_legendary") setPieces.legendary++;
+    if (feet && feet.id === "boots_epic") setPieces.legendary++;
+    const bestSet = Object.entries(setPieces).sort((a, b) => b[1] - a[1])[0];
+    if (bestSet[1] >= 2) {
+      setTheme = bestSet[0];
+      if (setTheme === "leather") { shirt.pants = "#5a4a30"; greaveColor = "#5a4a30"; }
+      else if (setTheme === "steel") { shirt.pants = "#2e3e50"; greaveColor = "#2e3e50"; }
+      else if (setTheme === "epic") { shirt.pants = "#183028"; greaveColor = "#305848"; }
+      else if (setTheme === "legendary") { shirt.pants = "#1a1830"; greaveColor = "#302850"; }
+    }
+
     return {
       shirt, mx, armorMx, aura, helmId, handsId, hasJewelry, powerSum, armorPowerSum,
-      hasChest, hasFeet, showFantasyBack,
+      hasChest, hasFeet, showFantasyBack, greaveColor, handsColor, setTheme,
     };
   }
 
@@ -4377,9 +4751,8 @@ class Player {
     const bowId = inv && inv.equipped && inv.equipped.bow ? inv.equipped.bow.id : null;
     const hasBladeEquipped = !!(bladeId && ITEMS[bladeId] && ITEMS[bladeId].equipSlot === "blade");
     const hasBowEquipped = !!(bowId && ITEMS[bowId] && ITEMS[bowId].equipSlot === "bow");
-    const meleeThreat = !this.inBoat && hasBladeEquipped && hasBowEquipped && this._anyMonsterInMeleeReach(monsters);
-    const showBow = hasBowEquipped && this.swingAnim <= 0 && (!meleeThreat || this.shootAnim > 0);
-    const showBladeVisual = hasBladeEquipped && this.swingAnim <= 0 && (!hasBowEquipped || meleeThreat) && this.shootAnim <= 0;
+    const showBow = hasBowEquipped && this.shootAnim > 0;
+    const showBladeVisual = hasBladeEquipped && (this.swingAnim > 0 || !hasBowEquipped) && this.shootAnim <= 0;
 
     const cx = Math.round(this.x + this.w / 2);
     const cy = Math.round(this.y + this.h / 2);
@@ -4426,10 +4799,17 @@ class Player {
 
     if (showBow && !bowInFront) this._drawBowAndArms(ctx, cx, cy, bounce, pull, bowId, armBob, shootT);
 
+    // Oyuncu gölgesi (dinamik)
+    const shAlpha = 0.16 + Math.sin(performance.now() * 0.003 + this.x * 0.05) * 0.04;
+    ctx.fillStyle = "rgba(0,0,0," + shAlpha + ")";
+    ctx.beginPath();
+    ctx.ellipse(cx, cy + 10, 7 + Math.abs(lStride) * 0.3, 2.8 + Math.abs(rStride) * 0.15, 0, 0, Math.PI * 2);
+    ctx.fill();
+
     ctx.save();
     ctx.translate(cx, cy);
 
-    const greave = "#c4a035";
+    const greave = vis.greaveColor || "#c4a035";
     ctx.fillStyle = S.pants;
     if (d === DIR.LEFT || d === DIR.RIGHT) {
       ctx.save();
@@ -4511,7 +4891,7 @@ class Player {
         ctx.fillRect(qSide * 2 + 1, 2 - bounce + ab, 2, 2);
       }
       if (vis.handsId) {
-        ctx.fillStyle = "#d0dce8";
+        ctx.fillStyle = vis.handsColor || "#d0dce8";
         ctx.fillRect(qSide * 2 - 1, -6 - bounce + ab, 5, 3);
         ctx.fillRect(qSide * 2 - 1, 0 - bounce + ab, 5, 3);
       }
@@ -4540,7 +4920,7 @@ class Player {
         ctx.fillRect(-8, -8 - bounce + ab, 2, 3);
         ctx.fillRect(-8, 2 - bounce + ab, 2, 3);
         if (vis.handsId) {
-          ctx.fillStyle = "#d0dce8";
+          ctx.fillStyle = vis.handsColor || "#d0dce8";
           ctx.fillRect(-10, -5 - bounce + ab, 3, 4);
           ctx.fillRect(-10, 1 - bounce + ab, 3, 4);
         }
@@ -4582,6 +4962,13 @@ class Player {
 
     ctx.restore();
 
+    // Hasar alınca sprite parlama efekti
+    if (this.dmgFlashTimer > 0) {
+      const flashA = Math.min(0.45, this.dmgFlashTimer * 1.5);
+      ctx.fillStyle = "rgba(255,60,60," + flashA + ")";
+      ctx.fillRect(this.x - 1, this.y - 1, this.w + 2, this.h + 2);
+    }
+
     if (showBow && bowInFront) this._drawBowAndArms(ctx, cx, cy, bounce, pull, bowId, armBob, shootT);
     if (showBladeVisual) {
       this._drawEquippedBlade(ctx, cx, cy, bounce, a, bladeId);
@@ -4589,7 +4976,8 @@ class Player {
     if (this.swingAnim > 0) this._drawMeleeSwing(ctx, cx, cy, bounce);
     drawEntityNameLabel(ctx, this.centerX, this.y - 14, getPlayerWorldLabelName(), {
       color: "#e8f4ff",
-      border: "rgba(120, 170, 220, 0.4)",
+      border: "rgba(120, 170, 220, 0.5)",
+      bg: "rgba(10, 18, 36, 0.82)",
     });
   }
 
@@ -4885,6 +5273,25 @@ class Arrow {
     this.x += this.dx * this.speed * dt;
     this.y += this.dy * this.speed * dt;
     if (map.isSolidPx(this.x, this.y)) {
+      const col = Math.floor(this.x / TILE_SIZE);
+      const row = Math.floor(this.y / TILE_SIZE);
+      const detail = map.getDetail(col, row);
+      const tile = map.getTile(col, row);
+      if (detail === TileType.TREE || tile === TileType.TREE) {
+        const destroyed = damageTree(col, row, this.damage);
+        if (destroyed) {
+          if (detail === TileType.TREE) map.setDetail(col, row, -1);
+          else { map.setTile(col, row, TileType.GRASS); map.setDetail(col, row, -1); }
+          const woodAmt = 2 + Math.floor(Math.random() * 3);
+          inventory.addItem("wood", woodAmt);
+          player.gainXP(1);
+          pickupMsgText = "+" + woodAmt + " Odun";
+          pickupMsgTimer = 1.5;
+          gameAudio.playChop();
+        } else {
+          spawnDamageFloater(this.x, this.y, this.damage, false, "#8B4513");
+        }
+      }
       this.alive = false;
     }
   }
@@ -6183,7 +6590,8 @@ function drawMonsterSprite(ctx, type, x, y, dir, frame, hitFlash, atkAnim, bw, b
 }
 
 class Monster {
-  constructor(col, row, type, levelScale) {
+  constructor(col, row, type, levelScale, opts) {
+    opts = opts || {};
     this.x = col * TILE_SIZE;
     this.y = row * TILE_SIZE;
     this.w = 20; this.h = 20;
@@ -6204,6 +6612,7 @@ class Monster {
     this.dmg = Math.floor(mt.dmg * s);
     this.speed = mt.speed;
     this.xpReward = Math.floor(mt.xp * s);
+    this.goldReward = Math.max(1, Math.floor((mt.gold != null ? mt.gold : Math.max(1, mt.xp * 0.7)) * s));
     this.aggroRange = mt.aggroRange;
     this.atkRange = mt.atkRange;
     this.atkCd = mt.atkCd;
@@ -6224,10 +6633,35 @@ class Monster {
     this.atkAnim = 0;
     this.hitFlash = 0;
     this.deathTimer = 0;
-    this.respawnTime = 30 + Math.random() * 30;
+    this.alertAlliesTimer = 0;
+    this.respawnTime = 0;
     this.respawnTimer = 0;
     this.col = col; this.row = row;
     this.levelScale = s;
+    this.campId = opts.campId != null ? String(opts.campId) : null;
+    this.campTier = opts.campTier != null ? String(opts.campTier) : null;
+    this.ultraBoss = !!opts.ultraBoss;
+    this.campScale = opts.campScale != null ? opts.campScale : s;
+    this.campRole = opts.campRole != null ? String(opts.campRole) : null;
+    this.socialAggroRange = opts.socialAggroRange != null ? opts.socialAggroRange : TILE_SIZE * 6.2;
+    this.supportHealCd = 1.8 + Math.random() * 1.2;
+    this._applyCampRoleTuning();
+    const tierBonus = this.campTier === "apex" ? 7 : this.campTier === "heroic" ? 4 : this.campTier === "elite" ? 2 : 0;
+    this.level = Math.max(1, Math.round(this.levelScale * 4 + (this.boss ? 6 : 0) + tierBonus + (this.ultraBoss ? 8 : 0)));
+    const hpArchetype = Math.max(0.65, Math.min(8.2, mt.hp / 28));
+    const dmgArchetype = Math.max(0.75, Math.min(8.8, mt.dmg / 4.6));
+    const tierHpMul = this.campTier === "apex" ? 2.15 : this.campTier === "heroic" ? 1.7 : this.campTier === "elite" ? 1.38 : 1;
+    const tierDmgMul = this.campTier === "apex" ? 1.95 : this.campTier === "heroic" ? 1.58 : this.campTier === "elite" ? 1.3 : 1;
+    const lateHpRamp = this.level >= 26 ? (1 + (this.level - 25) * 0.03) : 1;
+    const lateDmgRamp = this.level >= 26 ? (1 + (this.level - 25) * 0.022) : 1;
+    const lvHp = (4 + Math.pow(this.level, 1.42) * 2.45) * hpArchetype * tierHpMul * lateHpRamp * (this.boss ? 3.8 : 1);
+    const lvDmg = (1 + Math.pow(this.level, 1.24) * 0.95) * dmgArchetype * tierDmgMul * lateDmgRamp * (this.boss ? 2.45 : 1);
+    this.maxHp = Math.max(5, Math.floor(this.ultraBoss ? lvHp * 2.25 : lvHp));
+    this.hp = this.maxHp;
+    this.dmg = Math.max(1, Math.floor(this.ultraBoss ? lvDmg * 1.7 : lvDmg));
+    this.xpReward = Math.max(2, Math.floor(this.xpReward * (0.45 + this.level * 0.22) * (this.ultraBoss ? 2.4 : 1)));
+    this.goldReward = Math.max(1, Math.floor(this.goldReward * (0.5 + this.level * 0.16) * (this.ultraBoss ? 2.1 : 1)));
+    this.respawnTime = this._rollRespawnTime();
   }
 
   get cx() { return this.x + this.w / 2; }
@@ -6236,6 +6670,51 @@ class Monster {
   distTo(px, py) {
     const dx = this.cx - px, dy = this.cy - py;
     return Math.sqrt(dx * dx + dy * dy);
+  }
+
+  _applyCampRoleTuning() {
+    if (!this.campRole) return;
+    if (this.campRole === "tank") {
+      this.maxHp = Math.floor(this.maxHp * 1.35);
+      this.hp = Math.min(this.hp, this.maxHp);
+      this.dmg = Math.floor(this.dmg * 0.92);
+      this.speed *= 0.92;
+    } else if (this.campRole === "dps") {
+      this.maxHp = Math.floor(this.maxHp * 0.95);
+      this.hp = Math.min(this.hp, this.maxHp);
+      this.dmg = Math.floor(this.dmg * 1.24);
+      this.speed *= 1.06;
+      this.xpReward = Math.floor(this.xpReward * 1.08);
+      this.goldReward = Math.floor(this.goldReward * 1.1);
+    } else if (this.campRole === "ranged") {
+      this.maxHp = Math.floor(this.maxHp * 0.88);
+      this.hp = Math.min(this.hp, this.maxHp);
+      this.dmg = Math.floor(this.dmg * 1.08);
+      this.speed *= 1.02;
+      if (!this.rangedKind) {
+        const rk = ["poison", "ice", "fire"];
+        this.rangedKind = rk[(Math.random() * rk.length) | 0];
+      }
+      this.rangedMax = Math.max(this.rangedMax, TILE_SIZE * 6.5);
+      this.rangedMin = Math.max(20, this.rangedMin);
+    } else if (this.campRole === "healer") {
+      this.maxHp = Math.floor(this.maxHp * 1.08);
+      this.hp = Math.min(this.hp, this.maxHp);
+      this.dmg = Math.floor(this.dmg * 0.78);
+      this.speed *= 0.95;
+      this.xpReward = Math.floor(this.xpReward * 1.06);
+      this.goldReward = Math.floor(this.goldReward * 1.08);
+    }
+    if (this.maxHp < 1) this.maxHp = 1;
+    if (this.hp > this.maxHp) this.hp = this.maxHp;
+    if (this.dmg < 1) this.dmg = 1;
+  }
+
+  _rollRespawnTime() {
+    if (!this.campId) return 30 + Math.random() * 30;
+    if (this.campTier === "heroic") return 24 + Math.random() * 14;
+    if (this.campTier === "elite") return 18 + Math.random() * 12;
+    return 14 + Math.random() * 10;
   }
 
   takeDamage(amount) {
@@ -6259,6 +6738,7 @@ class Monster {
     } else if (this.state === "idle") {
       this.state = "chase";
     }
+    if (this.state !== "dying") this.alertAlliesTimer = 1.2;
   }
 
   update(dt, map, player) {
@@ -6271,13 +6751,14 @@ class Monster {
         this.y = this.row * TILE_SIZE;
         this.state = "idle";
         this.respawnTimer = 0;
-        this.respawnTime = 30 + Math.random() * 30;
+        this.respawnTime = this._rollRespawnTime();
       }
       return;
     }
 
     if (this.hitFlash > 0) this.hitFlash -= dt;
     if (this.atkAnim > 0) this.atkAnim -= dt;
+    if (this.alertAlliesTimer > 0) this.alertAlliesTimer -= dt;
     this.animTimer += dt;
     if (this.animTimer >= 0.18) { this.animTimer = 0; this.animFrame = (this.animFrame + 1) % 4; }
 
@@ -6429,15 +6910,66 @@ class Monster {
       ctx.translate(-this.cx, -this.cy);
     }
 
+    // Boss / elemental aura
+    if (this.boss && living) {
+      const pulse = 0.6 + Math.sin(t * 3) * 0.15;
+      const auraColor = this.rangedKind === "fire" ? "rgba(255,80,20," + (pulse * 0.25) + ")" :
+                        this.rangedKind === "ice" ? "rgba(80,180,255," + (pulse * 0.25) + ")" :
+                        this.rangedKind === "poison" ? "rgba(120,255,60," + (pulse * 0.22) + ")" :
+                        "rgba(255,200,60," + (pulse * 0.18) + ")";
+      const rg = ctx.createRadialGradient(this.cx, this.cy + 4, 4, this.cx, this.cy + 4, Math.max(this.w, this.h) * 0.9);
+      rg.addColorStop(0, "rgba(0,0,0,0)");
+      rg.addColorStop(0.5, auraColor);
+      rg.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.fillStyle = rg;
+      ctx.fillRect(this.cx - this.w, this.cy - this.h, this.w * 2, this.h * 2);
+    }
+
     drawMonsterSprite(ctx, this.type, this.x, this.y, this.direction, this.animFrame, this.hitFlash, this.atkAnim, this.w, this.h, this.state);
 
+    // Universal hit flash overlay
+    if (this.hitFlash > 0 && living) {
+      const flashAlpha = Math.min(0.5, this.hitFlash * 1.2);
+      ctx.fillStyle = "rgba(255,240,240," + flashAlpha + ")";
+      ctx.fillRect(this.x - 2, this.y - 2, this.w + 4, this.h + 4);
+    }
+
     if (this.state !== "dying") {
-      const barW = 22, barH = 3;
-      const bx = this.cx - barW / 2, by = this.y - 6;
-      ctx.fillStyle = "rgba(0,0,0,0.6)";
-      ctx.fillRect(bx - 1, by - 1, barW + 2, barH + 2);
-      ctx.fillStyle = this.hp > this.maxHp * 0.5 ? "#40c040" : this.hp > this.maxHp * 0.25 ? "#d0a030" : "#d04040";
-      ctx.fillRect(bx, by, barW * (this.hp / this.maxHp), barH);
+      const barW = this.boss ? 34 : 24;
+      const barH = this.boss ? 5 : 4;
+      const bx = this.cx - barW / 2;
+      const by = this.y - (this.boss ? 10 : 7);
+      ctx.fillStyle = "rgba(10,10,18,0.85)";
+      roundRect(ctx, bx - 1, by - 1, barW + 2, barH + 2, 2);
+      ctx.fill();
+      ctx.strokeStyle = "rgba(140,140,160,0.45)";
+      ctx.lineWidth = 0.5;
+      roundRect(ctx, bx - 1, by - 1, barW + 2, barH + 2, 2);
+      ctx.stroke();
+      const hpRatio = Math.max(0, this.hp / this.maxHp);
+      const hpGrad = ctx.createLinearGradient(bx, by, bx, by + barH);
+      if (hpRatio > 0.5) { hpGrad.addColorStop(0, "#55e065"); hpGrad.addColorStop(1, "#30a040"); }
+      else if (hpRatio > 0.25) { hpGrad.addColorStop(0, "#f0c840"); hpGrad.addColorStop(1, "#c08020"); }
+      else { hpGrad.addColorStop(0, "#ff5050"); hpGrad.addColorStop(1, "#a02020"); }
+      roundRect(ctx, bx, by, barW * hpRatio, barH, 1.5);
+      ctx.fillStyle = hpGrad;
+      ctx.fill();
+      ctx.strokeStyle = "rgba(0,0,0,0.35)";
+      ctx.lineWidth = 0.5;
+      const segCount = this.boss ? 4 : 3;
+      for (let si = 1; si < segCount; si++) {
+        const sx = bx + (barW * si / segCount);
+        ctx.beginPath(); ctx.moveTo(sx, by); ctx.lineTo(sx, by + barH); ctx.stroke();
+      }
+    }
+
+    // Aggro indicator for non-boss enemies
+    if (living && (this.state === "chase" || this.state === "attack") && !this.boss) {
+      const agPulse = 0.5 + Math.sin(t * 7) * 0.5;
+      ctx.fillStyle = "rgba(255,60,60," + (agPulse * 0.35) + ")";
+      ctx.beginPath();
+      ctx.arc(this.cx, this.y - 2, 3 + agPulse * 2, 0, Math.PI * 2);
+      ctx.fill();
     }
 
     if (this.state === "dying") {
@@ -6447,12 +6979,26 @@ class Monster {
     ctx.restore();
     const mt = MONSTER_TYPES[this.type];
     const nm = (mt && mt.name) ? mt.name : this.type;
+    const lvName = (this.ultraBoss ? "ULTRA " : "") + "Lv." + this.level + " " + nm;
     const danger = typeof player !== "undefined" && player && isMonsterDangerousForPlayerLevel(this, player.level);
-    drawEntityNameLabel(ctx, this.cx, this.y - 20, nm, {
-      color: danger ? "#ff4a4a" : "#ffffff",
-      border: danger ? "rgba(90, 20, 20, 0.7)" : "rgba(200, 200, 210, 0.35)",
-      bg: danger ? "rgba(26, 8, 8, 0.82)" : "rgba(8, 10, 22, 0.78)",
-    });
+    const showLabel = !touchState.mobileUI || this.boss ||
+      (typeof player !== "undefined" && player && this.distTo(player.centerX, player.centerY) <= TILE_SIZE * 7);
+    if (showLabel) {
+      const labelColor = danger ? "#ff4a4a" : (this.boss ? "#ffd060" : "#ffffff");
+      const labelBorder = danger ? "rgba(90, 20, 20, 0.7)" : (this.boss ? "rgba(180, 140, 40, 0.6)" : "rgba(200, 200, 210, 0.35)");
+      const labelBg = danger ? "rgba(26, 8, 8, 0.82)" : (this.boss ? "rgba(36, 24, 4, 0.88)" : "rgba(8, 10, 22, 0.78)");
+      drawEntityNameLabel(ctx, this.cx, this.y - 20, lvName, {
+        color: labelColor,
+        border: labelBorder,
+        bg: labelBg,
+      });
+      if (this.boss) {
+        ctx.fillStyle = "#ffd060";
+        ctx.font = "bold 10px monospace";
+        ctx.fillText("\u2605", this.cx - ctx.measureText(lvName).width / 2 - 12, this.y - 20);
+      }
+    }
+    // İstek doğrultusunda etiket sadece "Lv + isim".
   }
 }
 
@@ -7052,6 +7598,119 @@ class PetPanel {
   }
 }
 
+/* ── Bank Panel ─────────────────────────────────────────── */
+class BankPanel {
+  constructor() {
+    this.open = false;
+    this.slots = Array(160).fill(null);
+    this.gold = 0;
+  }
+  toggle() { this.open = !this.open; }
+  close() { this.open = false; }
+  _stackKey(s) { return (s && s.id ? s.id : "") + "|" + getStackUpgradeLv(s || {}); }
+  _copyStack(s, countOverride) {
+    if (!s) return null;
+    const t = { id: s.id, count: Math.max(1, countOverride != null ? countOverride : (s.count | 0)) };
+    if (s.upgrade != null) t.upgrade = s.upgrade | 0;
+    if (s.durability != null) t.durability = s.durability | 0;
+    return t;
+  }
+  addStack(stack) {
+    if (!stack || !stack.id || stack.count <= 0) return stack ? stack.count : 0;
+    const def = ITEMS[stack.id];
+    if (!def) return stack.count | 0;
+    let left = stack.count | 0;
+    if (def.stackable) {
+      for (let i = 0; i < this.slots.length && left > 0; i++) {
+        const s = this.slots[i];
+        if (!s || s.id !== stack.id || !stackUpgradesMatch(s, stack)) continue;
+        const room = def.maxStack - (s.count | 0);
+        if (room <= 0) continue;
+        const take = Math.min(room, left);
+        s.count += take;
+        left -= take;
+      }
+    }
+    for (let i = 0; i < this.slots.length && left > 0; i++) {
+      if (this.slots[i]) continue;
+      const take = Math.min(def.maxStack || 1, left);
+      this.slots[i] = this._copyStack(stack, take);
+      left -= take;
+    }
+    return left;
+  }
+  depositAllFromInventory(inv) {
+    let moved = 0;
+    for (const container of [inv.hotbar, inv.slots]) {
+      for (let i = 0; i < container.length; i++) {
+        const s = container[i];
+        if (!s || s.id === "coin") continue;
+        const left = this.addStack(s);
+        const movedNow = (s.count | 0) - left;
+        if (movedNow > 0) moved += movedNow;
+        if (left <= 0) container[i] = null;
+        else s.count = left;
+      }
+    }
+    return moved;
+  }
+  withdrawAllToInventory(inv) {
+    let moved = 0;
+    for (let i = 0; i < this.slots.length; i++) {
+      const s = this.slots[i];
+      if (!s) continue;
+      const left = inv.addItem(s.id, s.count, getStackUpgradeLv(s), s);
+      const movedNow = (s.count | 0) - left;
+      if (movedNow > 0) moved += movedNow;
+      if (left <= 0) this.slots[i] = null;
+      else s.count = left;
+    }
+    return moved;
+  }
+  depositAllGoldFromInventory(inv) {
+    const g = Math.max(0, inv.gold | 0);
+    if (g <= 0) return 0;
+    this.gold += g;
+    inv.gold = 0;
+    return g;
+  }
+  withdrawAllGoldToInventory(inv) {
+    const g = Math.max(0, this.gold | 0);
+    if (g <= 0) return 0;
+    inv.gold += g;
+    this.gold = 0;
+    return g;
+  }
+  usedSlots() {
+    let n = 0;
+    for (const s of this.slots) if (s) n++;
+    return n;
+  }
+  render(ctx, cw, ch) {
+    if (!this.open) return;
+    const w = Math.min(560, cw - 40);
+    const h = Math.min(280, ch - 40);
+    const x = Math.floor((cw - w) / 2);
+    const y = Math.floor((ch - h) / 2);
+    ctx.fillStyle = "rgba(0,0,0,0.55)";
+    ctx.fillRect(0, 0, cw, ch);
+    ctx.fillStyle = "rgba(16,20,44,0.96)";
+    ctx.strokeStyle = "#6f84c0";
+    ctx.lineWidth = 2;
+    roundRect(ctx, x, y, w, h, 12); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = "#e8f0ff";
+    ctx.font = "bold 16px monospace";
+    ctx.fillText("Banka", x + 16, y + 30);
+    ctx.font = "11px monospace";
+    ctx.fillStyle = "#a8c0f0";
+    ctx.fillText("Slot: " + this.usedSlots() + "/" + this.slots.length, x + 16, y + 50);
+    ctx.fillText("Banka Altin: " + formatGold(this.gold), x + 220, y + 50);
+    ctx.fillStyle = "#9ca8c8";
+    ctx.fillText("[N] Kapat  [J] Envanteri Yatir  [K] Envantere Cek", x + 16, y + h - 34);
+    ctx.fillText("[H] Altin Yatir  [G] Altin Cek", x + 16, y + h - 16);
+  }
+}
+
 /* ── Shop / Market ───────────────────────────────────────── */
 
 const SHOP_SLOT = 44, SHOP_GAP = 4;
@@ -7080,6 +7739,7 @@ class Shop {
     this.feedbackColor = "#50e050";
     this.buyFilter = "all";
     this.buySort = "default";
+    this.sellRarityFilter = "all";
     this.sellPicker = null;
     /** Sat\u0131n al onay diyalo\u011fu: { stockIndex, itemId } */
     this.buyPicker = null;
@@ -7109,6 +7769,7 @@ class Shop {
     this.gridScrollTouchId = -1;
     this.buyFilter = "all";
     this.buySort = "default";
+    this.sellRarityFilter = "all";
   }
 
   rebuildStockFromTemplate() {
@@ -7274,6 +7935,10 @@ class Shop {
   }
 
   _buyGridY(L) {
+    if (this.tab === 1) {
+      const sCtl = this._sellRarityControlsLayout(L);
+      return sCtl.bulkBtn.y + sCtl.bulkBtn.h + 8;
+    }
     return L.gridYStart;
   }
 
@@ -7295,7 +7960,7 @@ class Shop {
 
   _maxScrollSell(L, inventory) {
     const rowStride = this._shopRowStride(L);
-    const n = this._getSellableEntries(inventory).length;
+    const n = this._getFilteredSellableEntries(inventory).length;
     const cols = L.shopCols;
     const rows = Math.ceil(Math.max(1, n) / cols);
     const totalH = rows * rowStride;
@@ -7350,6 +8015,77 @@ class Shop {
       }
     }
     return sellable;
+  }
+
+  _sellFilterLabel() {
+    if (this.sellRarityFilter === "common") return "Siradan";
+    if (this.sellRarityFilter === "rare") return "Nadir";
+    if (this.sellRarityFilter === "epic") return "Epik";
+    if (this.sellRarityFilter === "legendary") return "Efsanevi";
+    return "Tum";
+  }
+
+  _sellRarityControlsLayout(L) {
+    const y = L.tabY + L.tabH + 8;
+    const h = L.shopLand ? 18 : 22;
+    const gap = 4;
+    const labels = [
+      { id: "all", label: "Tum" },
+      { id: "common", label: "Siradan" },
+      { id: "rare", label: "Nadir" },
+      { id: "epic", label: "Epik" },
+      { id: "legendary", label: "Efs." },
+    ];
+    const avail = L.pw - 24 - gap * (labels.length - 1);
+    const fw = Math.max(40, Math.floor(avail / labels.length));
+    const filters = [];
+    let x = L.px + 12;
+    for (const it of labels) {
+      filters.push({ id: it.id, label: it.label, x, y, w: fw, h });
+      x += fw + gap;
+    }
+    const bulkBtn = { x: L.px + 12, y: y + h + 6, w: Math.min(220, L.pw - 24), h: L.shopLand ? 18 : 22 };
+    return { filters, bulkBtn };
+  }
+
+  _getFilteredSellableEntries(inventory) {
+    const src = this._getSellableEntries(inventory);
+    if (this.sellRarityFilter === "all") return src;
+    return src.filter((e) => {
+      const d = ITEMS[e.slot.id];
+      const r = d && d.rarity ? d.rarity : "common";
+      return r === this.sellRarityFilter;
+    });
+  }
+
+  _sellAllByRarity(inventory) {
+    const list = this._getFilteredSellableEntries(inventory);
+    if (!list.length) {
+      this._showFeedback("Filtrede satilacak esya yok.", "#d04040");
+      return;
+    }
+    let totalGold = 0;
+    let totalItems = 0;
+    let skippedItems = 0;
+    for (const e of list) {
+      const slot = e.containerRef[e.slotIdx];
+      if (!slot || slot.id !== e.slot.id) continue;
+      const d = ITEMS[slot.id];
+      if (!d || d.sellPrice <= 0) continue;
+      // Oklar, iksirler ve efsanevi esyalar toplu satista korunur
+      if (slot.id === "arrow" || slot.id.startsWith("potion") || d.rarity === "legendary") {
+        skippedItems += slot.count | 0;
+        continue;
+      }
+      totalItems += slot.count | 0;
+      totalGold += (slot.count | 0) * d.sellPrice;
+      e.containerRef[e.slotIdx] = null;
+    }
+    if (totalGold > 0) inventory.addItem("coin", totalGold);
+    this.sellPicker = null;
+    let msg = totalItems + " esya toplu satildi! +" + totalGold + " altin";
+    if (skippedItems > 0) msg += " (" + skippedItems + " esya korundu: ok/iksir/efsanevi)";
+    this._showFeedback(msg, "#f0d050");
   }
 
   _sellPickerLiveSlot(picker, inventory) {
@@ -7551,7 +8287,7 @@ class Shop {
     const tailH = nameLinesAll.length > nameLines.length ? (mob ? 12 : 11) : 0;
     const headerExtra = Math.max(0, nameStart + nameLines.length * nameLineH + tailH - iszPre - statsGapPre);
 
-    const innerMax = Math.max(72, dw - 40);
+    const innerMax = Math.max(200, dw - 48);
     const statsLayout = buildItemTooltipLayout(ctx, def, si.id, L.pw, mob, { omitPrices: true, omitIdentity: true, innerMax });
     this._buyPickerMetrics = { itemId: si.id, statsH: statsLayout.th, headerExtra };
     const B = this._buyPickerLayout(L);
@@ -7595,27 +8331,16 @@ class Shop {
 
     const statsBoxH = B.statsBlockH + 6;
     ctx.fillStyle = "rgba(0,0,0,0.28)";
-    roundRect(ctx, d.x + 10, B.statsY - 4, d.w - 20, Math.max(statsBoxH, statsLayout.th + 4), 6);
+    roundRect(ctx, d.x + 10, B.statsY - 4, d.w - 20, statsBoxH, 6);
     ctx.fill();
     ctx.save();
     ctx.beginPath();
-    roundRect(ctx, d.x + 8, B.statsY - 6, d.w - 16, Math.max(statsBoxH, statsLayout.th + 6) + 2, 6);
+    roundRect(ctx, d.x + 8, B.statsY - 6, d.w - 16, statsBoxH + 2, 6);
     ctx.clip();
-    drawItemTooltipTextOnly(ctx, d.x + 14 - statsLayout.padX, B.statsY, statsLayout, mob);
+    drawItemTooltipTextOnly(ctx, d.x + 14 - statsLayout.padX, B.statsY, statsLayout, mob, d.w - 28);
     ctx.restore();
 
-    const gFont = mob ? "13px monospace" : "11px monospace";
-    const gY = B.goldY;
-    ctx.fillStyle = "#c8d8f0";
-    ctx.font = gFont;
-    ctx.fillText("Birim fiyat: " + price + " alt\u0131n", d.x + 16, gY + (mob ? 14 : 12));
-    ctx.fillText("En fazla al\u0131nabilir: " + maxB + " adet", d.x + 16, gY + (mob ? 34 : 30));
-    ctx.fillStyle = gold >= total ? "#d8e8b0" : "#e8b0a0";
-    ctx.fillText("Paran: " + gold + " alt\u0131n", d.x + 16, gY + (mob ? 54 : 48));
-
-    ctx.fillStyle = "#d8e0f8";
-    ctx.font = mob ? "13px monospace" : "11px monospace";
-    ctx.fillText("Adet: " + amt + "  \u2192  Toplam: " + total + " alt\u0131n", d.x + 16, B.adetY + (mob ? 14 : 12));
+    // Bilgi satirlari (birim fiyat / en fazla / para / adet-toplam) gizlendi.
 
     const tr = B.track;
     ctx.fillStyle = "rgba(0,0,0,0.45)";
@@ -7848,6 +8573,19 @@ class Shop {
       }
     } else {
       if (button !== 0) return true;
+      const sCtl = this._sellRarityControlsLayout(L);
+      for (const f of sCtl.filters) {
+        if (this._pointInRect(mx, my, f)) {
+          this.sellRarityFilter = f.id;
+          this.scrollSell = 0;
+          this.sellPicker = null;
+          return true;
+        }
+      }
+      if (this._pointInRect(mx, my, sCtl.bulkBtn)) {
+        this._sellAllByRarity(inventory);
+        return true;
+      }
       const U0 = this._sellPickerLayout(L);
       if (this.sellPicker) {
         const live0 = this._sellPickerLiveSlot(this.sellPicker, inventory);
@@ -7888,7 +8626,7 @@ class Shop {
           this.sellPicker = null;
         }
       }
-      const sellable = this._getSellableEntries(inventory);
+      const sellable = this._getFilteredSellableEntries(inventory);
       for (let i = 0; i < sellable.length; i++) {
         const row = Math.floor(i / L.shopCols), col = i % L.shopCols;
         const sx = gridX + col * (L.shopSlot + L.shopGap);
@@ -7988,11 +8726,16 @@ class Shop {
         }
       }
     } else {
+      const sCtl = this._sellRarityControlsLayout(L);
+      for (const f of sCtl.filters) {
+        if (this._pointInRect(mx, my, f)) return;
+      }
+      if (this._pointInRect(mx, my, sCtl.bulkBtn)) return;
       if (this.sellPicker) {
         const U = this._sellPickerLayout(L);
         if (this._pointInRect(mx, my, U.dialog)) return;
       }
-      const sellable = this._getSellableEntries(inventory);
+      const sellable = this._getFilteredSellableEntries(inventory);
       for (let i = 0; i < sellable.length; i++) {
         const row = Math.floor(i / L.shopCols), col = i % L.shopCols;
         const sx = gridX + col * (L.shopSlot + L.shopGap);
@@ -8068,6 +8811,30 @@ class Shop {
       ctx.fillStyle = "#d8e4ff";
       ctx.font = land ? "bold 9px monospace" : "bold 10px monospace";
       ctx.fillText(sortLabel, srt.x + (srt.w - ctx.measureText(sortLabel).width) / 2, srt.y + (land ? 12 : 15));
+    } else {
+      const sCtl = this._sellRarityControlsLayout(L);
+      for (const f of sCtl.filters) {
+        const active = this.sellRarityFilter === f.id;
+        ctx.fillStyle = active ? "rgba(160,120,62,0.42)" : "rgba(36,40,62,0.72)";
+        ctx.strokeStyle = active ? "#f0c070" : "#5a6288";
+        ctx.lineWidth = active ? 1.4 : 1;
+        roundRect(ctx, f.x, f.y, f.w, f.h, 4);
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = active ? "#fff0d8" : "#aeb6d6";
+        ctx.font = land ? "bold 9px monospace" : "bold 10px monospace";
+        ctx.fillText(f.label, f.x + (f.w - ctx.measureText(f.label).width) / 2, f.y + (land ? 12 : 15));
+      }
+      const b = sCtl.bulkBtn;
+      ctx.fillStyle = "rgba(120,80,40,0.9)";
+      ctx.strokeStyle = "#d8a060";
+      roundRect(ctx, b.x, b.y, b.w, b.h, 4);
+      ctx.fill();
+      ctx.stroke();
+      const bl = this._sellFilterLabel() + " -> Tumunu sat";
+      ctx.fillStyle = "#fff0dc";
+      ctx.font = land ? "bold 9px monospace" : "bold 10px monospace";
+      ctx.fillText(bl, b.x + (b.w - ctx.measureText(bl).width) / 2, b.y + (land ? 12 : 15));
     }
 
     const rotLeft = Math.max(0, SHOP_SPECIAL_ROTATE_SEC - this.specialT);
@@ -8328,7 +9095,7 @@ class Shop {
   }
 
   _renderSellTab(ctx, gridX, gridY, inventory, L) {
-    const sellable = this._getSellableEntries(inventory);
+    const sellable = this._getFilteredSellableEntries(inventory);
     const rowStride = this._shopRowStride(L);
     const s = L.shopSlot;
 
@@ -8449,6 +9216,42 @@ class HUD {
   clearInteractPrompt()    { this.interactPrompt = null; }
 
   render(ctx, canvasW, canvasH) {
+    if (typeof player !== "undefined" && player) {
+      const px = Math.floor(player.centerX);
+      const py = Math.floor(player.centerY);
+      const col = Math.max(0, Math.floor(px / TILE_SIZE));
+      const row = Math.max(0, Math.floor(py / TILE_SIZE));
+      let zone = "";
+      for (const m of monsters) {
+        if (!m || !m.alive || !m.campId) continue;
+        const d = Math.hypot(m.cx - player.centerX, m.cy - player.centerY);
+        if (d <= TILE_SIZE * 7) {
+          const meta = getCampMetaById(m.campId);
+          zone = meta && meta.name ? meta.name : "Canavar Kampı";
+          break;
+        }
+      }
+      const coordText = touchState.mobileUI
+        ? ("Koord X:" + px + " Y:" + py + " | C:" + col + " R:" + row)
+        : ("Koord X:" + px + " Y:" + py + "  |  Kare C:" + col + " R:" + row + (zone ? "  |  Bölge: " + zone : ""));
+      ctx.font = touchState.mobileUI ? "10px monospace" : "11px monospace";
+      const tw = ctx.measureText(coordText).width;
+      const padX = 8;
+      const boxW = tw + padX * 2;
+      const boxH = 20;
+      const x = 8;
+      const y = canvasH - boxH - (touchState.mobileUI ? 24 : 26);
+      ctx.fillStyle = "rgba(8, 12, 30, 0.78)";
+      roundRect(ctx, x, y, boxW, boxH, 5);
+      ctx.fill();
+      ctx.strokeStyle = "rgba(110, 130, 180, 0.55)";
+      ctx.lineWidth = 1;
+      roundRect(ctx, x, y, boxW, boxH, 5);
+      ctx.stroke();
+      ctx.fillStyle = "#d8e6ff";
+      ctx.fillText(coordText, x + padX, y + 13);
+    }
+
     if (this.interactPrompt) {
       ctx.font = "12px monospace";
       const tw = ctx.measureText(this.interactPrompt).width + 24;
@@ -8490,12 +9293,14 @@ function layoutCombatPotions(cw, ch) {
   if (touchState.mobileUI) {
     const G = mobileCombatClusterGeom(cw, ch);
     const potW = 42, potH = 42, innerGap = 10;
-    const hpX = Math.round(G.centerX - G.atkR - potW - 14);
-    const hpY = Math.round(G.centerY - potH - 6);
+    /** Sola al: sa\u011f alt 3l\u00fc vuru\u015f/zoom \u00fcst \u00fcste binmesin. */
+    const margin = 10;
+    const hpX = margin;
+    const hpY = Math.max(52, Math.min(G.centerY - 100, ch - 180));
     const manaX = hpX;
     const manaY = Math.round(hpY + potH + innerGap);
     combatTownTeleportRect = null;
-    combatZoomRect = { x: hpX + 4, y: hpY - 34, w: 30, h: 30, key: "+" };
+    combatZoomRect = { x: margin, y: Math.max(44, hpY - 36), w: 32, h: 32, key: "+" };
     combatPotionRects = [
       { kind: "hp", x: hpX, y: hpY, w: potW, h: potH, key: "Q" },
       { kind: "mana", x: manaX, y: manaY, w: potW, h: potH, key: "R" },
@@ -8704,12 +9509,18 @@ function tryAutoPickupNearbyWorldItems() {
   }
   if (!best) return;
   const before = best.count;
-  if (!best.tryPickup(inventory)) return;
+  if (!best.tryPickup(inventory)) {
+    const d = ITEMS[best.itemId];
+    if (!d) pickupMsgText = "Bu esya tanimsiz: " + String(best.itemId);
+    else pickupMsgText = inventory.countAddable(best.itemId, before) <= 0 ? "Envanter dolu!" : "Esya eklenemedi.";
+    pickupMsgTimer = 1.2;
+    return;
+  }
   const picked = before - best.count;
   const def = ITEMS[best.itemId];
   if (picked > 0 && def) {
     gameAudio.playPickup();
-    pickupMsgText = "+" + picked + " " + def.name;
+    pickupMsgText = "+" + picked + " " + def.name + " (envanter)";
     pickupMsgTimer = 1.1;
     actionCooldown = Math.max(actionCooldown, 0.06);
   }
@@ -8751,22 +9562,79 @@ function tryOpenWorldItemInspect(smx, smy) {
   return true;
 }
 
-function renderInspectStatLinesFitted(ctx, lines, x, startY, maxY, mobile) {
+function renderInspectStatLinesFitted(ctx, lines, x, startY, maxY, mobile, contentW) {
   if (!lines || !lines.length) return startY;
-  const avail = Math.max(8, maxY - startY);
+  const w = contentW != null ? contentW : 280;
+  const colGap = 10;
+  const colW = Math.max(50, (w - colGap) / 2);
+  const splitN = Math.ceil(lines.length / 2);
+  const left = lines.slice(0, splitN);
+  const right = lines.slice(splitN);
+  const colRows = Math.max(left.length, right.length);
   const lineHBase = mobile ? 19 : 15;
-  const needBase = lines.length * lineHBase;
-  const compact = needBase > avail;
+  const avail = Math.max(8, maxY - startY);
+  const needH = colRows * lineHBase;
+  const compact = needH > avail;
   const lineH = compact ? (mobile ? 14 : 12) : lineHBase;
+  const c2x = x + colW + colGap;
   let y = startY;
-  for (const ln of lines) {
+  for (let i = 0; i < colRows; i++) {
     if (y > maxY) break;
-    ctx.font = compact ? (mobile ? "11px monospace" : "10px monospace") : ln.font;
-    ctx.fillStyle = ln.color;
-    ctx.fillText(ln.text, x, y);
+    if (left[i]) {
+      ctx.font = compact ? (mobile ? "11px monospace" : "10px monospace") : left[i].font;
+      ctx.fillStyle = left[i].color;
+      ctx.fillText(left[i].text, x, y);
+    }
+    if (right[i]) {
+      ctx.font = compact ? (mobile ? "11px monospace" : "10px monospace") : right[i].font;
+      ctx.fillStyle = right[i].color;
+      ctx.fillText(right[i].text, c2x, y);
+    }
     y += lineH;
   }
   return y;
+}
+
+function renderInspectStatLinesScrollable(ctx, lines, x, startY, maxY, mobile, scrollY, contentW) {
+  if (!lines || !lines.length) return { y: startY, maxScroll: 0, lineH: mobile ? 14 : 12 };
+  const w = contentW != null ? contentW : 280;
+  const colGap = 10;
+  const colW = Math.max(50, (w - colGap) / 2);
+  const c2x = x + colW + colGap;
+  const splitN = Math.ceil(lines.length / 2);
+  const left = lines.slice(0, splitN);
+  const right = lines.slice(splitN);
+  const colRows = Math.max(left.length, right.length);
+  const avail = Math.max(20, maxY - startY);
+  const lineHBase = mobile ? 19 : 15;
+  const needH = colRows * lineHBase;
+  const compact = needH > avail;
+  const lineH = compact ? (mobile ? 14 : 12) : lineHBase;
+  const contentH = colRows * lineH;
+  const maxScroll = Math.max(0, contentH - avail);
+  const off = Math.max(0, Math.min(maxScroll, scrollY || 0));
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(x - 4, startY - lineH, 10000, avail + lineH * 2);
+  ctx.clip();
+  for (let i = 0; i < colRows; i++) {
+    const rowY = startY - off + i * lineH;
+    if (rowY > startY - lineH && rowY <= maxY + lineH) {
+      if (left[i]) {
+        ctx.font = compact ? (mobile ? "11px monospace" : "10px monospace") : left[i].font;
+        ctx.fillStyle = left[i].color;
+        ctx.fillText(left[i].text, x, rowY);
+      }
+      if (right[i]) {
+        ctx.font = compact ? (mobile ? "11px monospace" : "10px monospace") : right[i].font;
+        ctx.fillStyle = right[i].color;
+        ctx.fillText(right[i].text, c2x, rowY);
+      }
+    }
+  }
+  ctx.restore();
+  return { y: Math.min(maxY, startY + contentH), maxScroll, lineH };
 }
 
 function worldItemInspectLayout(cw, ch) {
@@ -8817,7 +9685,9 @@ function handleWorldItemInspectClick(mx, my, cw, ch) {
       player.applyEquipmentBonus(inventory);
       if (!wi.alive || wi.count <= 0) closeWorldItemInspect();
     } else {
-      pickupMsgText = "Envanter dolu!";
+      const d = ITEMS[wi.itemId];
+      if (!d) pickupMsgText = "Bu esya tanimsiz: " + String(wi.itemId);
+      else pickupMsgText = inventory.countAddable(wi.itemId, before) <= 0 ? "Envanter dolu!" : "Esya eklenemedi.";
       pickupMsgTimer = 1.2;
     }
     return true;
@@ -8881,16 +9751,28 @@ function renderWorldItemInspect(ctx, cw, ch) {
     ctx.fillText(RARITY_LABEL_TR[def.rarity] || def.rarity, ix + iconS + 14, iy + 38);
   }
 
-  const layoutTt = buildItemTooltipLayout(ctx, def, wi.itemId, cw, touchState.mobileUI, { omitPrices: true, omitIdentity: true, upgradeLv: uWiPre }, []);
+  const layoutTt = buildItemTooltipLayout(ctx, def, wi.itemId, cw, touchState.mobileUI, { omitPrices: true, omitIdentity: true, upgradeLv: uWiPre, innerMax: Math.max(200, L.pw - 40) }, []);
   let ty = iy + iconS + 12;
   const maxY = L.btnEquip.y - 8;
-  const cmpLines = buildInspectCompareLines(def, { id: wi.itemId, count: 1, upgrade: uWiPre }, "world", "world");
-  const allLines = layoutTt.lines.concat(cmpLines.map((r) => ({
-    text: r.text,
-    color: r.color || "#b8c8e8",
-    font: touchState.mobileUI ? "11px monospace" : "10px monospace",
-  })));
-  ty = renderInspectStatLinesFitted(ctx, allLines, L.px + 16, ty, maxY, touchState.mobileUI);
+  const allLines = layoutTt.lines;
+  const scrollRes = renderInspectStatLinesScrollable(ctx, allLines, L.px + 16, ty, maxY, touchState.mobileUI, inventoryInspectScrollY, L.pw - 32);
+  inventoryInspectScrollMax = scrollRes.maxScroll;
+  inventoryInspectScrollY = Math.max(0, Math.min(inventoryInspectScrollMax, inventoryInspectScrollY));
+  inventoryInspectScrollRect = {
+    x: L.px + 12,
+    y: ty - scrollRes.lineH,
+    w: L.pw - 24,
+    h: Math.max(24, maxY - ty + scrollRes.lineH + 8),
+  };
+  if (inventoryInspectScrollMax > 0) {
+    const topA = inventoryInspectScrollY > 0 ? 0.55 : 0.2;
+    const botA = inventoryInspectScrollY < inventoryInspectScrollMax ? 0.55 : 0.2;
+    ctx.fillStyle = "rgba(180, 195, 230, " + topA + ")";
+    ctx.font = "bold 10px monospace";
+    ctx.fillText("▲", L.px + L.pw - 24, ty - 2);
+    ctx.fillStyle = "rgba(180, 195, 230, " + botA + ")";
+    ctx.fillText("▼", L.px + L.pw - 24, maxY + 2);
+  }
 
   const eqCands0 = equipSlotsForItemDef(def);
   const canEq = eqCands0.some((sk) => {
@@ -8957,11 +9839,11 @@ function fbm(x, y, oct) {
   return v / tot;
 }
 
-const WORLD_COLS = 680, WORLD_ROWS = 500;
+const WORLD_COLS = 900, WORLD_ROWS = 680;
 const VCOLS = 40, VROWS = 30;
 const VOX = Math.floor((WORLD_COLS - VCOLS) / 2);
 const VOY = Math.floor((WORLD_ROWS - VROWS) / 2);
-const BASE_WORLD_COLS = 500, BASE_WORLD_ROWS = 360;
+const BASE_WORLD_COLS = 660, BASE_WORLD_ROWS = 480;
 const ISLAND_OFFSET_X = Math.floor((WORLD_COLS - BASE_WORLD_COLS) / 2);
 const ISLAND_OFFSET_Y = Math.floor((WORLD_ROWS - BASE_WORLD_ROWS) / 2);
 
@@ -9003,6 +9885,38 @@ const ISLANDS = [
     monsters: ["dune_raider","skeleton","crystalline","orc"], scale: 0.95, boss: "dune_raider" },
   { cx: 465, cy: 100, rx: 18, ry: 16, r: 16, biome: "rain", name: "Yosun \u0130skele",
     monsters: ["vine_horror","slime","wolf","storm_wraith","vine_horror"], scale: 1.15, boss: "flower_queen" },
+  { cx: 252, cy: 152, rx: 14, ry: 10, r: 12, biome: "forest", name: "Yeşil Adacık I",
+    monsters: ["slime","wolf","slime","ancient_root"], scale: 0.9, boss: "wolf" },
+  { cx: 282, cy: 166, rx: 12, ry: 10, r: 11, biome: "forest", name: "Yeşil Adacık II",
+    monsters: ["slime","wolf","skeleton","slime"], scale: 0.95, boss: "slime" },
+  { cx: 300, cy: 192, rx: 13, ry: 11, r: 12, biome: "rain", name: "Sazlık Adacığı",
+    monsters: ["slime","vine_horror","wolf","spore_creeper"], scale: 1.0, boss: "spore_creeper" },
+  { cx: 244, cy: 214, rx: 14, ry: 12, r: 12, biome: "forest", name: "Çam Adacığı",
+    monsters: ["wolf","ancient_root","slime","wolf"], scale: 1.05, boss: "ancient_root" },
+  { cx: 210, cy: 198, rx: 12, ry: 9, r: 10, biome: "forest", name: "Dere Adacığı",
+    monsters: ["slime","slime","wolf","bog_troll"], scale: 0.92, boss: "wolf" },
+  { cx: 214, cy: 164, rx: 13, ry: 10, r: 11, biome: "rain", name: "Yosun Adacığı",
+    monsters: ["slime","wolf","spore_creeper","vine_horror"], scale: 1.0, boss: "spore_creeper" },
+  { cx: 540, cy: 80, rx: 34, ry: 26, r: 28, biome: "snow", name: "Buzul Zirve",
+    monsters: ["frost_spirit","crystalline","dark_knight","void_hound"], scale: 1.8, boss: "ice_queen" },
+  { cx: 580, cy: 200, rx: 30, ry: 24, r: 26, biome: "forest", name: "Gizemli Koru",
+    monsters: ["wolf","ancient_root","vine_horror","bog_troll"], scale: 1.4, boss: "forest_treant" },
+  { cx: 520, cy: 320, rx: 32, ry: 28, r: 28, biome: "desert", name: "Altın Kum",
+    monsters: ["dune_raider","skeleton","orc","crystalline"], scale: 1.7, boss: "desert_titan" },
+  { cx: 620, cy: 360, rx: 26, ry: 22, r: 24, biome: "volcanic", name: "Ateş Dişi",
+    monsters: ["iron_behemoth","crystalline","dune_raider","dark_knight"], scale: 2.1, boss: "skywing_dragon" },
+  { cx: 620, cy: 120, rx: 24, ry: 20, r: 22, biome: "storm", name: "Yıldırım Burnu",
+    monsters: ["storm_wraith","void_hound","crystalline","iron_behemoth"], scale: 2.0, boss: "thunder_lord" },
+  { cx: 420, cy: 380, rx: 28, ry: 24, r: 26, biome: "rain", name: "Bataklık Sahil",
+    monsters: ["vine_horror","spore_creeper","bog_troll","slime"], scale: 1.6, boss: "jungle_behemoth" },
+  { cx: 320, cy: 420, rx: 22, ry: 18, r: 20, biome: "barren", name: "Çatlak Düz",
+    monsters: ["golem","iron_behemoth","void_hound","crystalline"], scale: 1.9, boss: "rock_warden" },
+  { cx: 160, cy: 380, rx: 26, ry: 22, r: 24, biome: "mesa", name: "Batı Kıranı",
+    monsters: ["dune_raider","crystalline","iron_behemoth","storm_wraith"], scale: 1.8, boss: "dune_king" },
+  { cx: 480, cy: 440, rx: 20, ry: 16, r: 18, biome: "forest", name: "Güney Adacık",
+    monsters: ["slime","wolf","ancient_root","spore_creeper"], scale: 1.1, boss: "ancient_root" },
+  { cx: 600, cy: 280, rx: 18, ry: 16, r: 16, biome: "desert", name: "Kum Tepesi",
+    monsters: ["dune_raider","orc","skeleton","crystalline"], scale: 1.3, boss: "scorpion_king" },
 ];
 
 function islandWorldCenter(isl) {
@@ -9048,11 +9962,216 @@ function islandCellOwner(c, r) {
   return best;
 }
 
+function paintDisk(ground, detail, cx, cy, rad, tile, clearDetail) {
+  const r2 = rad * rad;
+  const minR = Math.max(0, Math.floor(cy - rad));
+  const maxR = Math.min(WORLD_ROWS - 1, Math.ceil(cy + rad));
+  const minC = Math.max(0, Math.floor(cx - rad));
+  const maxC = Math.min(WORLD_COLS - 1, Math.ceil(cx + rad));
+  for (let rr = minR; rr <= maxR; rr++) {
+    for (let cc = minC; cc <= maxC; cc++) {
+      const dx = cc - cx;
+      const dy = rr - cy;
+      if (dx * dx + dy * dy > r2) continue;
+      const idx = rr * WORLD_COLS + cc;
+      if (tile != null) ground[idx] = tile;
+      if (clearDetail) detail[idx] = -1;
+    }
+  }
+}
+
+function carveSplinePath(ground, detail, pts, brush, tile, clearDetail) {
+  if (!pts || pts.length < 2) return;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const a = pts[i], b = pts[i + 1];
+    const len = Math.max(Math.abs(b.x - a.x), Math.abs(b.y - a.y));
+    const steps = Math.max(8, len * 2);
+    for (let s = 0; s <= steps; s++) {
+      const t = s / steps;
+      const x = a.x + (b.x - a.x) * t;
+      const y = a.y + (b.y - a.y) * t;
+      const wob = (noise2D(x * 0.08 + i * 7.1, y * 0.08 + i * 9.3) - 0.5) * 2;
+      const meanderX = Math.sin(y * 0.06 + i * 3.7) * 1.6 + Math.cos(t * 6.2 + i) * 1.0;
+      const meanderY = Math.cos(x * 0.06 + i * 2.3) * 1.6 + Math.sin(t * 5.1 + i) * 1.0;
+      const rr = brush + wob * 1.8;
+      paintDisk(ground, detail, x + meanderX, y + meanderY, Math.max(1.2, rr), tile, clearDetail);
+    }
+  }
+}
+
+function applyWorldDesignPass(ground, detail) {
+  const vx = VOX + Math.floor(VCOLS / 2);
+  const vy = VOY + Math.floor(VROWS / 2);
+
+  // Ana yollar: köyden kuzey, doğu ve güney iskele bağlantısı.
+  carveSplinePath(ground, detail, [
+    { x: vx, y: vy + 2 }, { x: vx + 10, y: vy + 10 }, { x: vx + 24, y: vy + 32 }, { x: vx + 42, y: vy + 56 },
+  ], 2.2, T.DIRT, true);
+  carveSplinePath(ground, detail, [
+    { x: vx - 2, y: vy }, { x: vx - 18, y: vy - 8 }, { x: vx - 36, y: vy - 20 }, { x: vx - 54, y: vy - 32 },
+  ], 2.4, T.DIRT, true);
+  carveSplinePath(ground, detail, [
+    { x: vx + 1, y: vy + 4 }, { x: vx + 3, y: vy + 20 }, { x: vx + 4, y: vy + 40 }, { x: vx + 5, y: vy + 58 },
+  ], 1.9, T.STONE_FLOOR, true);
+
+  // Daha organik nehirler: ek kontrol noktaları + kıvrım.
+  carveSplinePath(ground, detail, [
+    { x: ISLAND_OFFSET_X + 40, y: ISLAND_OFFSET_Y + 86 },
+    { x: ISLAND_OFFSET_X + 90, y: ISLAND_OFFSET_Y + 104 },
+    { x: ISLAND_OFFSET_X + 132, y: ISLAND_OFFSET_Y + 114 },
+    { x: ISLAND_OFFSET_X + 180, y: ISLAND_OFFSET_Y + 96 },
+    { x: ISLAND_OFFSET_X + 220, y: ISLAND_OFFSET_Y + 98 },
+    { x: ISLAND_OFFSET_X + 270, y: ISLAND_OFFSET_Y + 118 },
+    { x: ISLAND_OFFSET_X + 322, y: ISLAND_OFFSET_Y + 126 },
+    { x: ISLAND_OFFSET_X + 380, y: ISLAND_OFFSET_Y + 108 },
+    { x: ISLAND_OFFSET_X + 430, y: ISLAND_OFFSET_Y + 112 },
+  ], 3.2, T.WATER, true);
+  carveSplinePath(ground, detail, [
+    { x: ISLAND_OFFSET_X + 66, y: ISLAND_OFFSET_Y + 226 },
+    { x: ISLAND_OFFSET_X + 110, y: ISLAND_OFFSET_Y + 236 },
+    { x: ISLAND_OFFSET_X + 156, y: ISLAND_OFFSET_Y + 212 },
+    { x: ISLAND_OFFSET_X + 210, y: ISLAND_OFFSET_Y + 256 },
+    { x: ISLAND_OFFSET_X + 272, y: ISLAND_OFFSET_Y + 244 },
+    { x: ISLAND_OFFSET_X + 340, y: ISLAND_OFFSET_Y + 218 },
+    { x: ISLAND_OFFSET_X + 404, y: ISLAND_OFFSET_Y + 228 },
+  ], 3.6, T.WATER, true);
+
+  // Kıyı parlatma + çiçek çayırları + dekoratif kayalar.
+  for (let r = 1; r < WORLD_ROWS - 1; r++) {
+    for (let c = 1; c < WORLD_COLS - 1; c++) {
+      const idx = r * WORLD_COLS + c;
+      const t = ground[idx];
+      if (t !== T.GRASS && t !== T.TALL_GRASS && t !== T.DIRT) continue;
+      let waterN = 0;
+      for (let dr = -1; dr <= 1; dr++) {
+        for (let dc = -1; dc <= 1; dc++) {
+          if (dr === 0 && dc === 0) continue;
+          const n = ground[(r + dr) * WORLD_COLS + (c + dc)];
+          if (n === T.WATER) waterN++;
+        }
+      }
+      const beachN = fbm(c * 0.18 + 5.5, r * 0.18 + 13.3, 2);
+      const beachThresh = 0.52 + beachN * 0.38;
+      if (waterN >= 2 && hashXY(c * 11 + 7, r * 13 + 17) < beachThresh) {
+        ground[idx] = T.SAND;
+        detail[idx] = -1;
+      } else if (waterN === 0 && hashXY(c * 5 + 3, r * 9 + 1) < 0.008 && t === T.GRASS) {
+        detail[idx] = T.FLOWER;
+      } else if (waterN === 0 && hashXY(c * 7 + 2, r * 6 + 9) < 0.008 && t !== T.SNOW && t !== T.STONE_FLOOR) {
+        detail[idx] = T.TREE;
+      }
+      // Dekoratif kaya parçaları (kıyı ve çorak alanlarda)
+      if ((t === T.DIRT || t === T.SAND) && detail[idx] === -1 && hashXY(c * 19 + 41, r * 23 + 37) < 0.015) {
+        detail[idx] = T.STONE_FLOOR;
+      }
+    }
+  }
+}
+
+function enrichWorldDetails(ground, detail) {
+  for (let r = 1; r < WORLD_ROWS - 1; r++) {
+    for (let c = 1; c < WORLD_COLS - 1; c++) {
+      const idx = r * WORLD_COLS + c;
+      const t = ground[idx];
+      if (t === T.WATER || t === T.WALL) continue;
+      const h = hashXY(c, r);
+      const fPatch = fbm(c * 0.14 + 31.7, r * 0.14 + 52.3, 3);
+      const mPatch = fbm(c * 0.22 + 11.1, r * 0.22 + 77.7, 2);
+      // Orman kümeleri: yalnız gibi duran ağaçları sil, toplu alanlara ekle
+      if (detail[idx] === T.TREE) {
+        if (fPatch < 0.24) detail[idx] = -1;
+      } else if (detail[idx] === T.FLOWER) {
+        if (mPatch < 0.45) detail[idx] = -1;
+      } else if (detail[idx] === -1 && (t === T.GRASS || t === T.TALL_GRASS)) {
+        if (fPatch > 0.52 && h < 0.18) detail[idx] = T.TREE;
+        else if (mPatch > 0.62 && h < 0.26) detail[idx] = T.FLOWER;
+      }
+      // Çorak/kaya alanlara dekoratif taşlar
+      if (detail[idx] === -1 && (t === T.DIRT || t === T.STONE_FLOOR || t === T.SAND)) {
+        const rockPatch = fbm(c * 0.18 + 61.3, r * 0.18 + 29.1, 2);
+        if (rockPatch > 0.68 && h < 0.12) detail[idx] = T.STONE_FLOOR;
+      }
+    }
+  }
+}
+
+function buildWorldBridges(ground, detail) {
+  // Yatay köprüler: 2-4 karo genişliğinde su kanalları
+  for (let r = 2; r < WORLD_ROWS - 2; r++) {
+    for (let c = 2; c < WORLD_COLS - 5; c++) {
+      if (ground[r * WORLD_COLS + c] !== T.WATER) continue;
+      let w = 0;
+      while (c + w < WORLD_COLS - 1 && ground[r * WORLD_COLS + c + w] === T.WATER) w++;
+      if (w >= 2 && w <= 4) {
+        const left = ground[r * WORLD_COLS + c - 1];
+        const right = ground[r * WORLD_COLS + c + w];
+        if (left !== T.WATER && right !== T.WATER && left !== T.WALL && right !== T.WALL) {
+          if (hashXY(c, r) < 0.06) {
+            for (let i = 0; i < w; i++) {
+              ground[r * WORLD_COLS + c + i] = T.BRIDGE;
+              detail[r * WORLD_COLS + c + i] = -1;
+            }
+          }
+        }
+      }
+      c += Math.max(1, w);
+    }
+  }
+
+  // Dikey köprüler
+  for (let c = 2; c < WORLD_COLS - 2; c++) {
+    for (let r = 2; r < WORLD_ROWS - 5; r++) {
+      if (ground[r * WORLD_COLS + c] !== T.WATER) continue;
+      let h = 0;
+      while (r + h < WORLD_ROWS - 1 && ground[(r + h) * WORLD_COLS + c] === T.WATER) h++;
+      if (h >= 2 && h <= 4) {
+        const top = ground[(r - 1) * WORLD_COLS + c];
+        const bottom = ground[(r + h) * WORLD_COLS + c];
+        if (top !== T.WATER && bottom !== T.WATER && top !== T.WALL && bottom !== T.WALL) {
+          if (hashXY(c + 1000, r) < 0.06) {
+            for (let i = 0; i < h; i++) {
+              ground[(r + i) * WORLD_COLS + c] = T.BRIDGE;
+              detail[(r + i) * WORLD_COLS + c] = -1;
+            }
+          }
+        }
+      }
+      r += Math.max(1, h);
+    }
+  }
+
+  // Yakın adaları birbirine bağla
+  const centers = ISLANDS.map(isl => islandWorldCenter(isl));
+  for (let i = 0; i < centers.length; i++) {
+    for (let j = i + 1; j < centers.length; j++) {
+      const dx = centers[j].cx - centers[i].cx;
+      const dy = centers[j].cy - centers[i].cy;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < 28 && dist > 6 && hashXY(i * 31 + j * 17, i * 13 + j * 29) < 0.35) {
+        const steps = Math.max(1, Math.floor(dist));
+        for (let s = 0; s <= steps; s++) {
+          const t = s / steps;
+          const bx = Math.round(centers[i].cx + dx * t);
+          const by = Math.round(centers[i].cy + dy * t);
+          if (bx >= 0 && bx < WORLD_COLS && by >= 0 && by < WORLD_ROWS) {
+            const idx = by * WORLD_COLS + bx;
+            if (ground[idx] === T.WATER) {
+              ground[idx] = T.BRIDGE;
+              detail[idx] = -1;
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
 function generateWorld() {
   const ground = new Array(WORLD_COLS * WORLD_ROWS);
   const detail = new Array(WORLD_COLS * WORLD_ROWS);
   const centerX = WORLD_COLS / 2, centerY = WORLD_ROWS / 2;
-  const mainR = Math.floor(Math.min(WORLD_COLS, WORLD_ROWS) * 0.24);
+  const mainR = Math.floor(Math.min(WORLD_COLS, WORLD_ROWS) * 0.42);
+  const mainOuterR = mainR + 34;
 
   for (let r = 0; r < WORLD_ROWS; r++) {
     for (let c = 0; c < WORLD_COLS; c++) {
@@ -9079,21 +10198,47 @@ function generateWorld() {
       const nx = c / 40, ny = r / 30;
       const elevation = fbm(nx + 0.3, ny + 0.7, 4);
       const moisture = fbm(nx * 1.3 + 50, ny * 1.3 + 50, 3);
+      const ridge = fbm(nx * 0.55 + 20.1, ny * 0.55 + 73.6, 5);
+      const heat = fbm(nx * 0.8 + 99.4, ny * 0.8 + 14.8, 3);
       const h = hashXY(c, r);
 
       let tile, det = -1;
 
-      if (distEdge > 0.99 && !onIsland && !islandCoast) {
+      if (distMain < mainR && !onIsland) {
+        const rim = mainR - distMain;
+        if (rim < 7) {
+          tile = T.SAND;
+          if (h < 0.015) det = T.FLOWER;
+        } else if (moisture > 0.5 || ridge > 0.48) {
+          tile = T.TALL_GRASS;
+          if (h < 0.06) det = T.TREE;
+          else if (h < 0.12) det = T.FLOWER;
+        } else {
+          tile = T.GRASS;
+          if (h < 0.05) det = T.TREE;
+          else if (h < 0.1) det = T.FLOWER;
+        }
+      } else if (distMain < mainOuterR && !onIsland && !islandCoast) {
+        if (elevation < 0.32 || moisture > 0.72) {
+          tile = T.WATER;
+        } else if (elevation < 0.37) {
+          tile = T.SAND;
+        } else {
+          tile = moisture > 0.5 ? T.TALL_GRASS : T.GRASS;
+          if (h < 0.035) det = T.TREE;
+          else if (h < 0.07) det = T.FLOWER;
+        }
+      } else if (distEdge > 0.99 && !onIsland && !islandCoast) {
         tile = T.WATER;
-      } else if (distMain > mainR && !onIsland && !islandCoast) {
-        const fade = (distMain - mainR) / 15;
+      } else if (distMain > mainOuterR && !onIsland && !islandCoast) {
+        const fade = (distMain - mainOuterR) / 15;
         if (fade > 1 + (elevation - 0.4) * 3) {
           tile = T.WATER;
         } else if (fade > 0.8 + (elevation - 0.4) * 2) {
           tile = T.SAND;
         } else {
           tile = elevation > 0.6 ? T.GRASS : T.SAND;
-          if (h < 0.06 && tile === T.GRASS) det = T.TREE;
+          if (h < 0.02 && tile === T.GRASS) det = T.TREE;
         }
       } else if (islandCoast) {
         tile = T.SAND;
@@ -9105,64 +10250,64 @@ function generateWorld() {
         if (biome === "snow") {
           if (iElev > 0.78) {
             tile = T.STONE_FLOOR;
-            if (h2 < 0.07) det = T.TREE;
+            if (h2 < 0.025) det = T.TREE;
           } else {
             tile = T.SNOW;
-            if (h2 < 0.1) det = T.TREE;
-            else if (h2 < 0.14) det = T.FLOWER;
+            if (h2 < 0.03) det = T.TREE;
+            else if (h2 < 0.06) det = T.FLOWER;
           }
         } else if (biome === "desert" || biome === "mesa") {
           tile = h2 < 0.42 ? T.SAND : T.DIRT;
-          if (h2 < 0.06 && tile === T.DIRT) det = T.FLOWER;
+          if (h2 < 0.025 && tile === T.DIRT) det = T.FLOWER;
           if (biome === "mesa" && iElev > 0.72) {
             tile = T.STONE_FLOOR;
-            if (h2 < 0.08) det = T.TREE;
+            if (h2 < 0.025) det = T.TREE;
           }
         } else if (biome === "rain" || biome === "jungle") {
           tile = moisture > 0.42 ? T.TALL_GRASS : T.GRASS;
-          if (h2 < 0.22) det = T.TREE;
-          else if (h2 < 0.28) det = T.FLOWER;
+          if (h2 < 0.07) det = T.TREE;
+          else if (h2 < 0.14) det = T.FLOWER;
         } else if (biome === "storm") {
           tile = iElev > 0.7 ? T.STONE_FLOOR : T.DIRT;
-          if (h2 < 0.12) det = T.TREE;
+          if (h2 < 0.04) det = T.TREE;
         } else if (biome === "volcanic") {
           tile = iElev > 0.65 ? T.STONE_FLOOR : T.DIRT;
-          if (h2 < 0.1) det = T.TREE;
-          else if (h2 < 0.14 && tile === T.DIRT) det = T.FLOWER;
+          if (h2 < 0.03) det = T.TREE;
+          else if (h2 < 0.06 && tile === T.DIRT) det = T.FLOWER;
         } else if (biome === "barren") {
           if (iElev > 0.74) {
             tile = T.STONE_FLOOR;
-            if (h2 < 0.09) det = T.TREE;
+            if (h2 < 0.03) det = T.TREE;
           } else {
             tile = T.DIRT;
-            if (h2 < 0.05) det = T.FLOWER;
+            if (h2 < 0.03) det = T.FLOWER;
           }
         } else {
-          if (iElev > 0.75) { tile = T.STONE_FLOOR; if (h < 0.1) det = T.TREE; }
-          else if (moisture > 0.5) { tile = T.TALL_GRASS; if (h < 0.18) det = T.TREE; else if (h < 0.22) det = T.FLOWER; }
-          else { tile = T.GRASS; if (h < 0.12) det = T.TREE; else if (h < 0.15) det = T.FLOWER; }
+          if (iElev > 0.75) { tile = T.STONE_FLOOR; if (h < 0.03) det = T.TREE; }
+          else if (moisture > 0.5) { tile = T.TALL_GRASS; if (h < 0.06) det = T.TREE; else if (h < 0.12) det = T.FLOWER; }
+          else { tile = T.GRASS; if (h < 0.04) det = T.TREE; else if (h < 0.08) det = T.FLOWER; }
         }
       } else {
-        if (elevation < 0.28) {
+        if (elevation < 0.24 || (ridge < 0.24 && moisture > 0.5)) {
           tile = T.WATER;
-        } else if (elevation < 0.33) {
+        } else if (elevation < 0.31) {
           tile = T.SAND;
-        } else if (elevation > 0.72) {
+        } else if (elevation > 0.77 || ridge > 0.84) {
           tile = T.WALL;
-        } else if (elevation > 0.65) {
+        } else if (elevation > 0.68) {
           tile = T.STONE_FLOOR;
-          if (h < 0.12) det = T.TREE;
-        } else if (moisture > 0.55) {
+          if (h < 0.035) det = T.TREE;
+        } else if (moisture > 0.62) {
           tile = T.TALL_GRASS;
-          if (h < 0.15) det = T.TREE;
-          else if (h < 0.18) det = T.FLOWER;
-        } else if (moisture < 0.35) {
+          if (h < 0.045) det = T.TREE;
+          else if (h < 0.09) det = T.FLOWER;
+        } else if (moisture < 0.34 || heat > 0.72) {
           tile = T.DIRT;
-          if (h < 0.04) det = T.FLOWER;
+          if (h < 0.025) det = T.FLOWER;
         } else {
           tile = T.GRASS;
-          if (h < 0.08) det = T.TREE;
-          else if (h < 0.11) det = T.FLOWER;
+          if (h < 0.025) det = T.TREE;
+          else if (h < 0.05) det = T.FLOWER;
         }
       }
 
@@ -9170,6 +10315,10 @@ function generateWorld() {
       detail[idx] = det;
     }
   }
+
+  applyWorldDesignPass(ground, detail);
+  enrichWorldDetails(ground, detail);
+  buildWorldBridges(ground, detail);
 
   const dockCol = VOX + 20;
   const gateVC = dockCol - VOX;
@@ -9677,6 +10826,11 @@ const wildPets = WILD_PETS_DATA.filter(d => isSafeSpawn(d.col, d.row)).map(d => 
 
 function closeInventorySlotInspect() {
   inventorySlotInspect = null;
+  inventoryInspectScrollY = 0;
+  inventoryInspectScrollMax = 0;
+  inventoryInspectScrollTouchId = -1;
+  inventoryInspectScrollLastY = 0;
+  inventoryInspectScrollRect = null;
 }
 
 function tryAttemptInventoryUpgrade(slot, def) {
@@ -9711,6 +10865,11 @@ function openInventorySlotInspect(kind, idx) {
   if (!slot || slot.count <= 0) return;
   if (worldItemInspect) closeWorldItemInspect();
   inventorySlotInspect = { kind, idx };
+  inventoryInspectScrollY = 0;
+  inventoryInspectScrollMax = 0;
+  inventoryInspectScrollTouchId = -1;
+  inventoryInspectScrollLastY = 0;
+  inventoryInspectScrollRect = null;
 }
 
 function tryOpenBossChestInContainer(inv, container, idx) {
@@ -9774,49 +10933,6 @@ function inventorySlotInspectLayout(cw, ch) {
   const btnClose = { x: px + 16 + (bw + gap) * 2, y: btnY, w: bw, h: btnH };
   const btnUpgrade = { x: px + 16, y: btnY - btnH - 10, w: pw - 32, h: btnH };
   return { px, py, pw, ph, btnEquip, btnDrop, btnClose, btnUpgrade };
-}
-
-function getInspectCompareSlot(def, kind, idx) {
-  if (!def || !def.equipSlot) return null;
-  const cands = equipSlotsForItemDef(def);
-  if (!cands.length) return null;
-  if (kind === "eq" && idx) return inventory.equipped[idx] || null;
-  let first = null;
-  for (const sk of cands) {
-    const cur = inventory.equipped[sk];
-    if (cur) return { slot: cur, key: sk };
-    if (!first) first = { slot: null, key: sk };
-  }
-  return first;
-}
-
-function buildInspectCompareLines(def, slot, kind, idx) {
-  if (!def || !slot || !def.equipSlot) return [];
-  const base = getEffectiveItemStatsMerged(def, getStackUpgradeLv(slot));
-  const tgt = getInspectCompareSlot(def, kind, idx);
-  if (!tgt || !tgt.slot) return [{ text: "Karsilastirma: uygun slot bos", color: "#8fa0be" }];
-  const tgtDef = ITEMS[tgt.slot.id];
-  if (!tgtDef) return [];
-  const cur = getEffectiveItemStatsMerged(tgtDef, getStackUpgradeLv(tgt.slot));
-  const mk = (label, a, b) => {
-    const d = (a || 0) - (b || 0);
-    if (!d) return null;
-    return { text: label + " " + (d > 0 ? "+" : "") + d, color: d > 0 ? "#8ae0a8" : "#ff9a9a" };
-  };
-  const rows = [];
-  const head = "Karsilastirma (" + (EQ_LABELS[tgt.key] || tgt.key) + ": " + (tgtDef.name || "?") + ")";
-  rows.push({ text: head, color: "#c0d0f0" });
-  const ap = mk("Attack Power", (base.advanced && base.advanced.attackPower) || 0, (cur.advanced && cur.advanced.attackPower) || 0);
-  if (ap) rows.push(ap);
-  const str = mk("Guc", base.stats.str, cur.stats.str); if (str) rows.push(str);
-  const agi = mk("Ceviklik", base.stats.agi, cur.stats.agi); if (agi) rows.push(agi);
-  const wis = mk("Bilgelik", base.stats.wis, cur.stats.wis); if (wis) rows.push(wis);
-  const hp = mk("Max Can", base.stats.maxHp, cur.stats.maxHp); if (hp) rows.push(hp);
-  const mp = mk("Max Mana", base.stats.maxMana, cur.stats.maxMana); if (mp) rows.push(mp);
-  const scoreNow = itemStatPowerScore(def);
-  const scoreCur = itemStatPowerScore(tgtDef);
-  const sc = mk("Genel guc", scoreNow, scoreCur); if (sc) rows.push(sc);
-  return rows.slice(0, 6);
 }
 
 function handleInventorySlotInspectClick(mx, my, cw, ch) {
@@ -9899,6 +11015,8 @@ function handleInventorySlotInspectClick(mx, my, cw, ch) {
 
 function renderInventorySlotInspect(ctx, cw, ch) {
   if (!inventorySlotInspect || !inventory.open) return;
+  inventoryInspectScrollRect = null;
+  inventoryInspectScrollMax = 0;
   const { kind, idx } = inventorySlotInspect;
   const fromEquip = kind === "eq";
   const container = fromEquip ? inventory.equipped : (kind === "slots" ? inventory.slots : inventory.hotbar);
@@ -9927,35 +11045,95 @@ function renderInventorySlotInspect(ctx, cw, ch) {
   ctx.font = "bold 15px monospace";
   ctx.fillText("E\u015fya", L.px + 16, L.py + 28);
 
-  const iconS = 52;
-  const ix = L.px + 16, iy = L.py + 44;
-  drawItemIconFancy(ctx, slot.id, ix, iy, iconS, { timeMs: performance.now() });
-  ctx.fillStyle = "#f0d050";
-  ctx.font = "bold 14px monospace";
-  const slv = getStackUpgradeLv(slot);
-  ctx.fillText(def.name + (slv > 0 ? "(+" + slv + ")" : "") + (slot.count > 1 ? "  x" + slot.count : ""), ix + iconS + 14, iy + 18);
-  if (def.rarity && def.rarity !== "common") {
-    ctx.fillStyle = getItemRarityColor(slot.id);
-    ctx.font = "bold 11px monospace";
-    ctx.fillText(RARITY_LABEL_TR[def.rarity] || def.rarity, ix + iconS + 14, iy + 38);
+  const cardY = L.py + 44;
+  const cardW = Math.floor((L.pw - 40) / 2);
+  const cardH = 74;
+  const leftX = L.px + 16;
+  const rightX = leftX + cardW + 8;
+  const iconS = 34;
+
+  const drawCompareCard = (x, title, stackRef, emptyText) => {
+    ctx.fillStyle = "rgba(24,30,56,0.95)";
+    ctx.strokeStyle = "#6f84c8";
+    roundRect(ctx, x, cardY, cardW, cardH, 8);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = "#d4e0ff";
+    ctx.font = "bold 10px monospace";
+    ctx.fillText(title, x + 8, cardY + 14);
+    if (stackRef && stackRef.id && ITEMS[stackRef.id]) {
+      const d0 = ITEMS[stackRef.id];
+      const up0 = getStackUpgradeLv(stackRef);
+      drawItemIconFancy(ctx, stackRef.id, x + 8, cardY + 22, iconS, { timeMs: performance.now(), equipped: title.indexOf("Takili") >= 0 });
+      ctx.fillStyle = "#f3e8b0";
+      ctx.font = "bold 11px monospace";
+      const nm = d0.name + (up0 > 0 ? " (+" + up0 + ")" : "") + (stackRef.count > 1 ? " x" + stackRef.count : "");
+      const shortNm = nm.length > 15 ? (nm.slice(0, 15) + "...") : nm;
+      ctx.fillText(shortNm, x + 48, cardY + 38);
+      if (d0.rarity) {
+        ctx.fillStyle = getItemRarityColor(stackRef.id);
+        ctx.font = "10px monospace";
+        ctx.fillText(RARITY_LABEL_TR[d0.rarity] || d0.rarity, x + 48, cardY + 54);
+      }
+    } else {
+      ctx.fillStyle = "#9aa8c8";
+      ctx.font = "11px monospace";
+      ctx.fillText(emptyText || "Bos slot", x + 8, cardY + 44);
+    }
+  };
+
+  drawCompareCard(leftX, "Secili", slot, "Esya yok");
+
+  let cmpSlotKey = null;
+  let cmpEq = null;
+  if (def.equipSlot) {
+    const cands = equipSlotsForItemDef(def);
+    for (const sk of cands) {
+      if (inventory.equipped[sk]) { cmpSlotKey = sk; break; }
+    }
+    if (!cmpSlotKey && cands.length) cmpSlotKey = cands[0];
+    cmpEq = cmpSlotKey ? inventory.equipped[cmpSlotKey] : null;
+  }
+  const rightTitle = cmpSlotKey ? ("Takili (" + (EQ_LABELS[cmpSlotKey] || cmpSlotKey) + ")") : "Takili";
+  drawCompareCard(rightX, rightTitle, cmpEq, "Bos slot");
+
+  if (def.equipSlot) {
+    const eqGateColor = canPlayerEquipItem(def, player).ok ? "#ffffff" : "#ff5a5a";
+    ctx.fillStyle = eqGateColor;
+    ctx.font = "10px monospace";
+    ctx.fillText("Gerekli Seviye: " + estimateEquipRequiredLevel(def), leftX + 2, cardY + cardH + 13);
   }
 
-  const layoutTt = buildItemTooltipLayout(ctx, def, slot.id, cw, touchState.mobileUI, { omitPrices: true, omitIdentity: true, stackRef: slot }, []);
-  let ty = iy + iconS + 12;
+  const layoutTt = buildItemTooltipLayout(ctx, def, slot.id, cw, touchState.mobileUI, { omitPrices: true, omitIdentity: true, stackRef: slot, innerMax: Math.max(200, L.pw - 40) }, []);
+  let ty = cardY + cardH + 22;
   const maxY = L.btnUpgrade.y - 6;
-  const cmpLines = buildInspectCompareLines(def, slot, kind, idx);
-  const allLines = layoutTt.lines.concat(cmpLines.map((r) => ({
-    text: r.text,
-    color: r.color || "#b8c8e8",
-    font: touchState.mobileUI ? "11px monospace" : "10px monospace",
-  })));
-  ty = renderInspectStatLinesFitted(ctx, allLines, L.px + 16, ty, maxY, touchState.mobileUI);
+  const allLines = layoutTt.lines;
+  const scrollRes = renderInspectStatLinesScrollable(ctx, allLines, L.px + 16, ty, maxY, touchState.mobileUI, inventoryInspectScrollY, L.pw - 32);
+  inventoryInspectScrollMax = scrollRes.maxScroll;
+  inventoryInspectScrollY = Math.max(0, Math.min(inventoryInspectScrollMax, inventoryInspectScrollY));
+  const lineH0 = scrollRes.lineH || 12;
+  inventoryInspectScrollRect = {
+    x: L.px + 12,
+    y: ty - lineH0,
+    w: L.pw - 24,
+    h: Math.max(24, maxY - ty + lineH0 + 8),
+  };
+  if (inventoryInspectScrollMax > 0) {
+    const topA = inventoryInspectScrollY > 0 ? 0.55 : 0.2;
+    const botA = inventoryInspectScrollY < inventoryInspectScrollMax ? 0.55 : 0.2;
+    ctx.fillStyle = "rgba(180, 195, 230, " + topA + ")";
+    ctx.font = "bold 10px monospace";
+    ctx.fillText("\u25b2", L.px + L.pw - 24, ty - 2);
+    ctx.fillStyle = "rgba(180, 195, 230, " + botA + ")";
+    ctx.fillText("\u25bc", L.px + L.pw - 24, maxY + 2);
+  }
 
   const eqCands1 = equipSlotsForItemDef(def);
   const canUse = !fromEquip && slot.id === "boss_chest";
+  const gate = canPlayerEquipItem(def, player);
   const canEq = canUse || (fromEquip ? true : eqCands1.some((sk) => {
     const curI = inventory.equipped[sk];
-    return !curI || curI.id !== slot.id || getStackUpgradeLv(curI) !== getStackUpgradeLv(slot);
+    return gate.ok && (!curI || curI.id !== slot.id || getStackUpgradeLv(curI) !== getStackUpgradeLv(slot));
   }));
   ctx.fillStyle = canEq ? "rgba(45,90,55,0.92)" : "rgba(45,45,58,0.75)";
   ctx.strokeStyle = canEq ? "#70c080" : "#505060";
@@ -10010,10 +11188,13 @@ function renderInventorySlotInspect(ctx, cw, ch) {
   ctx.font = "9px monospace";
   const hintText = canUse
     ? "Ac: sandigi acip rastgele ganimet kazanirsin."
-    : (fromEquip ? "Takili esya: ozellik gor, cikar veya yere at." : "Sol t\u0131k: panel; ba\u015far\u0131s\u0131z y\u00fckseltmelerde alt\u0131n harcan\u0131r.");
+    : (!fromEquip && def.equipSlot && !gate.ok
+      ? ("Bu esya icin Seviye " + gate.needLevel + "+ gerekiyor.")
+      : (fromEquip ? "Takili esya: ozellik gor, cikar veya yere at." : "Sol t\u0131k: panel; ba\u015far\u0131s\u0131z y\u00fckseltmelerde alt\u0131n harcan\u0131r."));
   ctx.fillText(hintText, L.px + 16, L.py + L.ph - 6);
 }
 const petPanel = new PetPanel();
+const bankPanel = new BankPanel();
 const shop = new Shop();
 const craftPanel = new CraftPanel();
 const minimap = new Minimap(map);
@@ -10047,11 +11228,285 @@ const MAINLAND_MONSTERS = [
   { col: 52,  row: 72,  type: "wolf" }, { col: 380, row: 88, type: "skeleton" },
 ];
 
+const VILLAGE_CENTER_COL = VOX + Math.floor(VCOLS / 2);
+const VILLAGE_CENTER_ROW = VOY + Math.floor(VROWS / 2);
+
+function mainlandDistanceNorm(col, row) {
+  const dx = col - VILLAGE_CENTER_COL;
+  const dy = row - VILLAGE_CENTER_ROW;
+  const d = Math.sqrt(dx * dx + dy * dy);
+  return Math.max(0, Math.min(1, d / 240));
+}
+
+function mainlandPackTemplateByDistance(norm) {
+  if (norm < 0.22) {
+    return { tier: "normal", scale: 0.78, members: ["slime", "slime", "wolf", "slime", "wolf"] };
+  }
+  if (norm < 0.4) {
+    return { tier: "normal", scale: 0.96, members: ["wolf", "wolf", "skeleton", "wolf", "slime"] };
+  }
+  if (norm < 0.58) {
+    return { tier: "elite", scale: 1.2, members: ["skeleton", "orc", "ancient_root", "wolf", "skeleton"] };
+  }
+  if (norm < 0.76) {
+    return { tier: "heroic", scale: 1.55, members: ["orc", "dark_knight", "crystalline", "vine_horror", "orc"] };
+  }
+  return { tier: "apex", scale: 2.0, members: ["iron_behemoth", "golem", "storm_wraith", "void_hound", "crystalline"] };
+}
+
+const TIER_MEMBER_VARIANTS = {
+  normal: [
+    ["slime", "slime", "wolf", "slime", "wolf"],
+    ["wolf", "wolf", "slime", "wolf", "slime"],
+    ["slime", "wolf", "skeleton", "slime", "wolf"],
+  ],
+  elite: [
+    ["skeleton", "orc", "ancient_root", "wolf", "skeleton"],
+    ["orc", "skeleton", "wolf", "ancient_root", "orc"],
+    ["skeleton", "wolf", "orc", "bog_troll", "ancient_root"],
+  ],
+  heroic: [
+    ["orc", "dark_knight", "crystalline", "vine_horror", "orc"],
+    ["dark_knight", "orc", "crystalline", "storm_wraith", "vine_horror"],
+    ["crystalline", "dark_knight", "orc", "void_hound", "vine_horror"],
+  ],
+  apex: [
+    ["iron_behemoth", "golem", "storm_wraith", "void_hound", "crystalline"],
+    ["golem", "iron_behemoth", "storm_wraith", "crystalline", "void_hound"],
+    ["iron_behemoth", "void_hound", "storm_wraith", "golem", "dark_knight"],
+  ],
+};
+
+function pickTierMembers(tier, col, row) {
+  const arr = TIER_MEMBER_VARIANTS[tier] || TIER_MEMBER_VARIANTS.normal;
+  const idx = Math.floor(hashXY(col * 17 + 31, row * 19 + 11) * arr.length) % arr.length;
+  return arr[idx].slice();
+}
+
+function spawnMainlandRegionalPack(list, anchor, idxSeed) {
+  const dn = mainlandDistanceNorm(anchor.col, anchor.row);
+  const tpl = mainlandPackTemplateByDistance(dn);
+  const members = pickTierMembers(tpl.tier, anchor.col, anchor.row);
+  const ring = [
+    { dc: 0, dr: 0 }, { dc: 2, dr: 0 }, { dc: -2, dr: 0 }, { dc: 0, dr: 2 },
+    { dc: 0, dr: -2 }, { dc: 2, dr: 2 }, { dc: -2, dr: -2 },
+  ];
+  const campId = "mainland_pack_" + idxSeed;
+  for (let i = 0; i < members.length; i++) {
+    const p = ring[i % ring.length];
+    const mc = anchor.col + p.dc;
+    const mr = anchor.row + p.dr;
+    if (!isSafeSpawn(mc, mr)) continue;
+    let type = members[i];
+    if (tpl.tier === "apex" && i === 0) {
+      const roll = hashXY(mc * 13 + 7, mr * 11 + 5);
+      if (roll > 0.88) type = "thunder_lord";
+      else if (roll > 0.74) type = "abyss_crab";
+    }
+    const jitter = 0.88 + hashXY(mc * 5 + 17, mr * 7 + 31) * 0.36;
+    const scale = tpl.scale * jitter;
+    const role = getCampRoleByIndex(i, tpl.members.length);
+    list.push(new Monster(mc, mr, type, scale, {
+      campId,
+      campTier: tpl.tier,
+      campScale: scale,
+      campRole: role,
+      socialAggroRange: TILE_SIZE * (tpl.tier === "apex" ? 10 : tpl.tier === "heroic" ? 8.5 : tpl.tier === "elite" ? 7.2 : 6.4),
+    }));
+  }
+}
+
+/** Kasaba çevresi sabit grup koridorları (hep aynı düzen). */
+const FIXED_MAINLAND_GROUP_CAMPS = [
+  // Kasaba çıkışı sağ/sol: Lv 1-5 Balçık (5'li grup)
+  { id: "town_exit_east_slime_a", name: "Çıkış Balçık A", col: VOX + VCOLS + 8, row: VOY + Math.floor(VROWS * 0.45), members: ["slime","slime","slime","slime","slime"], scale: 0.35, tier: "normal" },
+  { id: "town_exit_east_slime_b", name: "Çıkış Balçık B", col: VOX + VCOLS + 14, row: VOY + Math.floor(VROWS * 0.62), members: ["slime","slime","slime","slime","slime"], scale: 0.48, tier: "normal" },
+  { id: "town_exit_west_slime_a", name: "Çıkış Balçık C", col: VOX - 8, row: VOY + Math.floor(VROWS * 0.44), members: ["slime","slime","slime","slime","slime"], scale: 0.4, tier: "normal" },
+  { id: "town_exit_west_slime_b", name: "Çıkış Balçık D", col: VOX - 14, row: VOY + Math.floor(VROWS * 0.60), members: ["slime","slime","slime","slime","slime"], scale: 0.55, tier: "normal" },
+
+  // Bir sonraki halka: Lv 5-10 Kurt (5'li grup, birbirine yakın)
+  { id: "west_wolf_lane_a", name: "Kurt Geçidi A", col: VOX - 24, row: VOY + Math.floor(VROWS * 0.50), members: ["wolf","wolf","wolf","wolf","wolf"], scale: 0.72, tier: "normal" },
+  { id: "west_wolf_lane_b", name: "Kurt Geçidi B", col: VOX - 30, row: VOY + Math.floor(VROWS * 0.64), members: ["wolf","wolf","wolf","wolf","wolf"], scale: 0.86, tier: "normal" },
+  { id: "west_wolf_lane_c", name: "Kurt Geçidi C", col: VOX - 36, row: VOY + Math.floor(VROWS * 0.56), members: ["wolf","wolf","wolf","wolf","wolf"], scale: 1.02, tier: "normal" },
+
+  // Sağ tarafta da benzer progression
+  { id: "east_wolf_lane_a", name: "Doğu Kurt A", col: VOX + VCOLS + 24, row: VOY + Math.floor(VROWS * 0.52), members: ["wolf","wolf","wolf","wolf","wolf"], scale: 0.78, tier: "normal" },
+  { id: "east_wolf_lane_b", name: "Doğu Kurt B", col: VOX + VCOLS + 31, row: VOY + Math.floor(VROWS * 0.60), members: ["wolf","wolf","wolf","wolf","wolf"], scale: 0.95, tier: "normal" },
+];
+
+const LEVEL_BAND_VARIANTS = [
+  { minLv: 1, maxLv: 5, tier: "normal", scaleMin: 0.28, scaleMax: 0.56, groups: [
+    ["slime","slime","slime","slime","slime"],
+    ["slime","slime","wolf","slime","wolf"],
+    ["slime","wolf","slime","slime","wolf"],
+  ]},
+  { minLv: 5, maxLv: 10, tier: "normal", scaleMin: 0.62, scaleMax: 1.02, groups: [
+    ["wolf","wolf","wolf","wolf","wolf"],
+    ["wolf","wolf","skeleton","wolf","slime"],
+    ["skeleton","wolf","wolf","skeleton","wolf"],
+  ]},
+  { minLv: 10, maxLv: 16, tier: "elite", scaleMin: 1.1, scaleMax: 1.55, groups: [
+    ["skeleton","orc","ancient_root","wolf","skeleton"],
+    ["orc","skeleton","bog_troll","wolf","ancient_root"],
+    ["vine_horror","orc","skeleton","wolf","spore_creeper"],
+  ]},
+  { minLv: 16, maxLv: 24, tier: "elite", scaleMin: 1.6, scaleMax: 2.2, groups: [
+    ["dark_knight","orc","crystalline","vine_horror","void_hound"],
+    ["crystalline","dark_knight","orc","storm_wraith","vine_horror"],
+    ["void_hound","crystalline","bog_troll","dark_knight","orc"],
+  ]},
+  { minLv: 24, maxLv: 36, tier: "heroic", scaleMin: 2.3, scaleMax: 3.3, groups: [
+    ["iron_behemoth","golem","storm_wraith","void_hound","crystalline"],
+    ["golem","iron_behemoth","storm_wraith","dark_knight","void_hound"],
+    ["storm_wraith","void_hound","crystalline","iron_behemoth","golem"],
+  ]},
+  { minLv: 36, maxLv: 55, tier: "apex", scaleMin: 3.4, scaleMax: 6.0, groups: [
+    ["thunder_lord","iron_behemoth","storm_wraith","void_hound","crystalline"],
+    ["abyss_crab","golem","storm_wraith","dark_knight","iron_behemoth"],
+    ["volcanic_titan","iron_behemoth","void_hound","storm_wraith","golem"],
+  ]},
+];
+
+function worldDistanceNorm(col, row) {
+  const dx = col - VILLAGE_CENTER_COL;
+  const dy = row - VILLAGE_CENTER_ROW;
+  const d = Math.sqrt(dx * dx + dy * dy);
+  const maxD = Math.sqrt((WORLD_COLS * 0.5) ** 2 + (WORLD_ROWS * 0.5) ** 2);
+  return Math.max(0, Math.min(1, d / Math.max(1, maxD * 0.82)));
+}
+
+function islandIsolationBoost(col, row) {
+  const isl = islandCellOwner(col, row);
+  if (!isl) return 0;
+  const rx = isl.rx != null ? isl.rx : isl.r;
+  const ry = isl.ry != null ? isl.ry : isl.r;
+  const small = (rx + ry) * 0.5 <= 20 ? 0.2 : 0.08;
+  const hostileBiome = (isl.biome === "storm" || isl.biome === "volcanic" || isl.biome === "barren") ? 0.16 : 0;
+  return small + hostileBiome;
+}
+
+function chooseBandByDifficulty(diff) {
+  if (diff < 0.18) return LEVEL_BAND_VARIANTS[0];
+  if (diff < 0.3) return LEVEL_BAND_VARIANTS[1];
+  if (diff < 0.45) return LEVEL_BAND_VARIANTS[2];
+  if (diff < 0.62) return LEVEL_BAND_VARIANTS[3];
+  if (diff < 0.78) return LEVEL_BAND_VARIANTS[4];
+  return LEVEL_BAND_VARIANTS[5];
+}
+
+function buildVarietyRegionalCamps() {
+  const camps = [];
+  let id = 0;
+  const stepX = 38, stepY = 30;
+  for (let c = 26; c < WORLD_COLS - 26; c += stepX) {
+    for (let r = 24; r < WORLD_ROWS - 24; r += stepY) {
+      const jx = Math.round((hashXY(c * 5 + 7, r * 9 + 3) - 0.5) * 16);
+      const jy = Math.round((hashXY(c * 13 + 19, r * 7 + 23) - 0.5) * 14);
+      const cc = c + jx;
+      const rr = r + jy;
+      // Kasaba merkezini temiz bırak.
+      if (cc >= VOX - 10 && cc <= VOX + VCOLS + 10 && rr >= VOY - 10 && rr <= VOY + VROWS + 12) continue;
+      if (!isSafeSpawn(cc, rr)) continue;
+      const diff = Math.max(0, Math.min(1, worldDistanceNorm(cc, rr) + islandIsolationBoost(cc, rr)));
+      const band = chooseBandByDifficulty(diff);
+      const groupIdx = Math.floor(hashXY(cc * 17 + 31, rr * 19 + 11) * band.groups.length) % band.groups.length;
+      const group = band.groups[groupIdx];
+      const sRoll = hashXY(cc * 29 + 2, rr * 23 + 5);
+      const scale = band.scaleMin + (band.scaleMax - band.scaleMin) * sRoll;
+      camps.push({
+        id: "regional_variety_" + (id++),
+        name: "Bölge Kampı",
+        col: cc,
+        row: rr,
+        members: group.slice(),
+        scale,
+        tier: band.tier,
+      });
+      const extraRoll = hashXY(cc * 41 + 17, rr * 37 + 29);
+      if (extraRoll > 0.34) {
+        const cc2 = cc + Math.round((hashXY(cc * 7 + 13, rr * 5 + 19) - 0.5) * 10);
+        const rr2 = rr + Math.round((hashXY(cc * 11 + 23, rr * 3 + 31) - 0.5) * 10);
+        if (isSafeSpawn(cc2, rr2)) {
+          const groupIdx2 = Math.floor(hashXY(cc2 * 17 + 7, rr2 * 19 + 5) * band.groups.length) % band.groups.length;
+          const group2 = band.groups[groupIdx2];
+          const sRoll2 = hashXY(cc2 * 43 + 3, rr2 * 31 + 11);
+          const scale2 = band.scaleMin + (band.scaleMax - band.scaleMin) * sRoll2;
+          camps.push({
+            id: "regional_variety_" + (id++),
+            name: "Bolge Kampi",
+            col: cc2,
+            row: rr2,
+            members: group2.slice(),
+            scale: scale2,
+            tier: band.tier,
+          });
+        }
+      }
+    }
+  }
+  return camps;
+}
+
+/** Knight Online tarzı grup farm kampları (pack pull + rota). */
+const MONSTER_CAMPS = [
+  { id: "wolf_pack_north", name: "Kurt Kampı", col: 116, row: 132, members: ["wolf", "wolf", "wolf", "slime", "wolf"], scale: 1.1, tier: "normal" },
+  { id: "orc_squad_mid", name: "Ork Mangası", col: 160, row: 122, members: ["orc", "orc", "skeleton", "wolf", "skeleton"], scale: 1.35, tier: "elite" },
+  { id: "dark_patrol_west", name: "Kara Devriye", col: 92, row: 168, members: ["dark_knight", "skeleton", "wolf", "orc", "crystalline"], scale: 1.55, tier: "elite" },
+  { id: "marsh_raiders_south", name: "Batak Baskını", col: 204, row: 186, members: ["bog_troll", "spore_creeper", "vine_horror", "orc", "dark_knight"], scale: 1.8, tier: "heroic" },
+];
+
+function getCampMetaById(campId) {
+  if (!campId) return null;
+  for (const c of MONSTER_CAMPS) if (c.id === campId) return c;
+  return null;
+}
+
+function getCampLevelText(m) {
+  const sc = m && m.campScale != null ? m.campScale : (m && m.levelScale != null ? m.levelScale : 1);
+  const base = Math.max(1, Math.round(sc * 10));
+  const spread = m && m.campTier === "heroic" ? 4 : (m && m.campTier === "elite" ? 3 : 2);
+  const lo = Math.max(1, base - 1);
+  const hi = lo + spread;
+  return "Lv." + lo + "-" + hi;
+}
+
+function getCampRoleByIndex(idx, count) {
+  if (count <= 1) return "dps";
+  if (idx === 0) return "tank";
+  if (idx === count - 1) return "healer";
+  if (idx % 2 === 0) return "ranged";
+  return "dps";
+}
+
+function spawnMonsterCamp(list, camp) {
+  if (!camp || !camp.members || !camp.members.length) return;
+  const ring = [
+    { dc: 0, dr: 0 }, { dc: 2, dr: 0 }, { dc: -2, dr: 0 }, { dc: 0, dr: 2 },
+    { dc: 0, dr: -2 }, { dc: 2, dr: 2 }, { dc: -2, dr: 2 }, { dc: 2, dr: -2 }, { dc: -2, dr: -2 },
+  ];
+  const scale = camp.scale || 1;
+  const tier = camp.tier || "normal";
+  for (let i = 0; i < camp.members.length; i++) {
+    const p = ring[i % ring.length];
+    const mc = camp.col + p.dc;
+    const mr = camp.row + p.dr;
+    if (!isSafeSpawn(mc, mr)) continue;
+    const role = getCampRoleByIndex(i, camp.members.length);
+    list.push(new Monster(mc, mr, camp.members[i], scale, {
+      campId: camp.id || ("camp_" + camp.col + "_" + camp.row),
+      campTier: tier,
+      campScale: scale,
+      campRole: role,
+      socialAggroRange: TILE_SIZE * (tier === "heroic" ? 8.5 : tier === "elite" ? 7.2 : 6.2),
+    }));
+  }
+}
+
 function spawnMonsters() {
   const list = [];
-  for (const md of MAINLAND_MONSTERS) {
-    if (isSafeSpawn(md.col, md.row)) list.push(new Monster(md.col, md.row, md.type, 1));
-  }
+  // Ana kara: rastgele dağınık yerine sabit grup kampları.
+  for (const camp of FIXED_MAINLAND_GROUP_CAMPS) spawnMonsterCamp(list, camp);
+  for (const camp of buildVarietyRegionalCamps()) spawnMonsterCamp(list, camp);
   for (const isl of ISLANDS) {
     if (!isl.monsters) continue;
     const mList = isl.monsters;
@@ -10066,7 +11521,23 @@ function spawnMonsters() {
     }
     if (isl.boss && MONSTER_TYPES[isl.boss]) {
       const sp = findBossSpawn(isl);
-      if (sp) list.push(new Monster(sp.col, sp.row, isl.boss, (isl.scale || 1) * 1.65));
+      if (sp) {
+        const bossScale = (isl.scale || 1) * 1.65;
+        list.push(new Monster(sp.col, sp.row, isl.boss, bossScale));
+        const dist = worldDistanceNorm(sp.col, sp.row);
+        const ultraChance = Math.max(0, Math.min(0.8, (dist - 0.58) * 1.15 + ((isl.scale || 1) - 1.2) * 0.22));
+        if (dist > 0.62 && Math.random() < ultraChance) {
+          const ox = (hashXY(sp.col * 71 + 11, sp.row * 67 + 23) > 0.5) ? 2 : -2;
+          const oy = (hashXY(sp.col * 59 + 31, sp.row * 53 + 7) > 0.5) ? 2 : -2;
+          const uc = sp.col + ox, ur = sp.row + oy;
+          if (isSafeSpawn(uc, ur)) {
+            list.push(new Monster(uc, ur, isl.boss, bossScale * 1.3, {
+              campTier: "apex",
+              ultraBoss: true,
+            }));
+          }
+        }
+      }
     }
     const chestTries = [[0, 0], [2, 1], [-2, 1], [1, -2], [-1, -2]];
     for (const [ox, oy] of chestTries) {
@@ -10077,6 +11548,7 @@ function spawnMonsters() {
       }
     }
   }
+  for (const camp of MONSTER_CAMPS) spawnMonsterCamp(list, camp);
   return list;
 }
 const monsters = spawnMonsters();
@@ -10090,6 +11562,52 @@ function registerRangedAimTarget(mon) {
   if (mon && mon.alive && mon.state !== "dying") {
     rangedFocusMonster = mon;
     rangedFocusTimer = RANGED_FOCUS_HOLD_SEC;
+  }
+}
+
+function alertCampAllies(monsters, source, player) {
+  if (!source || !source.campId || !source.alive || source.state === "dying") return;
+  const maxD = source.socialAggroRange || TILE_SIZE * 6;
+  const maxD2 = maxD * maxD;
+  for (const m of monsters) {
+    if (!m || m === source || !m.alive || m.state === "dying") continue;
+    if (m.campId !== source.campId) continue;
+    const dx = m.cx - source.cx;
+    const dy = m.cy - source.cy;
+    if (dx * dx + dy * dy > maxD2) continue;
+    const pDist = m.distTo(player.centerX, player.centerY);
+    if (pDist <= (m.aggroRange * 1.4)) {
+      m.state = "chase";
+      m.wanderTimer = Math.max(0.6, m.wanderTimer || 0);
+    }
+  }
+}
+
+function processCampSupport(monsters, dt) {
+  for (const h of monsters) {
+    if (!h || !h.alive || h.state === "dying") continue;
+    if (!h.campId || h.campRole !== "healer") continue;
+    h.supportHealCd = (h.supportHealCd || 0) - dt;
+    if (h.supportHealCd > 0) continue;
+    h.supportHealCd = 2.4 + Math.random() * 1.4;
+    let target = null;
+    let bestMissing = 0;
+    for (const m of monsters) {
+      if (!m || !m.alive || m.state === "dying" || m.campId !== h.campId) continue;
+      if (m.hp >= m.maxHp) continue;
+      const missing = m.maxHp - m.hp;
+      const d = Math.hypot(m.cx - h.cx, m.cy - h.cy);
+      if (d > TILE_SIZE * 8) continue;
+      if (!target || missing > bestMissing) {
+        target = m;
+        bestMissing = missing;
+      }
+    }
+    if (target) {
+      const heal = Math.max(4, Math.floor(target.maxHp * 0.06));
+      target.hp = Math.min(target.maxHp, target.hp + heal);
+      spawnDamageFloater(target.cx, target.y - 10, "+" + heal, false, "#72ff88");
+    }
   }
 }
 
@@ -10116,57 +11634,6 @@ function isMonsterDangerousForPlayerLevel(m, plv) {
   if (mt && mt.boss) return true;
   const pl = 20 + plv * 21;
   return monsterRelativePowerScore(m) >= pl * 0.9;
-}
-
-function drawRangedTargetHpBanner(ctx, cw, ch, m) {
-  if (!m || !m.alive || m.state === "dying" || rangedFocusTimer <= 0) return;
-  const mt = MONSTER_TYPES[m.type];
-  const mobName = (mt && mt.name) ? mt.name : m.type;
-  const hpLine = Math.ceil(m.hp) + "/" + m.maxHp;
-  const ratio = Math.max(0, Math.min(1, m.maxHp > 0 ? m.hp / m.maxHp : 0));
-  ctx.save();
-  ctx.font = "bold 12px monospace";
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  const line = mobName + "   " + hpLine;
-  const tw = ctx.measureText(line).width;
-  const bw = Math.min(cw - 24, Math.max(tw + 48, 200));
-  const bh = 46;
-  const bx = (cw - bw) / 2;
-  /** \u00dcst men\u00fc (\u00c7ant/K/H/T) + minimap \u00fcst\u00fcnde kals\u0131n; mobilde biraz a\u015fa\u011f\u0131. */
-  const by = (typeof touchState !== "undefined" && touchState.mobileUI) ? 40 : 10;
-  const pad = 8;
-  const barH = 11;
-  const barY = by + bh - barH - pad;
-  const barX = bx + pad;
-  const barW = bw - pad * 2;
-
-  ctx.fillStyle = "#1a0608";
-  roundRect(ctx, bx, by, bw, bh, 8);
-  ctx.fill();
-  ctx.strokeStyle = "rgba(0,0,0,0.55)";
-  ctx.lineWidth = 2;
-  roundRect(ctx, bx, by, bw, bh, 8);
-  ctx.stroke();
-
-  ctx.fillStyle = "rgba(0,0,0,0.5)";
-  roundRect(ctx, barX, barY, barW, barH, 4);
-  ctx.fill();
-  const fillW = Math.max(0, barW * ratio);
-  if (fillW > 0.5) {
-    ctx.fillStyle = ratio > 0.35 ? "#d81818" : ratio > 0.15 ? "#c04020" : "#903030";
-    roundRect(ctx, barX, barY, fillW, barH, 4);
-    ctx.fill();
-  }
-
-  ctx.font = "bold 12px monospace";
-  ctx.fillStyle = "#ffffff";
-  ctx.lineWidth = 3;
-  ctx.strokeStyle = "rgba(0,0,0,0.85)";
-  ctx.strokeText(line, cw / 2, by + (barY - by) / 2);
-  ctx.fillStyle = "#ffffff";
-  ctx.fillText(line, cw / 2, by + (barY - by) / 2);
-  ctx.restore();
 }
 
 function tryActivateRageBurst() {
@@ -10200,12 +11667,40 @@ function tryActivateRageBurst() {
 function dropMonsterLoot(m, worldItems) {
   const preset = getLootPreset();
   const lo = m.loot || [];
+  const mLevel = Math.max(1, m.level | 0);
   const tc = Math.floor(m.cx / TILE_SIZE), tr = Math.floor(m.cy / TILE_SIZE);
   const dropped = [];
-  const pushDrop = (itemId, count) => {
+  const estimateGenericDropLevel = (def) => {
+    if (!def) return 1;
+    if (def.equipSlot) return estimateEquipRequiredLevel(def);
+    if (def.rarity === "legendary") return 42;
+    if (def.rarity === "epic") return 28;
+    if (def.rarity === "rare") return 14;
+    const eco = Math.max(0, (def.buyPrice || 0) + (def.sellPrice || 0));
+    return Math.max(1, Math.min(55, 1 + Math.floor(eco / 60)));
+  };
+  const canDropForMonsterLevel = (itemId) => {
+    const d = ITEMS[itemId];
+    if (!d) return false;
+    if (!d.equipSlot) return false;
+    const reqLv = estimateGenericDropLevel(d);
+    if (reqLv > mLevel + 6) return false;
+    if (d.rarity === "legendary" && !m.boss) return false;
+    return true;
+  };
+  const allEquipForLevelSorted = () =>
+    Object.keys(ITEMS)
+      .filter((id) => ITEMS[id] && ITEMS[id].equipSlot && (m.boss || ITEMS[id].rarity !== "legendary"))
+      .sort((a, b) => estimateGenericDropLevel(ITEMS[a]) - estimateGenericDropLevel(ITEMS[b]));
+  const pushDrop = (itemId, count, upgradeLevel) => {
+    if (!canDropForMonsterLevel(itemId)) return false;
     const cnt = Math.max(1, count | 0);
-    worldItems.push(new WorldItem(tc, tr, itemId, cnt, false));
+    const wi = new WorldItem(tc, tr, itemId, cnt, false);
+    const up = upgradeLevel | 0;
+    if (up > 0) wi.upgrade = up;
+    worldItems.push(wi);
     dropped.push({ id: itemId, c: cnt });
+    return true;
   };
   if (m.type === "island_treasure_chest") {
     const chestPool = [
@@ -10243,33 +11738,87 @@ function dropMonsterLoot(m, worldItems) {
     }
   }
 
-  const ALL_MONSTER_EQUIP_COMMON_RARE = [
-    "helm_leather", "helm_iron", "chest_leather", "chest_steel", "boots_swift",
-    "waist_cloth", "waist_chain", "arms_cloth", "arms_iron", "wings_cloth", "wings_azure",
-    "gloves_archer", "explorer_band", "lucky_charm", "ring_power", "merchants_ring", "amulet_wisdom",
-    "cloak_shadow", "shoulder_guard",
-  ];
+  const EQUIP_POOLS_BY_RARITY = { common: [], rare: [], epic: [], legendary: [] };
+  for (const itemId of Object.keys(ITEMS)) {
+    const d = ITEMS[itemId];
+    if (!d || !d.equipSlot) continue;
+    const rr = d.rarity || "common";
+    if (!EQUIP_POOLS_BY_RARITY[rr]) EQUIP_POOLS_BY_RARITY[rr] = [];
+    EQUIP_POOLS_BY_RARITY[rr].push(itemId);
+  }
   const STRONG_BOSS_EPIC_LEGENDARY = [
     "helm_epic", "helm_legendary", "chest_epic", "chest_legendary", "boots_epic",
     "waist_epic", "waist_legendary", "arms_epic", "arms_legendary", "wings_epic", "wings_legendary",
-    "sword_elven", "spear_epic", "bow_long", "bow_storm_legendary", "bow_dragon_legendary", "ring_power", "merchants_ring", "amulet_wisdom",
+    "sword_elven", "spear_epic", "bow_long", "bow_moon_epic", "bow_sun_epic", "bow_storm_legendary", "bow_void_legendary", "bow_dragon_legendary", "ring_power", "merchants_ring", "amulet_wisdom",
     "earring_focus", "bracelet_titan", "talisman_void", "artifact_dragon_eye",
   ];
   const ANY_BOSS_LEGENDARY = [
-    "helm_legendary", "chest_legendary", "waist_legendary", "arms_legendary", "wings_legendary", "amulet_wisdom", "bow_storm_legendary", "bow_dragon_legendary", "talisman_void", "artifact_dragon_eye",
+    "helm_legendary", "chest_legendary", "waist_legendary", "arms_legendary", "wings_legendary", "amulet_wisdom", "bow_storm_legendary", "bow_void_legendary", "bow_dragon_legendary", "talisman_void", "artifact_dragon_eye",
   ];
   const DRAGON_GUARANTEE_LEGENDARY = ["helm_legendary", "chest_legendary", "waist_legendary", "arms_legendary", "wings_legendary", "amulet_wisdom", "bow_storm_legendary", "bow_dragon_legendary", "talisman_void", "artifact_dragon_eye"];
 
-  const strongBoss = !!(m.boss && STRONG_BOSS_TYPES.has(m.type));
+  const ultraBoss = !!m.ultraBoss;
+  const strongBoss = !!(m.boss && (ultraBoss || STRONG_BOSS_TYPES.has(m.type)));
   const bRate = LOOT_BALANCE_PANEL.bossRateTable[m.type] || { legendMul: 1, hiTierMul: 1 };
-
-  if (Math.random() < (m.boss ? Math.min(0.9, preset.allMobEquipChance + 0.2) : preset.allMobEquipChance)) {
-    const pick = ALL_MONSTER_EQUIP_COMMON_RARE[Math.floor(Math.random() * ALL_MONSTER_EQUIP_COMMON_RARE.length)];
-    const d = ITEMS[pick];
-    if (d && (d.rarity === "common" || d.rarity === "rare")) pushDrop(pick, 1);
+  const levelRollCount = m.boss ? 2 + (strongBoss ? 1 : 0) + (ultraBoss ? 1 : 0) : 1;
+  const rollLevelBasedRarity = () => {
+    const t = Math.random();
+    const legendaryChance = m.boss ? (ultraBoss ? 0.12 : (strongBoss ? 0.03 : 0.016)) : Math.min(0.008, 0.0004 + mLevel * 0.00018);
+    const epicChance = Math.min(0.65, 0.05 + mLevel * 0.012 + (m.boss ? (ultraBoss ? 0.26 : 0.15) : 0));
+    const rareChance = Math.min(0.75, 0.26 + mLevel * 0.014 + (m.boss ? 0.1 : 0));
+    if (t < legendaryChance) return "legendary";
+    if (t < legendaryChance + epicChance) return "epic";
+    if (t < legendaryChance + epicChance + rareChance) return "rare";
+    return "common";
+  };
+  const pickFromRarity = (rarity) => {
+    const pool = (EQUIP_POOLS_BY_RARITY[rarity] || EQUIP_POOLS_BY_RARITY.common).filter((id) => canDropForMonsterLevel(id));
+    if (!pool.length) {
+      const fallback = EQUIP_POOLS_BY_RARITY.common.filter((id) => canDropForMonsterLevel(id));
+      if (fallback.length) return fallback[Math.floor(Math.random() * fallback.length)];
+      const all = allEquipForLevelSorted();
+      if (!all.length) return null;
+      const cap = Math.max(0, Math.min(all.length - 1, Math.floor((mLevel / 55) * all.length)));
+      return all[Math.floor(Math.random() * (cap + 1))];
+    }
+    const idx = Math.floor(Math.random() * pool.length);
+    return pool[idx];
+  };
+  if (Math.random() < (m.boss ? Math.min(0.92, preset.allMobEquipChance + 0.25) : preset.allMobEquipChance)) {
+    for (let i = 0; i < levelRollCount; i++) {
+      const rarity = rollLevelBasedRarity();
+      const pick = pickFromRarity(rarity);
+      const d = ITEMS[pick];
+      let up = 0;
+      if (pick && d && d.equipSlot) {
+        const upBase = Math.max(0, Math.floor((mLevel - 6) / 8));
+        const rarityBonus = rarity === "legendary" ? 2 : rarity === "epic" ? 1 : 0;
+        const upCap = Math.min(MAX_ITEM_UPGRADE, upBase + rarityBonus + (m.boss ? 2 : 0));
+        if (upCap > 0) {
+          const upChance = Math.min(0.8, 0.08 + mLevel * 0.01 + (m.boss ? 0.18 : 0));
+          if (Math.random() < upChance) up = 1 + Math.floor(Math.random() * upCap);
+        }
+      }
+      if (pick && d) pushDrop(pick, 1, up);
+    }
+  }
+  const extraEquipDropChance = m.boss ? (ultraBoss ? 1 : 0.95) : Math.min(0.88, 0.38 + mLevel * 0.014);
+  if (Math.random() < extraEquipDropChance) {
+    const extraPool = Object.keys(ITEMS).filter((id) => canDropForMonsterLevel(id));
+    if (extraPool.length > 0) {
+      const pick = extraPool[Math.floor(Math.random() * extraPool.length)];
+      pushDrop(pick, 1, 0);
+    } else {
+      const all = allEquipForLevelSorted();
+      if (all.length) {
+        const cap = Math.max(0, Math.min(all.length - 1, Math.floor((mLevel / 55) * all.length)));
+        const pick = all[Math.floor(Math.random() * (cap + 1))];
+        pushDrop(pick, 1, 0);
+      }
+    }
   }
 
-  if (m.boss && Math.random() < Math.min(0.95, preset.bossAnyLegendaryChance * bRate.legendMul)) {
+  if (m.boss && Math.random() < Math.min(0.995, preset.bossAnyLegendaryChance * bRate.legendMul * (ultraBoss ? 1.7 : 1))) {
     const lg = ANY_BOSS_LEGENDARY[Math.floor(Math.random() * ANY_BOSS_LEGENDARY.length)];
     pushDrop(lg, 1);
   }
@@ -10278,6 +11827,7 @@ function dropMonsterLoot(m, worldItems) {
     const hi = STRONG_BOSS_EPIC_LEGENDARY[Math.floor(Math.random() * STRONG_BOSS_EPIC_LEGENDARY.length)];
     pushDrop(hi, 1);
   }
+  if (ultraBoss && Math.random() < 0.8) pushDrop("boss_chest", 1);
 
   if (m.type === "skywing_dragon") {
     const hasLegendary = dropped.some((x) => {
@@ -10714,7 +12264,9 @@ function tryAutoAttackWhileHeld() {
   const mouseHeld = canvasMouse0Down && !touchState.mobileUI;
   const mobileAttackHeld = touchState.mobileUI && touchState.attackId >= 0;
   if (!mouseHeld && !mobileAttackHeld) return;
-  if (mouseHeld && !player.inBoat && playerHasBowEquipped(inventory)) {
+  // Güçlü ok (power shot) yalnızca Shift basılı tutulurken şarj olur;
+  // normal sol tık basılı tutma = sürekli otomatik ateş.
+  if (mouseHeld && !player.inBoat && playerHasBowEquipped(inventory) && shiftHeld) {
     const holdMs = performance.now() - mouseAttackT0;
     if (holdMs >= DESKTOP_POWER_HOLD_MS && inventory.countItem("arrow") > 0 && player.mana >= player.manaCostPower) {
       if (!player.powerCharging) {
@@ -10745,6 +12297,9 @@ canvas.addEventListener("mousedown", (e) => {
     craftPanel.handleClick(e.clientX, e.clientY, canvasW, canvasH, inventory, player);
     e.preventDefault(); return;
   }
+  if (bankPanel.open) {
+    e.preventDefault(); return;
+  }
   if (shop.open) {
     shop.handleClick(e.clientX, e.clientY, canvasW, canvasH, inventory, e.shiftKey, e.button);
     e.preventDefault(); return;
@@ -10771,7 +12326,7 @@ canvas.addEventListener("mousedown", (e) => {
     return;
   }
 
-  if (e.button === 0 && !inventory.open && !petPanel.open && !dialog.active && !shop.open && !craftPanel.open && !charPanel.open && !player.inBoat) {
+  if (e.button === 0 && !inventory.open && !bankPanel.open && !petPanel.open && !dialog.active && !shop.open && !craftPanel.open && !charPanel.open && !player.inBoat) {
     if (tryOpenWorldItemInspect(e.clientX, e.clientY)) {
       canvasMouse0Down = false;
       e.preventDefault();
@@ -10779,7 +12334,7 @@ canvas.addEventListener("mousedown", (e) => {
     }
   }
 
-  if (e.button === 0 && !inventory.open && !petPanel.open && !dialog.active && !shop.open && !craftPanel.open && !charPanel.open) {
+  if (e.button === 0 && !inventory.open && !bankPanel.open && !petPanel.open && !dialog.active && !shop.open && !craftPanel.open && !charPanel.open) {
     if (tryCombatPotionClick(e.clientX, e.clientY)) {
       e.preventDefault();
       return;
@@ -10790,7 +12345,7 @@ canvas.addEventListener("mousedown", (e) => {
     }
   }
 
-  if (e.button === 0 && !inventory.open && !petPanel.open && !dialog.active && !shop.open && !craftPanel.open && !charPanel.open && !player.inBoat) {
+  if (e.button === 0 && !inventory.open && !bankPanel.open && !petPanel.open && !dialog.active && !shop.open && !craftPanel.open && !charPanel.open && !player.inBoat) {
     if (player.powerCharging && player.powerCharge > 0.1) {
       tryReleasePowerShotClick();
     }
@@ -10815,6 +12370,15 @@ window.addEventListener("mouseup", (e) => {
   }
 });
 canvas.addEventListener("wheel", (e) => {
+  if (inventory.open && inventorySlotInspect && inventoryInspectScrollRect && inventoryInspectScrollMax > 0) {
+    const r = inventoryInspectScrollRect;
+    const inside = e.clientX >= r.x && e.clientX < r.x + r.w && e.clientY >= r.y && e.clientY < r.y + r.h;
+    if (inside) {
+      inventoryInspectScrollY = Math.max(0, Math.min(inventoryInspectScrollMax, inventoryInspectScrollY + e.deltaY));
+      e.preventDefault();
+      return;
+    }
+  }
   if (shop.open) {
     const land = canvasW > canvasH * 1.02;
     const dy = e.deltaY > 0 ? (land ? 2.2 : 1) : (land ? -2.2 : -1);
@@ -10828,6 +12392,7 @@ function tryMobileClosePanels(mx, my) {
   if (dialog.active) { dialog.close(true); return true; }
   if (shop.open) { shop.close(); return true; }
   if (craftPanel.open) { craftPanel.close(); return true; }
+  if (bankPanel.open) { bankPanel.close(); return true; }
   if (inventory.open) {
     if (inventorySlotInspect) { closeInventorySlotInspect(); return true; }
     inventory.close();
@@ -10862,8 +12427,19 @@ function handleCanvasTouchStart(e) {
       shop.handleClick(mx, my, canvasW, canvasH, inventory, false, 0);
       continue;
     }
+    if (bankPanel.open) {
+      continue;
+    }
     if (inventory.open) {
       if (inventorySlotInspect) {
+        if (inventoryInspectScrollRect && inventoryInspectScrollMax > 0) {
+          const r = inventoryInspectScrollRect;
+          if (mx >= r.x && mx < r.x + r.w && my >= r.y && my < r.y + r.h) {
+            inventoryInspectScrollTouchId = id;
+            inventoryInspectScrollLastY = my;
+            continue;
+          }
+        }
         if (handleInventorySlotInspectClick(mx, my, canvasW, canvasH)) continue;
       }
       inventory.handleClick(mx, my, canvasW, canvasH, false);
@@ -10950,6 +12526,11 @@ function handleCanvasTouchMove(e) {
       shop.gridScrollLastY = my;
       shop.applyTouchGridScroll(-dy, canvasW, canvasH, inventory);
     }
+    if (inventory.open && inventorySlotInspect && id === inventoryInspectScrollTouchId && inventoryInspectScrollMax > 0) {
+      const dy = my - inventoryInspectScrollLastY;
+      inventoryInspectScrollLastY = my;
+      inventoryInspectScrollY = Math.max(0, Math.min(inventoryInspectScrollMax, inventoryInspectScrollY - dy));
+    }
     if (id === touchState.joyId) {
       let dx = mx - touchState.joyOx, dy = my - touchState.joyOy;
       const max = touchState.joyR * 0.88;
@@ -10973,10 +12554,6 @@ function handleCanvasTouchMove(e) {
 }
 
 function pulseMobileButtonKey(key) {
-  if (key === "target") {
-    snapAimToNearestMonster();
-    return;
-  }
   if (key === MOBILE_POWER_BUTTON_KEY) {
     if (player.powerCharging && player.powerCharge > 0.08) {
       tryReleasePowerShotClick();
@@ -11021,6 +12598,9 @@ function handleCanvasTouchEnd(e) {
 
     if (shop.open && id === shop.gridScrollTouchId) {
       shop.gridScrollTouchId = -1;
+    }
+    if (id === inventoryInspectScrollTouchId) {
+      inventoryInspectScrollTouchId = -1;
     }
     if (id === touchState.joyId) {
       touchState.joyId = -1;
@@ -11148,9 +12728,9 @@ function renderTouchOverlay(ctx) {
       ctx.fillText(b.label, b.cx - ctx.measureText(b.label).width / 2, b.cy + 4);
       continue;
     }
-    if (b.kind === "target" || b.kind === "power") {
+    if (b.kind === "power") {
       const onAux = touchState.btnDown.size && [...touchState.btnDown.values()].some((v) => v.key === b.key);
-      const isPower = b.kind === "power";
+      const isPower = true;
       ctx.fillStyle = onAux ? "rgba(120,95,155,0.96)" : (isPower ? "rgba(255,244,252,0.96)" : "rgba(248,248,255,0.94)");
       ctx.beginPath();
       ctx.arc(b.cx, b.cy, b.r, 0, Math.PI * 2);
@@ -11159,12 +12739,8 @@ function renderTouchOverlay(ctx) {
       ctx.lineWidth = 1.5;
       ctx.stroke();
       ctx.fillStyle = onAux ? "#fff8ff" : (isPower ? "#7a2cb0" : "#383850");
-      ctx.font = "bold 12px monospace";
+      ctx.font = (b.label && String(b.label).length > 1) ? "bold 10px monospace" : "bold 12px monospace";
       ctx.fillText(b.label, b.cx - ctx.measureText(b.label).width / 2, b.cy + 4);
-      ctx.fillStyle = "rgba(210,210,230,0.95)";
-      ctx.font = "6px monospace";
-      const sub = b.kind === "target" ? "HEDEF" : "POWER";
-      ctx.fillText(sub, b.cx - ctx.measureText(sub).width / 2, b.cy + b.r + 7);
       continue;
     }
     const onRect = touchState.btnDown.size && [...touchState.btnDown.values()].some((v) => v.key === b.key);
@@ -11199,6 +12775,28 @@ let pickupMsgTimer = 0;
 let pickupMsgText = "";
 
 const CHOP_TREE_RANGE = TILE_SIZE * 1.7;
+const TREE_MAX_HP = 50;
+const treeHealths = new Map();
+
+function treeHealthKey(col, row) { return col + ',' + row; }
+
+function getTreeHp(col, row) {
+  const k = treeHealthKey(col, row);
+  if (!treeHealths.has(k)) treeHealths.set(k, TREE_MAX_HP);
+  return treeHealths.get(k);
+}
+
+function damageTree(col, row, dmg) {
+  const k = treeHealthKey(col, row);
+  if (!treeHealths.has(k)) treeHealths.set(k, TREE_MAX_HP);
+  const hp = treeHealths.get(k) - dmg;
+  if (hp <= 0) {
+    treeHealths.delete(k);
+    return true;
+  }
+  treeHealths.set(k, hp);
+  return false;
+}
 
 /** Teknede iken ayak ve g\u00f6vde merkezi su karosunda m\u0131? K\u0131y\u0131da biri karada kal\u0131nca inme / \u00e7arp\u0131\u015fma i\u00e7in kullan\u0131l\u0131r. */
 function playerBoatFullyOnWater(map, player) {
@@ -11225,14 +12823,18 @@ function tryChopTree(player, map, inventory) {
   if (!axeStack) return false;
   const ft = player.getFacingTile();
   const col = ft.col, row = ft.row;
-  if (map.getDetail(col, row) === TileType.TREE) {
-    map.setDetail(col, row, -1);
-  } else if (map.getTile(col, row) === TileType.TREE) {
-    map.setTile(col, row, TileType.GRASS);
-    map.setDetail(col, row, -1);
-  } else {
-    return false;
+  const isDetailTree = map.getDetail(col, row) === TileType.TREE;
+  const isGroundTree = map.getTile(col, row) === TileType.TREE;
+  if (!isDetailTree && !isGroundTree) return false;
+  const destroyed = damageTree(col, row, 15);
+  if (!destroyed) {
+    spawnDamageFloater((col + 0.5) * TILE_SIZE, (row + 0.5) * TILE_SIZE, 15, false, "#8B4513");
+    actionCooldown = 0.28;
+    gameAudio.playChop();
+    return true;
   }
+  if (isDetailTree) map.setDetail(col, row, -1);
+  else { map.setTile(col, row, TileType.GRASS); map.setDetail(col, row, -1); }
   const woodAmt = 3 + Math.floor(Math.random() * 3);
   inventory.addItem("wood", woodAmt);
   player.gainXP(1);
@@ -11354,14 +12956,13 @@ function handleInteraction() {
 }
 
 let lastTime = performance.now();
+let mobilePerfFrame = 0;
+const MOBILE_MONSTER_FAR_UPDATE_DIST = TILE_SIZE * 16;
+const MOBILE_MONSTER_FAR_UPDATE_STAGGER = 3;
+const MOBILE_MONSTER_RENDER_DIST = TILE_SIZE * 13;
+const MOBILE_MAX_VISIBLE_MONSTERS = 55;
 
-/* ── Kayıt slotları (localStorage) ─────────────────────────── */
-const SAVE_KEY_PREFIX = "chopgrow_save_v3_";
-const SAVE_META_PREFIX = "chopgrow_savemeta_v3_";
-const NUM_SAVE_SLOTS = 3;
-/** -1 = kayıt menüsü; 0..2 = aktif oyun slotu */
-let currentSaveSlot = -1;
-let nextAutoSaveAt = 0;
+/* ── Kayıt slotları (localStorage) — prefix/say\u0131 yukar\u0131da, fonksiyonlar burada ─── */
 
 function saveKeyForSlot(slot) {
   return SAVE_KEY_PREFIX + slot;
@@ -11552,24 +13153,33 @@ function monsterToSave(m) {
   return {
     type: m.type, col: m.col, row: m.row, levelScale: m.levelScale,
     x: m.x, y: m.y, hp: m.hp, maxHp: m.maxHp, dmg: m.dmg, speed: m.speed,
-    xpReward: m.xpReward, aggroRange: m.aggroRange, atkRange: m.atkRange, atkCd: m.atkCd,
-    alive: m.alive, state: m.state, boss: m.boss,
+    xpReward: m.xpReward, goldReward: m.goldReward, aggroRange: m.aggroRange, atkRange: m.atkRange, atkCd: m.atkCd,
+    alive: m.alive, state: m.state, boss: m.boss, ultraBoss: !!m.ultraBoss,
+    campId: m.campId, campTier: m.campTier, campScale: m.campScale, campRole: m.campRole, socialAggroRange: m.socialAggroRange, level: m.level,
     homeX: m.homeX, homeY: m.homeY, direction: m.direction,
     animTimer: m.animTimer, animFrame: m.animFrame,
     wanderTimer: m.wanderTimer, moveDir: { dx: m.moveDir.dx, dy: m.moveDir.dy }, moveTime: m.moveTime,
     atkTimer: m.atkTimer, atkAnim: m.atkAnim, hitFlash: m.hitFlash,
-    deathTimer: m.deathTimer, respawnTimer: m.respawnTimer, respawnTime: m.respawnTime,
+    deathTimer: m.deathTimer, respawnTimer: m.respawnTimer, respawnTime: m.respawnTime, supportHealCd: m.supportHealCd,
   };
 }
 
 function loadMonsterFromSave(o) {
-  const m = new Monster(o.col, o.row, o.type, o.levelScale != null ? o.levelScale : 1);
+  const m = new Monster(o.col, o.row, o.type, o.levelScale != null ? o.levelScale : 1, {
+    campId: o.campId != null ? o.campId : null,
+    campTier: o.campTier != null ? o.campTier : null,
+    campScale: o.campScale != null ? o.campScale : (o.levelScale != null ? o.levelScale : undefined),
+    campRole: o.campRole != null ? o.campRole : null,
+    socialAggroRange: o.socialAggroRange != null ? o.socialAggroRange : undefined,
+    ultraBoss: !!o.ultraBoss,
+  });
   m.x = o.x; m.y = o.y;
   m.hp = Math.min(o.hp != null ? o.hp : m.hp, o.maxHp != null ? o.maxHp : m.maxHp);
   m.maxHp = o.maxHp != null ? o.maxHp : m.maxHp;
   if (o.dmg != null) m.dmg = o.dmg;
   if (o.speed != null) m.speed = o.speed;
   if (o.xpReward != null) m.xpReward = o.xpReward;
+  if (o.goldReward != null) m.goldReward = o.goldReward;
   if (o.aggroRange != null) m.aggroRange = o.aggroRange;
   if (o.atkRange != null) m.atkRange = o.atkRange;
   if (o.atkCd != null) m.atkCd = o.atkCd;
@@ -11589,6 +13199,8 @@ function loadMonsterFromSave(o) {
   m.deathTimer = o.deathTimer || 0;
   m.respawnTimer = o.respawnTimer || 0;
   m.respawnTime = o.respawnTime || m.respawnTime;
+  m.supportHealCd = o.supportHealCd != null ? o.supportHealCd : m.supportHealCd;
+  if (o.level != null) m.level = o.level;
   return m;
 }
 
@@ -11677,6 +13289,7 @@ function resetWorldToNewGameState() {
   for (let i = 0; i < inventory.slots.length; i++) inventory.slots[i] = null;
   for (let i = 0; i < inventory.hotbar.length; i++) inventory.hotbar[i] = null;
   for (const sk of EQ_SLOTS) inventory.equipped[sk] = null;
+  inventory.equipped.bow = { id: "bow", count: 1 };
   inventory.gold = 0;
   inventory.selectedHotbar = 0;
   inventory.heldItem = null;
@@ -11704,6 +13317,9 @@ function resetWorldToNewGameState() {
   }
 
   activePet = null;
+  bankPanel.close();
+  bankPanel.slots = Array(160).fill(null);
+  bankPanel.gold = 0;
   arrows.length = 0;
   monsterSpells.length = 0;
   camera.x = player.x - canvasW / 2;
@@ -11733,6 +13349,7 @@ function buildSavePayload(displayName) {
     wildPets: wildPets.map(wildPetToSave),
     npcs: npcs.map(npcToSave),
     activePet: petToSave(activePet),
+    bank: { slots: bankPanel.slots, gold: bankPanel.gold | 0 },
   };
 }
 
@@ -11767,6 +13384,14 @@ function applySavePayload(data) {
     for (let i = 0; i < npcs.length; i++) applyNpcSave(npcs[i], data.npcs[i]);
   }
   activePet = loadActivePetFromSave(data.activePet);
+  if (data.bank) {
+    bankPanel.slots = Array.isArray(data.bank.slots) ? data.bank.slots.map((s) => s ? { ...s } : null) : Array(160).fill(null);
+    bankPanel.gold = Math.max(0, (data.bank.gold | 0));
+  } else {
+    bankPanel.slots = Array(160).fill(null);
+    bankPanel.gold = 0;
+  }
+  bankPanel.close();
   arrows.length = 0;
   monsterSpells.length = 0;
   dialog.active = false;
@@ -11821,6 +13446,21 @@ function hideSaveMenu() {
   if (ov) {
     ov.style.display = "none";
     ov.setAttribute("aria-hidden", "true");
+  }
+}
+
+/** file:// veya erken \u00e7al\u0131\u015fmada men\u00fc g\u00f6r\u00fcnmezse tekrar dene (kay\u0131t se\u00e7iliyse dokunma). */
+function ensureSaveMenuVisible() {
+  try {
+    if (typeof currentSaveSlot === "number" && currentSaveSlot >= 0) return;
+    const ov = document.getElementById("save-menu-overlay");
+    if (!ov) return;
+    ov.style.display = "block";
+    ov.style.zIndex = "2147483647";
+    ov.setAttribute("aria-hidden", "false");
+    if (typeof refreshSaveMenuDom === "function") refreshSaveMenuDom();
+  } catch (e) {
+    console.error("ensureSaveMenuVisible", e);
   }
 }
 
@@ -11917,12 +13557,29 @@ function gameLoop(now) {
   if (currentSaveSlot < 0) {
     lastTime = now;
     clearJustPressed();
+    if (ctx && canvasW > 0 && canvasH > 0) {
+      const g = ctx.createLinearGradient(0, 0, 0, canvasH);
+      g.addColorStop(0, "#1a2028");
+      g.addColorStop(1, "#0a0c10");
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, canvasW, canvasH);
+      ctx.fillStyle = "#b8c0d0";
+      ctx.font = "bold 16px system-ui, sans-serif";
+      const t0 = "\u00d6nce \u00fcstteki kay\u0131t penceresinden \"Yeni oyun\" veya \"Devam et\" se\u00e7in.";
+      ctx.fillText(t0, (canvasW - ctx.measureText(t0).width) / 2, canvasH * 0.4);
+      ctx.font = "13px system-ui, sans-serif";
+      const t1 = "Pencere yoksa: proje klas\u00f6r\u00fcnde serve.bat \u00e7al\u0131\u015f\u0131p http://127.0.0.1:8080/ adresini a\u00e7in; hata i\u00e7in F12 \u00bb Console.";
+      const w1 = ctx.measureText(t1).width;
+      const x1 = w1 < canvasW - 20 ? (canvasW - w1) / 2 : 10;
+      ctx.fillText(t1, x1, canvasH * 0.5);
+    }
     requestAnimationFrame(gameLoop);
     return;
   }
 
   const dt = Math.min((now - lastTime) / 1000, 0.1);
   lastTime = now;
+  if (touchState.mobileUI) mobilePerfFrame = (mobilePerfFrame + 1) % 2048;
 
   if (now >= nextAutoSaveAt && currentSaveSlot >= 0) {
     saveGameToSlot(currentSaveSlot);
@@ -11937,16 +13594,20 @@ function gameLoop(now) {
     if (dialog.active) dialog.close(true);
     else if (shop.open) shop.close();
     else if (craftPanel.open) craftPanel.close();
+    else if (bankPanel.open) bankPanel.close();
     else if (inventory.open) {
       if (inventorySlotInspect) closeInventorySlotInspect();
       else inventory.close();
     }
     else if (petPanel.open) petPanel.close();
-    else if (charPanel.open) charPanel.close();
+    else if (charPanel.open) {
+      charPanel.close();
+    }
     else if (worldItemInspect) closeWorldItemInspect();
   } else if (wasJustPressed("KeyI") || wasJustPressed("Tab")) {
     inventory.toggle();
     if (inventory.open) {
+      bankPanel.close();
       charPanel.close();
       petPanel.open = false;
       shop.close();
@@ -11955,10 +13616,46 @@ function gameLoop(now) {
   }
   if (wasJustPressed("KeyC") && !dialog.active) {
     charPanel.toggle();
+    if (charPanel.open) bankPanel.close();
+  }
+  if (wasJustPressed("KeyN") && !dialog.active && !shop.open && !craftPanel.open && !charPanel.open && !worldItemInspect && !inventorySlotInspect) {
+    bankPanel.toggle();
+    if (bankPanel.open) {
+      inventory.close();
+      petPanel.close();
+      shop.close();
+      craftPanel.close();
+      charPanel.close();
+      closeWorldItemInspect();
+      closeInventorySlotInspect();
+    }
+  }
+  if (bankPanel.open) {
+    if (wasJustPressed("KeyJ")) {
+      const moved = bankPanel.depositAllFromInventory(inventory);
+      pickupMsgText = moved > 0 ? (moved + " esya bankaya yatirildi.") : "Yatirilacak esya yok.";
+      pickupMsgTimer = 1.5;
+    }
+    if (wasJustPressed("KeyK")) {
+      const moved = bankPanel.withdrawAllToInventory(inventory);
+      pickupMsgText = moved > 0 ? (moved + " esya envantere cekildi.") : "Cekilecek esya yok veya envanter dolu.";
+      pickupMsgTimer = 1.5;
+    }
+    if (wasJustPressed("KeyH")) {
+      const g = bankPanel.depositAllGoldFromInventory(inventory);
+      pickupMsgText = g > 0 ? (formatGold(g) + " altin bankaya yatirildi.") : "Yatirilacak altin yok.";
+      pickupMsgTimer = 1.5;
+    }
+    if (wasJustPressed("KeyG")) {
+      const g = bankPanel.withdrawAllGoldToInventory(inventory);
+      pickupMsgText = g > 0 ? (formatGold(g) + " altin bankadan cekildi.") : "Bankada altin yok.";
+      pickupMsgTimer = 1.5;
+    }
   }
   if (wasJustPressed("KeyP")) {
     petPanel.toggle();
     if (petPanel.open) {
+      bankPanel.close();
       charPanel.close();
       inventory.open = false;
       shop.close();
@@ -12026,7 +13723,7 @@ function gameLoop(now) {
 
   shop.update(dt);
   craftPanel.update(dt);
-  const uiOpen = dialog.active || inventory.open || petPanel.open || shop.open || craftPanel.open || charPanel.open || !!worldItemInspect || !!inventorySlotInspect;
+  const uiOpen = dialog.active || inventory.open || bankPanel.open || petPanel.open || shop.open || craftPanel.open || charPanel.open || !!worldItemInspect || !!inventorySlotInspect;
 
   const desktopPowerHold = canvasMouse0Down && !touchState.mobileUI && (performance.now() - mouseAttackT0) >= DESKTOP_POWER_HOLD_MS;
   if ((isDown("ShiftLeft") || isDown("ShiftRight") || desktopPowerHold) && !uiOpen && !player.inBoat) {
@@ -12124,15 +13821,35 @@ function gameLoop(now) {
   if (activePet) activePet.update(dt, player, map, worldItems, inventory, monsters);
 
   if (!uiOpen) {
-    for (const m of monsters) {
-      const r = m.update(dt, map, player);
+    if (!touchState.mobileUI || (mobilePerfFrame % 2) === 0) {
+      processCampSupport(monsters, touchState.mobileUI ? dt * 2 : dt);
+    }
+    const farUpdateDistSq = MOBILE_MONSTER_FAR_UPDATE_DIST * MOBILE_MONSTER_FAR_UPDATE_DIST;
+    for (let mi = 0; mi < monsters.length; mi++) {
+      const m = monsters[mi];
+      let stepDt = dt;
+      if (touchState.mobileUI && !m.boss && m.alive) {
+        const mdx = m.cx - player.centerX;
+        const mdy = m.cy - player.centerY;
+        const farMonster = (mdx * mdx + mdy * mdy) > farUpdateDistSq;
+        if (farMonster) {
+          if (((mobilePerfFrame + mi) % MOBILE_MONSTER_FAR_UPDATE_STAGGER) !== 0) continue;
+          stepDt *= MOBILE_MONSTER_FAR_UPDATE_STAGGER;
+        }
+      }
+      const r = m.update(stepDt, map, player);
+      if (m.alertAlliesTimer > 0 && (m.state === "chase" || m.state === "attack")) {
+        alertCampAllies(monsters, m, player);
+      }
       if (r === "dead") {
         gameAudio.playKill();
         player.gainXP(m.xpReward);
+        inventory.addItem("coin", m.goldReward || 0);
         dropMonsterLoot(m, worldItems);
         const mt = MONSTER_TYPES[m.type];
         const btag = mt && mt.boss ? "[BOSS] " : "";
-        pickupMsgText = "+" + m.xpReward + " XP — " + btag + (mt ? mt.name : m.type) + " yendi!";
+        const campTag = m.campId ? " [GRUP]" : "";
+        pickupMsgText = "+" + m.xpReward + " XP  +" + (m.goldReward || 0) + " Altın — " + btag + (mt ? mt.name : m.type) + campTag + " yendi!";
         pickupMsgTimer = 1.8;
       }
     }
@@ -12257,8 +13974,13 @@ function gameLoop(now) {
   }
 
   ctx.clearRect(0, 0, canvasW, canvasH);
+  // En uzak zoomda harita sinirlari disinda siyah gorunumu engelle.
+  ctx.fillStyle = "#2f8f4d";
+  ctx.fillRect(0, 0, canvasW, canvasH);
   camera.applyTransform(ctx);
-  map.render(ctx, camera.x, camera.y, canvasW, canvasH);
+  const viewWorldW = (camera && camera.viewW > 0) ? camera.viewW : (canvasW / Math.max(0.01, worldZoom));
+  const viewWorldH = (camera && camera.viewH > 0) ? camera.viewH : (canvasH / Math.max(0.01, worldZoom));
+  map.render(ctx, camera.x, camera.y, viewWorldW, viewWorldH);
 
   if (worldData.dockCol && worldData.dockEnd) {
     const dc = worldData.dockCol, de = worldData.dockEnd;
@@ -12314,12 +14036,33 @@ function gameLoop(now) {
     ctx.fillText("\u2693 \u0130SKELE", signX + 3, signY + 12);
   }
 
-  for (const wi of worldItems) if (wi.alive) wi.render(ctx);
+  const itemCullPad = touchState.mobileUI ? 72 : 0;
+  const minViewX = camera.x - itemCullPad;
+  const minViewY = camera.y - itemCullPad;
+  const maxViewX = camera.x + viewWorldW + itemCullPad;
+  const maxViewY = camera.y + viewWorldH + itemCullPad;
+  for (const wi of worldItems) {
+    if (!wi.alive) continue;
+    if (touchState.mobileUI && (wi.x < minViewX || wi.x > maxViewX || wi.y < minViewY || wi.y > maxViewY)) continue;
+    wi.render(ctx);
+  }
 
   const renderables = [...npcs];
   if (!player.inBoat) renderables.push(player);
   for (const wp of wildPets) if (wp.alive) renderables.push(wp);
-  for (const m of monsters) if (m.alive) renderables.push(m);
+  const mobRenderDistSq = MOBILE_MONSTER_RENDER_DIST * MOBILE_MONSTER_RENDER_DIST;
+  let mobileVisibleMonsterCount = 0;
+  for (const m of monsters) {
+    if (!m.alive) continue;
+    if (touchState.mobileUI && !m.boss) {
+      const dxm = m.cx - player.centerX;
+      const dym = m.cy - player.centerY;
+      if ((dxm * dxm + dym * dym) > mobRenderDistSq) continue;
+      if (mobileVisibleMonsterCount >= MOBILE_MAX_VISIBLE_MONSTERS) continue;
+      mobileVisibleMonsterCount++;
+    }
+    renderables.push(m);
+  }
   if (activePet && !player.inBoat) renderables.push(activePet);
   renderables.sort((a, b) => (a.y + (a.h || 16)) - (b.y + (b.h || 16)));
   for (const e of renderables) {
@@ -12334,28 +14077,11 @@ function gameLoop(now) {
 
   camera.resetTransform(ctx);
 
-  (function drawScreenVignette() {
-    const g = ctx.createRadialGradient(
-      canvasW * 0.5, canvasH * 0.42, Math.min(canvasW, canvasH) * 0.2,
-      canvasW * 0.5, canvasH * 0.5, Math.max(canvasW, canvasH) * 0.72
-    );
-    g.addColorStop(0, "rgba(0,0,0,0)");
-    g.addColorStop(0.65, "rgba(0,0,0,0.12)");
-    g.addColorStop(1, "rgba(0,0,0,0.28)");
-    ctx.save();
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.fillStyle = g;
-    ctx.fillRect(0, 0, canvasW, canvasH);
-    ctx.restore();
-  })();
-
   if (!inventory.open && !petPanel.open && !shop.open && !craftPanel.open) {
     const hx = 10, hy = 10, hw = 170, barH = 10, gap = 4, pad = 6;
     const extraRageRow = (player.rageBurstTimer > 0 || player.rageMeter > 0.02) ? barH + gap : 0;
     const extraPwrRow = (player.powerCharging && player.powerCharge > 0) ? barH + gap : 0;
-    const extraComboRow = (player.archerComboTimer > 0 || player.archerComboCount > 0) ? barH + gap : 0;
-    const extraRapidRow = player.archerRapidFireTimer > 0 ? barH + gap : 0;
-    const panelH = pad * 2 + barH * 4 + gap * 3 + 22 + extraRageRow + extraPwrRow + extraComboRow + extraRapidRow;
+    const panelH = pad * 2 + barH * 4 + gap * 3 + 22 + extraRageRow + extraPwrRow;
 
     const hgrd = ctx.createLinearGradient(hx, hy, hx, hy + panelH);
     hgrd.addColorStop(0, "rgba(16, 18, 42, 0.92)");
@@ -12416,15 +14142,6 @@ function gameLoop(now) {
       by += barH + gap;
       drawBar("PWR", player.powerCharge * 100, 100, "#a040d0", "#d080ff", hx + pad, by);
     }
-    if (player.archerComboTimer > 0 || player.archerComboCount > 0) {
-      by += barH + gap;
-      const lbl = player.archerComboCount >= 5 ? "COMBO ULTI" : "COMBO";
-      drawBar(lbl, player.archerComboCount, 5, "#2090d0", "#70d8ff", hx + pad, by);
-    }
-    if (player.archerRapidFireTimer > 0) {
-      by += barH + gap;
-      drawBar("RAPID", player.archerRapidFireTimer, 3.2, "#8a40ff", "#e090ff", hx + pad, by);
-    }
 
     let extraY = hy + panelH + 6;
 
@@ -12448,16 +14165,15 @@ function gameLoop(now) {
       ctx.fillStyle = "#80c0ff"; ctx.font = "bold 12px monospace";
       ctx.fillText("\u2693 Teknede", hx + 14, extraY + 18);
     }
-
-    drawCombatPotions(ctx, canvasW, canvasH, inventory);
   }
 
   inventory.render(ctx, canvasW, canvasH, mouseX, mouseY);
+  bankPanel.render(ctx, canvasW, canvasH);
   petPanel.render(ctx, canvasW, canvasH, activePet);
   shop.render(ctx, canvasW, canvasH, inventory);
   craftPanel.render(ctx, canvasW, canvasH, inventory, player);
 
-  if (!inventory.open && !petPanel.open && !shop.open && !craftPanel.open) {
+  if (!inventory.open && !bankPanel.open && !petPanel.open && !shop.open && !craftPanel.open) {
     hud.render(ctx, canvasW, canvasH);
     dialog.render(ctx, canvasW, canvasH);
     minimap.render(ctx, canvasW, canvasH, camera, player, npcs, wildPets, activePet);
@@ -12470,8 +14186,8 @@ function gameLoop(now) {
 
   renderTouchOverlay(ctx);
 
-  if (!inventory.open && !petPanel.open && !shop.open && !craftPanel.open && !charPanel.open) {
-    drawRangedTargetHpBanner(ctx, canvasW, canvasH, rangedFocusMonster);
+  if (!inventory.open && !bankPanel.open && !petPanel.open && !shop.open && !craftPanel.open) {
+    drawCombatPotions(ctx, canvasW, canvasH, inventory);
   }
 
   if (player.levelUpTimer > 0) {
@@ -12515,12 +14231,34 @@ function gameLoop(now) {
     ctx.fillText(pickupMsgText, canvasW / 2 - ctx.measureText(pickupMsgText).width / 2, canvasH / 2 - 40 - offsetY);
     ctx.globalAlpha = 1;
   }
+  if (player.equipPowerToastTimer > 0 && player.equipPowerToastText) {
+    const tAlpha = Math.min(1, player.equipPowerToastTimer / 0.22);
+    const yOff = (1.35 - player.equipPowerToastTimer) * 24;
+    ctx.globalAlpha = tAlpha;
+    ctx.fillStyle = player.equipPowerToastColor || "#ffffff";
+    ctx.font = "bold 15px monospace";
+    const yy = canvasH * 0.34 - yOff;
+    ctx.fillText(player.equipPowerToastText, canvasW / 2 - ctx.measureText(player.equipPowerToastText).width / 2, yy);
+    ctx.globalAlpha = 1;
+  }
 
   clearJustPressed();
   requestAnimationFrame(gameLoop);
 }
 
-showSaveMenu();
+try {
+  if (!canvas || !ctx) {
+    document.body.insertAdjacentHTML("beforeend", "<p style=\"position:fixed;z-index:99999;padding:20px;background:#500;color:#fff\">Taray\u0131c\u0131 canvas 2D desteklemiyor.</p>");
+  }
+} catch (e) {
+  const msg = (e && e.message) ? String(e.message) : String(e);
+  document.body.insertAdjacentHTML("beforeend", "<p style=\"position:fixed;z-index:99999;left:0;right:0;padding:20px;background:#500;color:#fff;white-space:pre-wrap;font:14px monospace\">Ba\u015flatma hatas\u0131: " + msg.replace(/</g, " ") + "</p>");
+  console.error(e);
+}
+if (typeof ensureSaveMenuVisible === "function") {
+  requestAnimationFrame(() => { ensureSaveMenuVisible(); });
+  window.addEventListener("load", () => { ensureSaveMenuVisible(); }, { once: true });
+}
 requestAnimationFrame(gameLoop);
 </script>
 </body>
