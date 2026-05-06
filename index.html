@@ -637,6 +637,7 @@ function mobileButtonsLayout(cw, ch) {
   const menuItems = [
     { key: "KeyI", label: "\u00c7anta" },
     { key: "KeyC", label: "K" },
+    { key: "KeyK", label: "Y" },
     { key: "KeyT", label: "\u015eehir" },
     { key: "KeyJ", label: "G\u00f6rev" },
   ];
@@ -3014,7 +3015,6 @@ const charPanel = {
   _layout(cw, ch) {
     const b = uiModalBounds(cw, ch);
     const land = cw > ch * 1.02;
-    const n = PLAYER_SKILL_DEFS.length;
     let pw = Math.min(land ? 700 : 620, b.maxW);
     pw = Math.max(500, pw);
     const pad = 28;
@@ -3025,13 +3025,8 @@ const charPanel = {
     const hintH = 14;
     const combatH = land ? 55 : 65;
     const apH = touchState.mobileUI ? 60 : 0;
-    let rowStep = land ? 38 : 44;
-    const skHdrH = land ? 16 : 20;
-    const skillRows = 5; // 2 sütun x 5 satır = 10 yetenek
-    const calcH = () => pad + hdrH + sg + infoH + sg + cardH + hintH + sg + combatH + (apH > 0 ? sg + apH : 0) + sg + skHdrH + skillRows * rowStep + pad + 14;
-    let needH = calcH();
-    while (needH > b.maxH && rowStep > 26) { rowStep -= 2; needH = calcH(); }
-    let ph = Math.min(Math.max(needH, 280), b.maxH);
+    const calcH = () => pad + hdrH + sg + infoH + sg + cardH + hintH + sg + combatH + (apH > 0 ? sg + apH : 0) + pad + 14;
+    let ph = Math.min(Math.max(calcH(), 280), b.maxH);
     const px = Math.floor((cw - pw) / 2);
     const py = Math.max(b.top, Math.min(ch - ph - b.bottom, Math.floor((ch - ph) / 2)));
     let cy = py + hdrH + pad;
@@ -3039,27 +3034,23 @@ const charPanel = {
     const statsY = cy; cy += cardH + hintH + sg;
     const combatY = cy; cy += combatH;
     const autoPotY = apH > 0 ? (cy += sg, cy) : -1; if (apH > 0) cy += apH;
-    cy += sg;
-    const skillHdrY = cy; cy += skHdrH;
-    const skillStartY = cy;
-    const cGap = land ? 6 : 8;
-    const iw = pw - pad * 2;
-    const cardW = Math.floor((iw - cGap * 4) / 5);
-    const boxH = Math.max(40, rowStep - 4);
     const closeR = { x: px + pw - 32, y: py + 6, w: 26, h: 26 };
-    return { px, py, pw, ph, pad, hdrH, land, rowStep, boxH, infoY, statsY, cardH, cardW, cGap, combatY, combatH, autoPotY, apH, skillHdrY, skillStartY, closeR, iw };
+    return { px, py, pw, ph, pad, hdrH, land, infoY, statsY, cardH, combatY, combatH, autoPotY, apH, closeR, iw: pw - pad * 2 };
   },
   _statCardRects(L) {
     const x0 = L.px + L.pad;
     const bH = L.land ? 18 : 20;
     const bW = L.cardW - 10;
+    const cGap = L.land ? 6 : 8;
+    const iw = L.pw - L.pad * 2;
+    const cardW = Math.floor((iw - cGap * 4) / 5);
     const bY = L.statsY + L.cardH - bH - 6;
     return [
-      { card: { x: x0, y: L.statsY, w: L.cardW, h: L.cardH }, btn: { x: x0 + 5, y: bY, w: bW, h: bH }, stat: "str" },
-      { card: { x: x0 + L.cardW + L.cGap, y: L.statsY, w: L.cardW, h: L.cardH }, btn: { x: x0 + L.cardW + L.cGap + 5, y: bY, w: bW, h: bH }, stat: "agi" },
-      { card: { x: x0 + 2 * (L.cardW + L.cGap), y: L.statsY, w: L.cardW, h: L.cardH }, btn: { x: x0 + 2 * (L.cardW + L.cGap) + 5, y: bY, w: bW, h: bH }, stat: "wis" },
-      { card: { x: x0 + 3 * (L.cardW + L.cGap), y: L.statsY, w: L.cardW, h: L.cardH }, btn: { x: x0 + 3 * (L.cardW + L.cGap) + 5, y: bY, w: bW, h: bH }, stat: "vit" },
-      { card: { x: x0 + 4 * (L.cardW + L.cGap), y: L.statsY, w: L.cardW, h: L.cardH }, btn: { x: x0 + 4 * (L.cardW + L.cGap) + 5, y: bY, w: bW, h: bH }, stat: "dex" },
+      { card: { x: x0, y: L.statsY, w: cardW, h: L.cardH }, btn: { x: x0 + 5, y: bY, w: bW, h: bH }, stat: "str" },
+      { card: { x: x0 + cardW + cGap, y: L.statsY, w: cardW, h: L.cardH }, btn: { x: x0 + cardW + cGap + 5, y: bY, w: bW, h: bH }, stat: "agi" },
+      { card: { x: x0 + 2 * (cardW + cGap), y: L.statsY, w: cardW, h: L.cardH }, btn: { x: x0 + 2 * (cardW + cGap) + 5, y: bY, w: bW, h: bH }, stat: "wis" },
+      { card: { x: x0 + 3 * (cardW + cGap), y: L.statsY, w: cardW, h: L.cardH }, btn: { x: x0 + 3 * (cardW + cGap) + 5, y: bY, w: bW, h: bH }, stat: "vit" },
+      { card: { x: x0 + 4 * (cardW + cGap), y: L.statsY, w: cardW, h: L.cardH }, btn: { x: x0 + 4 * (cardW + cGap) + 5, y: bY, w: bW, h: bH }, stat: "dex" },
     ];
   },
   _autopotStepRects(L) {
@@ -3085,6 +3076,7 @@ const charPanel = {
       if (typeof petPanel !== "undefined") petPanel.open = false;
       if (typeof shop !== "undefined") shop.close();
       if (typeof craftPanel !== "undefined") craftPanel.close();
+      if (typeof skillPanel !== "undefined") skillPanel.close();
     }
   },
   close() { this.open = false; },
@@ -3131,24 +3123,10 @@ const charPanel = {
       if (this._in(mx, my, apR.mpMinus)) { autoPotSettings.mpPct = Math.max(5, autoPotSettings.mpPct - 5); saveAutoPotSettings(); pickupMsgText = "Oto mana iksiri: MP < %" + autoPotSettings.mpPct; pickupMsgTimer = 1.1; return true; }
       if (this._in(mx, my, apR.mpPlus)) { autoPotSettings.mpPct = Math.min(95, autoPotSettings.mpPct + 5); saveAutoPotSettings(); pickupMsgText = "Oto mana iksiri: MP < %" + autoPotSettings.mpPct; pickupMsgTimer = 1.1; return true; }
     }
-    let sy = L.skillStartY;
-    const skillColW = (L.iw - 10) / 2;
-    const unlockW = 80;
-    const unlockH = 22;
-    const skillsPerCol = 5;
-    for (let i = 0; i < PLAYER_SKILL_DEFS.length; i++) {
-      const sk = PLAYER_SKILL_DEFS[i];
-      const col = i < skillsPerCol ? 0 : 1;
-      const row = i % skillsPerCol;
-      const sx = L.px + L.pad + col * (skillColW + 5);
-      const sy2 = sy + row * L.rowStep;
-      const unlockR = { x: sx + skillColW - unlockW - 4, y: sy2 + 2, w: unlockW, h: unlockH };
-      if (!player.skills[sk.id] && this._in(mx, my, unlockR)) {
-        const err = this.tryUnlockSkill(player, inventory, sk.id);
-        if (err) { pickupMsgText = err; pickupMsgTimer = 1.6; }
-        else { pickupMsgText = sk.name + " a\u00e7\u0131ld\u0131! (-" + sk.gold + " alt\u0131n)"; pickupMsgTimer = 2; }
-        return true;
-      }
+    const skBtnR = { x: L.px + L.pad, y: L.py + L.ph - 18, w: 100, h: 18 };
+    if (this._in(mx, my, skBtnR)) {
+      if (typeof skillPanel !== "undefined") { charPanel.close(); skillPanel.open = true; }
+      return true;
     }
     return true;
   },
@@ -3321,22 +3299,6 @@ const charPanel = {
     const moveSpd = baseSpeed + agiBonus;
     const dexSpd = player.getAttackSpeedMultiplier();
 
-    // Toplam vuruş hasarı (ekipman dahil, kritik hariç)
-    const calcTotalDmg = () => {
-      const baseDmg = player.getRangedDamage();
-      let d = baseDmg;
-      // Ekipman bonus hasarı
-      const inv = typeof inventory !== "undefined" ? inventory : null;
-      if (inv) {
-        const agg = aggregateEquipmentExtras(inv);
-        const atkPower = getEquipmentAttackPowerTotal(inv);
-        d = baseDmg * (1 + agg.bonusPctDmg / 100) * (1 + (agg.firePct + agg.icePct + agg.poisonPct) / 100);
-        if (atkPower > 0) d = Math.max(d, atkPower);
-      }
-      return Math.floor(Math.max(1, d));
-    };
-    const totalDmg = calcTotalDmg();
-
     // SATIR 1 (4 sütun)
     drawCell("Ok Hasar\u0131 " + rangedDmg + " dmg", "#60d0ff", 0, 0);
     drawCell("Savunma " + def + " def", "#f0d060", 1, 0);
@@ -3348,8 +3310,6 @@ const charPanel = {
     drawCell("Y\u00fcr\u00fcme H\u0131z\u0131 " + moveSpd, "#80ff80", 1, 1);
     drawCell("MP Yenileme +" + player.manaRegen.toFixed(1) + "/s", "#8080ff", 2, 1);
     drawCell("Kritik Hasar " + critDmg + "%", "#d060ff", 3, 1);
-
-    
 
     // â”€â”€ Section 4: Auto-pot (mobile) â”€â”€
     if (touchState.mobileUI && L.autoPotY >= 0) {
@@ -3378,45 +3338,154 @@ const charPanel = {
       }
     }
 
-    // â”€â”€ Section 5: Skills â”€â”€
-    ctx.fillStyle = "#b0b8d0"; ctx.font = land ? "bold 10px monospace" : "bold 11px monospace";
-    ctx.fillText("Yetenekler", px + pad + 8, L.skillHdrY + (land ? 10 : 14));
+    // Footer
+    ctx.fillStyle = "#4a5260"; ctx.font = "9px monospace";
+    const skBtnText = "[K] Yetenekler";
+    ctx.fillText(skBtnText, px + pad + 8, py + ph - 10);
+  },
+};
 
-    let sy = L.skillStartY;
+const skillPanel = {
+  open: false,
+  _layout(cw, ch) {
+    const b = uiModalBounds(cw, ch);
+    const land = cw > ch * 1.02;
+    let pw = Math.min(land ? 620 : 560, b.maxW);
+    pw = Math.max(460, pw);
+    const pad = 24;
+    const hdrH = land ? 28 : 32;
+    const sg = land ? 8 : 10;
+    let rowStep = land ? 38 : 44;
+    const skHdrH = land ? 18 : 22;
+    const skillsPerCol = 5;
+    const cols = 2;
+    const rows = Math.ceil(PLAYER_SKILL_DEFS.length / cols);
+    const skillH = skHdrH + rows * rowStep;
+    const calcH = () => pad + hdrH + sg + skillH + pad + 14;
+    let ph = Math.min(Math.max(calcH(), 220), b.maxH);
+    const px = Math.floor((cw - pw) / 2);
+    const py = Math.max(b.top, Math.min(ch - ph - b.bottom, Math.floor((ch - ph) / 2)));
+    const skillStartY = py + hdrH + pad + skHdrH;
+    const skillColW = (pw - pad * 2 - 16) / 2;
+    const closeR = { x: px + pw - 32, y: py + 6, w: 26, h: 26 };
+    return { px, py, pw, ph, pad, hdrH, land, rowStep, skillStartY, skillColW, closeR };
+  },
+  toggle() {
+    this.open = !this.open;
+    if (this.open) {
+      if (typeof inventory !== "undefined") inventory.close();
+      if (typeof charPanel !== "undefined") charPanel.close();
+      if (typeof shop !== "undefined") shop.close();
+      if (typeof craftPanel !== "undefined") craftPanel.close();
+      if (typeof bankPanel !== "undefined") bankPanel.close();
+    }
+  },
+  close() { this.open = false; },
+  _in(mx, my, r) {
+    return mx >= r.x && mx < r.x + r.w && my >= r.y && my < r.y + r.h;
+  },
+  handleClick(mx, my, cw, ch, player, inventory) {
+    if (!this.open) return false;
+    const L = this._layout(cw, ch);
+    if (mx < L.px || mx >= L.px + L.pw || my < L.py || my >= L.py + L.ph) { this.close(); return true; }
+    if (this._in(mx, my, L.closeR)) { this.close(); return true; }
     const gold = inventory.countItem("coin");
-    const skillColW = (L.iw - 16) / 2;
+    const skillsPerCol = 5;
     const unlockW = 80;
     const unlockH = 22;
-    const skillsPerCol = 5;
-
-    // 2 sütunlu düzen
     for (let i = 0; i < PLAYER_SKILL_DEFS.length; i++) {
       const sk = PLAYER_SKILL_DEFS[i];
       const col = i < skillsPerCol ? 0 : 1;
       const row = i % skillsPerCol;
-      const sx = px + pad + col * (skillColW + 5);
-      const sy2 = sy + row * L.rowStep;
+      const sx = L.px + L.pad + col * (L.skillColW + 5);
+      const sy2 = L.skillStartY + row * L.rowStep;
+      if (!player.skills[sk.id]) {
+        const uR = { x: sx + L.skillColW - unlockW - 4, y: sy2 + 2, w: unlockW, h: unlockH };
+        if (this._in(mx, my, uR)) {
+          const def = PLAYER_SKILL_DEFS.find((d) => d.id === sk.id);
+          if (!def) return true;
+          if (player.skills[sk.id]) return true;
+          if (player.level < def.minLevel) { pickupMsgText = "Seviye " + def.minLevel + "+ gerekli."; pickupMsgTimer = 1.4; return true; }
+          if (gold < def.gold) { pickupMsgText = def.gold + " alt\u0131n gerekli."; pickupMsgTimer = 1.4; return true; }
+          inventory.removeItem("coin", def.gold);
+          player.skills[sk.id] = true;
+          player._pendingFullHeal = true;
+          pickupMsgText = sk.name + " a\u00e7\u0131ld\u0131! (-" + sk.gold + " alt\u0131n)"; pickupMsgTimer = 2;
+          return true;
+        }
+      }
+    }
+    return true;
+  },
+  render(ctx, cw, ch, player, inventory) {
+    if (!this.open) return;
+    const L = this._layout(cw, ch);
+    const { px, py, pw, ph, pad, hdrH, land } = L;
+
+    // Background
+    const gBg = ctx.createLinearGradient(px, py, px, py + ph);
+    gBg.addColorStop(0, "rgba(14,18,28,0.97)");
+    gBg.addColorStop(1, "rgba(8,10,18,0.97)");
+    ctx.fillStyle = gBg;
+    roundRect(ctx, px, py, pw, ph, 12); ctx.fill();
+    ctx.strokeStyle = "#4a5a8a"; ctx.lineWidth = 2;
+    roundRect(ctx, px, py, pw, ph, 12); ctx.stroke();
+    ctx.strokeStyle = "rgba(120,140,220,0.18)"; ctx.lineWidth = 1;
+    roundRect(ctx, px + 2, py + 2, pw - 4, ph - 4, 10); ctx.stroke();
+
+    // Header
+    const hG = ctx.createLinearGradient(px, py, px, py + hdrH);
+    hG.addColorStop(0, "rgba(35,40,65,0.92)");
+    hG.addColorStop(1, "rgba(20,25,45,0.92)");
+    ctx.fillStyle = hG;
+    roundRect(ctx, px + 4, py + 4, pw - 8, hdrH, 7); ctx.fill();
+    ctx.strokeStyle = "#6a7aaa"; ctx.lineWidth = 1;
+    roundRect(ctx, px + 4, py + 4, pw - 8, hdrH, 7); ctx.stroke();
+    ctx.fillStyle = "#a0b8f0"; ctx.font = land ? "bold 13px monospace" : "bold 14px monospace";
+    const title = "\u2728 Yetenekler";
+    ctx.fillText(title, px + pw / 2 - ctx.measureText(title).width / 2, py + hdrH / 2 + 9);
+
+    // Close button
+    const cr = L.closeR;
+    ctx.fillStyle = "rgba(80,40,40,0.7)";
+    roundRect(ctx, cr.x, cr.y, cr.w, cr.h, 5); ctx.fill();
+    ctx.strokeStyle = "#a06050"; ctx.lineWidth = 1;
+    roundRect(ctx, cr.x, cr.y, cr.w, cr.h, 5); ctx.stroke();
+    ctx.fillStyle = "#e0a0a0"; ctx.font = "bold 14px monospace";
+    ctx.fillText("\u2715", cr.x + cr.w / 2 - ctx.measureText("\u2715").width / 2, cr.y + cr.h / 2 + 5);
+
+    // Skills header
+    ctx.fillStyle = "#b0b8d0"; ctx.font = land ? "bold 10px monospace" : "bold 11px monospace";
+    ctx.fillText("Yetenekler", px + pad + 8, py + hdrH + pad + (land ? 12 : 14));
+
+    const gold = inventory.countItem("coin");
+    const skillsPerCol = 5;
+
+    for (let i = 0; i < PLAYER_SKILL_DEFS.length; i++) {
+      const sk = PLAYER_SKILL_DEFS[i];
+      const col = i < skillsPerCol ? 0 : 1;
+      const row = i % skillsPerCol;
+      const sx = px + pad + col * (L.skillColW + 5);
+      const sy2 = L.skillStartY + row * L.rowStep;
       const isU = !!player.skills[sk.id];
 
-      // Kutu
       ctx.fillStyle = isU ? "rgba(20,40,30,0.85)" : "rgba(28,26,44,0.85)";
-      roundRect(ctx, sx, sy2, skillColW, L.boxH, 6); ctx.fill();
+      roundRect(ctx, sx, sy2, L.skillColW, L.rowStep - 4, 6); ctx.fill();
       ctx.strokeStyle = isU ? "#40a060" : "#505070"; ctx.lineWidth = isU ? 1.2 : 0.8;
-      roundRect(ctx, sx, sy2, skillColW, L.boxH, 6); ctx.stroke();
+      roundRect(ctx, sx, sy2, L.skillColW, L.rowStep - 4, 6); ctx.stroke();
 
-      // İsim + Açıklama
       ctx.fillStyle = isU ? "#70ffa0" : "#e0e0f0"; ctx.font = "bold 10px monospace";
       ctx.fillText(sk.name + (isU ? " \u2713" : ""), sx + 6, sy2 + 12);
       ctx.fillStyle = isU ? "#80c080" : "#9090b0"; ctx.font = "8px monospace";
       ctx.fillText(sk.desc, sx + 6, sy2 + 24);
 
-      // Seviye ve Altın
       ctx.fillStyle = "#b0a080"; ctx.font = "bold 8px monospace";
       ctx.fillText("Lv" + sk.minLevel + " | " + sk.gold + " alt\u0131n", sx + 6, sy2 + 34);
 
-      // Buton
       if (!isU) {
-        const uR = { x: sx + skillColW - unlockW - 4, y: sy2 + 2, w: unlockW, h: unlockH };
+        const unlockW = 80;
+        const unlockH = 22;
+        const uR = { x: sx + L.skillColW - unlockW - 4, y: sy2 + 2, w: unlockW, h: unlockH };
         const can = player.level >= sk.minLevel && gold >= sk.gold;
         ctx.fillStyle = can ? "#1e5030" : "#282828"; roundRect(ctx, uR.x, uR.y, uR.w, uR.h, 4); ctx.fill();
         ctx.strokeStyle = can ? "#50c080" : "#404040"; ctx.lineWidth = can ? 1 : 0.5; ctx.stroke();
@@ -4316,10 +4385,64 @@ class Inventory {
     const eqFramePad = 10;
     const eqGridGap = 5;
     const mob = touchState.mobileUI;
+
+    if (mob) {
+      const pad = 6;
+      const panelW = canvasW - pad * 2;
+      const panelH = canvasH - 50 - pad;
+      const px = pad;
+      const py = 50;
+      const ss = 44;
+      const sg = 3;
+      const eqCellSize = 40;
+
+      const eqInnerW = EQ_GRID_COLS * eqCellSize + (EQ_GRID_COLS - 1) * eqGridGap;
+      const eqInnerH = EQ_GRID_ROWS * eqCellSize + (EQ_GRID_ROWS - 1) * eqGridGap;
+      const eqGridW = eqInnerW + eqFramePad * 2;
+      const eqGridH = eqInnerH + eqFramePad * 2;
+
+      const previewH = 100;
+      const previewX = px + 10;
+      const previewY = py + 6;
+      const previewW = panelW - 20;
+
+      const eqSectionY = previewY + previewH + 4;
+      const eqGridX = px + Math.floor((panelW - eqGridW) / 2);
+      const eqGridY = eqSectionY + 18;
+      const eqInnerX = eqGridX + eqFramePad;
+      const eqInnerY = eqGridY + eqFramePad;
+
+      const statY = eqGridY + eqGridH + 10;
+      const toolbarH = 56;
+      const slotsY = statY + 24 + toolbarH;
+
+      const invGridW = INV_COLS * (ss + sg) - sg;
+      const slotsX = px + Math.floor((panelW - invGridW) / 2);
+      const gridBottom = slotsY + INV_ROWS * (ss + sg) - sg;
+      const pageY = gridBottom + 8;
+      const tabGap = 6;
+      const tabCount = Math.max(1, this._invPageCount());
+      const tabW = Math.floor((invGridW - tabGap * (tabCount - 1)) / tabCount);
+      const invPageTabs = [];
+      for (let i = 0; i < tabCount; i++) {
+        invPageTabs.push({ x: slotsX + i * (tabW + tabGap), y: pageY, w: tabW, h: 24, page: i });
+      }
+      const invSortBtn = { x: slotsX, y: pageY + 30, w: invGridW, h: 24 };
+      const hbY = invSortBtn.y + invSortBtn.h + 10;
+
+      return {
+        px, py, panelW, panelH, slotsX, slotsY, hbX: slotsX, hbY, eqColW: panelW,
+        previewX, previewY, previewW, previewH,
+        eqGridX, eqGridY, eqGridW, eqGridH, eqInnerX, eqInnerY, eqCellSize, eqGridGap, eqFramePad,
+        slotSize: ss, slotGap: sg, mobStatY: statY,
+        invPageStart: this._invPageStart(), invPages: this._invPageCount(), invPageTabs, invSortBtn,
+      };
+    }
+
     let ss = SLOT_SIZE;
     let sg = SLOT_GAP;
-    let eqCellSize = mob ? 38 : 44;
-    let previewW = mob ? 72 : 108;
+    let eqCellSize = 44;
+    let previewW = 108;
     const previewGap = 10;
 
     const compute = () => {
@@ -4331,11 +4454,11 @@ class Inventory {
       const panelW = leftColW + INV_COLS * (ss + sg) - sg + 32;
       const eqPanelH = eqGridH + 22;
       const invGridH = INV_ROWS * (ss + sg) - sg;
-      const toolbarH = 65; // Arama + filtreler iÃ§in alan
+      const toolbarH = 65;
       const controlsH = 8 + 24 + 6 + 24 + 10;
       const hotbarH = ss;
       const gridH = 40 + toolbarH + invGridH + controlsH + hotbarH + 16;
-      const panelH = Math.max(gridH, eqPanelH + (mob ? 72 : 88) + toolbarH);
+      const panelH = Math.max(gridH, eqPanelH + 88 + toolbarH);
       return { leftColW, panelW, panelH, eqPanelH, gridH, eqGridW, eqGridH, eqInnerW, eqInnerH };
     };
 
@@ -4348,22 +4471,11 @@ class Inventory {
       ({ leftColW, panelW, panelH, eqGridW, eqGridH, eqInnerW, eqInnerH } = compute());
     }
 
-    if (mob) {
-      while ((panelH > b.maxH || panelW > b.maxW) && ss > 18) {
-        ss -= 1;
-        sg = Math.max(2, sg - 1);
-        eqCellSize = Math.max(22, eqCellSize - 1);
-        if (panelW > b.maxW && previewW > 46) previewW -= 1;
-        ({ leftColW, panelW, panelH, eqGridW, eqGridH, eqInnerW, eqInnerH } = compute());
-      }
-    }
-
     const px = Math.max(b.side, Math.floor((canvasW - panelW) / 2));
     const py = Math.max(b.top, Math.min(canvasH - panelH - b.bottom, Math.floor((canvasH - panelH) / 2)));
-    
-    // Toolbar iÃ§in alan ayÄ±r
+
     const toolbarOffset = 65;
-    
+
     const previewX = px + 12;
     const eqGridX = previewX + previewW + previewGap;
     const eqGridY = py + 52 + toolbarOffset;
@@ -4371,8 +4483,7 @@ class Inventory {
     const previewH = eqGridH;
     const eqInnerX = eqGridX + eqFramePad;
     const eqInnerY = eqGridY + eqFramePad;
-    
-    // Toolbar alanÄ± iÃ§in offset ekle (arama + filtreler = ~65px)
+
     const toolbarHeight = 65;
     const slotsX = px + leftColW + 8, slotsY = py + 40 + toolbarHeight;
     const hbX = px + leftColW + 8;
@@ -4443,18 +4554,26 @@ class Inventory {
     // Karakter Ã¶nizleme ve ekipman (layout zaten doÄŸru Y'yi hesaplÄ±yor)
     drawInventoryCharacterPreview(ctx, this, layout.previewX, layout.previewY, layout.previewW, layout.previewH);
 
-    const statY = layout.previewY + layout.previewH + 6;
-    ctx.fillStyle = "#b8c8e8"; ctx.font = "11px monospace";
-    ctx.fillText("A\u011f\u0131rl\u0131k: " + inventoryTotalWeight(this) + " / " + PLAYER_MAX_CARRY_WEIGHT, layout.previewX, statY);
-    ctx.fillStyle = "#ffd078"; ctx.font = "bold 12px monospace";
-    ctx.fillText("Alt\u0131n: " + formatGold(this.gold), layout.previewX, statY + 16);
-    ctx.fillStyle = "#6a6a88"; ctx.font = touchState.mobileUI ? "8px monospace" : "9px monospace";
-    const infoY = toolbarY + toolbarH + 8;
     if (touchState.mobileUI) {
-      ctx.fillText("Uygun e\u015fya otomatik giyilir. Uzun bas: bo\u015f slota giy.", layout.px + layout.eqColW + 4, infoY);
+      ctx.fillStyle = "#b8c8e8"; ctx.font = "11px monospace";
+      ctx.fillText("A\u011f\u0131rl\u0131k: " + inventoryTotalWeight(this) + " / " + PLAYER_MAX_CARRY_WEIGHT, layout.previewX + 4, layout.mobStatY);
+      ctx.fillStyle = "#ffd078"; ctx.font = "bold 12px monospace";
+      ctx.fillText("Alt\u0131n: " + formatGold(this.gold), layout.previewX + 4, layout.mobStatY + 16);
     } else {
+      const statY = layout.previewY + layout.previewH + 6;
+      ctx.fillStyle = "#b8c8e8"; ctx.font = "11px monospace";
+      ctx.fillText("A\u011f\u0131rl\u0131k: " + inventoryTotalWeight(this) + " / " + PLAYER_MAX_CARRY_WEIGHT, layout.previewX, statY);
+      ctx.fillStyle = "#ffd078"; ctx.font = "bold 12px monospace";
+      ctx.fillText("Alt\u0131n: " + formatGold(this.gold), layout.previewX, statY + 16);
+      ctx.fillStyle = "#6a6a88"; ctx.font = "9px monospace";
+      const infoY = toolbarY + toolbarH + 8;
       ctx.fillText("Bo\u015f ekipmana uygun toplanan e\u015fya otomatik giyilir.", layout.px + layout.eqColW + 4, infoY);
       ctx.fillText("Giyilebilir e\u015fyaya bas\u0131l\u0131 tut: bo\u015f slota an\u0131nda giydir.", layout.px + layout.eqColW + 4, infoY + 12);
+    }
+
+    if (!touchState.mobileUI) {
+      ctx.fillStyle = "#6a7090"; ctx.font = "9px monospace";
+      ctx.fillText("3\u00d75 ekipman", layout.eqGridX + 2, layout.eqGridY - 16);
     }
 
     ctx.fillStyle = "#6a7090"; ctx.font = "9px monospace";
@@ -15683,7 +15802,7 @@ function tryShootPierceArrow() {
 }
 
 function combatPanelsBlockAutoAttack() {
-  return inventory.open || petPanel.open || dialog.active || shop.open || craftPanel.open || charPanel.open || !!worldItemInspect || !!inventorySlotInspect;
+  return inventory.open || petPanel.open || dialog.active || shop.open || craftPanel.open || charPanel.open || skillPanel.open || !!worldItemInspect || !!inventorySlotInspect;
 }
 
 /** Mobil ana sald\u0131r\u0131 d\u00fc\u011fmesinin Etkile\u015fim (E) olarak davranabilece\u011fi durumlar (canavar g\u00f6stergesi hari\u00e7). */
@@ -15981,6 +16100,11 @@ canvas.addEventListener("mousedown", (e) => {
     e.preventDefault();
     return;
   }
+  if (skillPanel.open) {
+    skillPanel.handleClick(e.clientX, e.clientY, canvasW, canvasH, player, inventory);
+    e.preventDefault();
+    return;
+  }
   if (craftPanel.open) {
     craftPanel.handleClick(e.clientX, e.clientY, canvasW, canvasH, inventory, player);
     e.preventDefault(); return;
@@ -16188,6 +16312,11 @@ function handleCanvasTouchStart(e) {
       continue;
     }
 
+    if (skillPanel.open) {
+      skillPanel.handleClick(mx, my, canvasW, canvasH, player, inventory);
+      continue;
+    }
+
     if (petPanel.open && activePet) {
       const { px, py, pw, ph } = petPanel.getPanelBounds(canvasW, canvasH);
       if (mx < px || mx > px + pw || my < py || my > py + ph) petPanel.close();
@@ -16328,10 +16457,12 @@ function pulseMobileButtonKey(key) {
   else if (key === "KeyR") pulseJust("KeyR");
   else if (key === "KeyC") pulseJust("KeyC");
   else if (key === "KeyI") pulseJust("KeyI");
+  else if (key === "KeyK") pulseJust("KeyK");
   else if (key === "KeyM") pulseJust("KeyM");
   else if (key === "KeyL") pulseJust("KeyL");
   else if (key === "KeyT") pulseJust("KeyT");
   else if (key === "KeyB") pulseJust("KeyB");
+  else if (key === "KeyJ") pulseJust("KeyJ");
 }
 
 function handleCanvasTouchEnd(e) {
@@ -17434,6 +17565,9 @@ function gameLoop(now) {
     else if (charPanel.open) {
       charPanel.close();
     }
+    else if (skillPanel.open) {
+      skillPanel.close();
+    }
     else if (worldItemInspect) closeWorldItemInspect();
   } else if (wasJustPressed("KeyI") || wasJustPressed("Tab")) {
     inventory.toggle();
@@ -17448,6 +17582,9 @@ function gameLoop(now) {
   if (wasJustPressed("KeyC") && !dialog.active) {
     charPanel.toggle();
     if (charPanel.open) bankPanel.close();
+  }
+  if (wasJustPressed("KeyK") && !dialog.active) {
+    skillPanel.toggle();
   }
   if (bankPanel.open) {
     if (wasJustPressed("KeyJ")) {
@@ -17550,7 +17687,7 @@ function gameLoop(now) {
 
   shop.update(dt);
   craftPanel.update(dt);
-  const uiOpen = dialog.active || inventory.open || bankPanel.open || petPanel.open || shop.open || craftPanel.open || charPanel.open || !!worldItemInspect || !!inventorySlotInspect || questTracker.questLogOpen || minimap.fullMap;
+  const uiOpen = dialog.active || inventory.open || bankPanel.open || petPanel.open || shop.open || craftPanel.open || charPanel.open || skillPanel.open || !!worldItemInspect || !!inventorySlotInspect || questTracker.questLogOpen || minimap.fullMap;
 
   if (wasJustPressed("KeyQ") && !uiOpen) tryUseHpPotion();
   if (wasJustPressed("KeyR") && !uiOpen) tryUseManaPotion();
@@ -18139,6 +18276,7 @@ function gameLoop(now) {
   }
 
   charPanel.render(ctx, canvasW, canvasH, player, inventory);
+  skillPanel.render(ctx, canvasW, canvasH, player, inventory);
 
   if (worldItemInspect) renderWorldItemInspect(ctx, canvasW, canvasH);
   if (inventorySlotInspect) renderInventorySlotInspect(ctx, canvasW, canvasH);
