@@ -652,6 +652,33 @@ function mobileButtonsLayout(cw, ch) {
     cx: mapBtnX, cy: mapBtnY, r: mapBtnR,
     x: mapBtnX - mapBtnR, y: mapBtnY - mapBtnR, w: mapBtnR * 2, h: mapBtnR * 2,
   });
+  // Quest toggle button (G)
+  const qBtnY = mapBtnY + 44;
+  out.push({
+    key: "questToggle",
+    kind: "questToggle",
+    label: "G",
+    cx: mapBtnX, cy: qBtnY, r: mapBtnR,
+    x: mapBtnX - mapBtnR, y: qBtnY - mapBtnR, w: mapBtnR * 2, h: mapBtnR * 2,
+  });
+  // Zoom toggle button (+/-)
+  const zoomBtnY = qBtnY + 44;
+  out.push({
+    key: "zoomToggle",
+    kind: "zoomToggle",
+    label: "+",
+    cx: mapBtnX, cy: zoomBtnY, r: mapBtnR,
+    x: mapBtnX - mapBtnR, y: zoomBtnY - mapBtnR, w: mapBtnR * 2, h: mapBtnR * 2,
+  });
+  // Town teleport button
+  const townBtnY = zoomBtnY + 44;
+  out.push({
+    key: "townTeleport",
+    kind: "townTeleport",
+    label: "\uD83C\uDFE0",
+    cx: mapBtnX, cy: townBtnY, r: mapBtnR,
+    x: mapBtnX - mapBtnR, y: townBtnY - mapBtnR, w: mapBtnR * 2, h: mapBtnR * 2,
+  });
   if (touchState.mobileUI) {
     const menuH = isLandscape ? 30 : 28;
     const menuW = isLandscape ? 54 : 50;
