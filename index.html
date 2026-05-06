@@ -10154,9 +10154,13 @@ class BankPanel {
     this.slots = Array(90).fill(null);
     this.gold = 0;
     this.page = 0;
-    this.pageSize = 30;
+    this.pageSize = 28;
     this.invPage = 0;
-    this.invPageSize = 30;
+    this.invPageSize = 28;
+    this.scrollTouchId = -1;
+    this.scrollLastY = 0;
+    this.scrollY = 0;
+    this.scrollMax = 0;
   }
   toggle() { this.open = !this.open; }
   close() { this.open = false; }
@@ -10300,13 +10304,14 @@ class BankPanel {
   render(ctx, cw, ch, inv) {
     if (!this.open) return;
     try {
-    const w = Math.min(600, cw - 40);
-    const h = Math.min(480, ch - 40);
+    const w = Math.min(700, cw - 40);
+    const h = Math.min(250, ch - 40);
     const x = Math.floor((cw - w) / 2);
     const y = Math.floor((ch - h) / 2);
-    const bp = 24;
+    const pad = 16;
+    const halfW = Math.floor((w - pad * 3) / 2);
 
-    ctx.fillStyle = "rgba(0,0,0,0.6)";
+    ctx.fillStyle = "rgba(0,0,0,0.7)";
     ctx.fillRect(0, 0, cw, ch);
 
     const panelGrad = ctx.createLinearGradient(x, y, x, y + h);
@@ -10318,167 +10323,138 @@ class BankPanel {
     roundRect(ctx, x, y, w, h, 14);
     ctx.fill(); ctx.stroke();
 
-    ctx.fillStyle = "#e8f0ff";
-    ctx.font = "bold 18px monospace";
-    const titleText = "\uD83C\uDFE6 Banka";
-    ctx.fillText(titleText, x + bp, y + 30);
-
     const { slots: pageSlots, total } = this._getPageSlots();
     const totalPages = this.getTotalPages();
     if (this.page >= totalPages) this.page = totalPages - 1;
     this._totalPages = totalPages;
-
     const canPrev = this.page > 0;
     const canNext = this.page < totalPages - 1;
-    const pageLbl = (this.page + 1) + "/" + totalPages;
 
-    const btnR = 11;
-    const navH = 24;
-    const navTotalW = 100;
-    const navX = x + w - bp - navTotalW;
-    const navY = y + 22;
+    const sectionPad = 14;
+    const bankX = x + pad;
+    const bankW = halfW;
+    const bankRight = bankX + sectionPad * 2 + bankW;
+    const invX = bankRight;
+    const invW = (x + w - pad) - invX;
 
-    ctx.save();
-    ctx.fillStyle = "#0e1228";
-    roundRect(ctx, navX, navY, navTotalW, navH, 8);
+    const headY = y + pad + 4;
+    const headH = 26;
+    const dividerX = bankX + sectionPad + bankW;
+
+    ctx.fillStyle = "#6a8cc0";
+    ctx.font = "bold 14px monospace";
+    ctx.fillText("\uD83C\uDFE6 Banka", bankX + sectionPad, headY + 16);
+
+    const pageLbl = (this.page + 1) + " / " + totalPages;
+    const btnR = 10;
+    const navW = 90;
+    const navX = bankX + sectionPad + bankW - navW;
+    const navY = headY + 3;
+
+    ctx.fillStyle = "#0c1028";
+    roundRect(ctx, navX, navY, navW, 20, 10);
     ctx.fill();
-    ctx.strokeStyle = "rgba(80,100,160,0.5)";
+    ctx.strokeStyle = "rgba(80,100,160,0.3)";
     ctx.lineWidth = 1;
-    roundRect(ctx, navX, navY, navTotalW, navH, 8);
+    roundRect(ctx, navX, navY, navW, 20, 10);
     ctx.stroke();
-    ctx.restore();
 
     const prevCx = navX + 14;
-    const prevCY = navY + navH / 2;
+    const prevCY = navY + 10;
     this._prevBtn = { x: prevCx - btnR, y: prevCY - btnR, w: btnR * 2, h: btnR * 2 };
-    ctx.fillStyle = canPrev ? "#6f84c0" : "#3a4558";
-    ctx.beginPath(); ctx.arc(prevCx, prevCY, btnR - 2, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = canPrev ? "#e8f0ff" : "#505878";
+    ctx.fillStyle = canPrev ? "#5a7ab8" : "#2a3048";
+    ctx.beginPath(); ctx.arc(prevCx, prevCY, btnR - 1, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = canPrev ? "#d0e0ff" : "#405068";
     ctx.font = "bold 11px monospace";
     ctx.textAlign = "center"; ctx.textBaseline = "middle";
     ctx.fillText("<", prevCx, prevCY + 1);
 
-    const nextCx = navX + navTotalW - 14;
-    const nextCY = navY + navH / 2;
+    const nextCx = navX + navW - 14;
+    const nextCY = prevCY;
     this._nextBtn = { x: nextCx - btnR, y: nextCY - btnR, w: btnR * 2, h: btnR * 2 };
-    ctx.fillStyle = canNext ? "#6f84c0" : "#3a4558";
-    ctx.beginPath(); ctx.arc(nextCx, nextCY, btnR - 2, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = canNext ? "#e8f0ff" : "#505878";
+    ctx.fillStyle = canNext ? "#5a7ab8" : "#2a3048";
+    ctx.beginPath(); ctx.arc(nextCx, nextCY, btnR - 1, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = canNext ? "#d0e0ff" : "#405068";
     ctx.fillText(">", nextCx, nextCY + 1);
 
-    ctx.fillStyle = "#a8c0f0";
-    ctx.font = "bold 12px monospace";
-    ctx.textAlign = "center"; ctx.textBaseline = "middle";
-    ctx.fillText(pageLbl, navX + navTotalW / 2, prevCY + 1);
+    ctx.fillStyle = "#a0b8e0";
+    ctx.font = "12px monospace";
+    ctx.fillText(pageLbl, navX + navW / 2, prevCY + 1);
     ctx.textAlign = "start"; ctx.textBaseline = "alphabetic";
 
-    this._lastLayout = { x, y, w, h, bp };
-    const bankCols = 10;
+    ctx.fillStyle = "#6a8cc0";
+    ctx.fillText("\uD83C\uDF92 Envanter", invX + sectionPad, headY + 16);
+
+    ctx.strokeStyle = "rgba(80,120,200,0.2)";
+    ctx.lineWidth = 1;
+    ctx.setLineDash([3, 5]);
+    ctx.beginPath();
+    ctx.moveTo(dividerX, headY);
+    ctx.lineTo(dividerX, y + h - pad);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    const gridTop = headY + headH + 2;
+    const gridBottom = y + h - pad - 10;
+    const gridH = gridBottom - gridTop;
+
+    const slotSz = 40;
     const slotGap = 4;
-    const slotSz = Math.floor((w - bp * 2 - (bankCols - 1) * slotGap) / bankCols);
+    const bankCols = 7;
+    const bankRows = 4;
+    const invCols = 7;
+    const bankGridW = bankCols * (slotSz + slotGap) - slotGap;
+    const invGridW = invCols * (slotSz + slotGap) - slotGap;
+
     this._bankGridSz = slotSz;
+    this._invGridSz = slotSz;
     this._bankGridGap = slotGap;
+    this._invGridGap = slotGap;
     this._bankGridCols = bankCols;
+    this._invGridCols = invCols;
+    this._bankGridX = bankX + sectionPad + Math.floor((bankW - bankGridW) / 2);
+    this._invGridX = invX + sectionPad + Math.floor((invW - invGridW) / 2);
 
-    const bankGridY = navY + 30;
-    this._bankGridX = x + bp;
-    this._bankGridY = bankGridY;
+    this._bankGridRows = 4;
+    this._invGridRows = 4;
+    this._bankGridY = gridTop;
+    this._invGridY = gridTop;
 
-    ctx.fillStyle = "#8090b0";
-    ctx.font = "bold 11px monospace";
-    ctx.fillText(total + " esya", this._bankGridX, bankGridY - 8);
+    this._lastLayout = { x, y, w, h, pad };
 
-    const pageRows = Math.ceil(this.pageSize / bankCols);
-    this._bankGridRows = pageRows;
-
-    for (let r = 0; r < pageRows; r++) {
+    for (let r = 0; r < bankRows; r++) {
       for (let c = 0; c < bankCols; c++) {
         const idx = r * bankCols + c;
         const sx = this._bankGridX + c * (slotSz + slotGap);
-        const sy = bankGridY + r * (slotSz + slotGap);
+        const sy = gridTop + r * (slotSz + slotGap);
         const ps = pageSlots[idx];
         this._renderSlot(ctx, sx, sy, slotSz, ps ? ps.slot : null, false);
       }
     }
 
-    const invSepY = bankGridY + pageRows * (slotSz + slotGap) + 12;
-    this._invSepY = invSepY;
-    ctx.strokeStyle = "rgba(80,100,160,0.3)";
-    ctx.lineWidth = 1;
-    ctx.setLineDash([4, 4]);
-    ctx.beginPath(); ctx.moveTo(x + bp, invSepY); ctx.lineTo(x + w - bp, invSepY); ctx.stroke();
-    ctx.setLineDash([]);
-
-    ctx.fillStyle = "#8090b0";
-    ctx.font = "bold 11px monospace";
-    ctx.fillText("\uD83C\uDF92 Envanter (tikla: bankaya koy)", this._bankGridX, invSepY + 14);
-
-    const invTop = invSepY + 20;
-    this._invGridY = invTop;
-    this._invGridRows = 1;
-    const invTotal = inv.slots.length;
-    const invPageTotal = totalPages > 0 ? invTotal : 0;
-    const invTotalPages = Math.max(1, Math.ceil(invTotal / this.invPageSize));
+    const invTotalPages = Math.max(1, Math.ceil(inv.slots.length / this.invPageSize));
     if (this.invPage >= invTotalPages) this.invPage = invTotalPages - 1;
     const invStart = this.invPage * this.invPageSize;
-    const invEnd = Math.min(invStart + this.invPageSize, invTotal);
-
+    const invEnd = Math.min(invStart + this.invPageSize, inv.slots.length);
     const displayCount = invEnd - invStart;
-    const invPageRows = Math.ceil(Math.min(displayCount, this.invPageSize) / bankCols);
-    this._invPageRows = invPageRows;
-
     for (let i = 0; i < displayCount; i++) {
       const globalIdx = invStart + i;
-      const c = i % bankCols;
-      const r = Math.floor(i / bankCols);
-      const sx = this._bankGridX + c * (slotSz + slotGap);
-      const sy = invTop + r * (slotSz + slotGap);
+      const c = i % invCols;
+      const r = Math.floor(i / invCols);
+      const sx = this._invGridX + c * (slotSz + slotGap);
+      const sy = gridTop + r * (slotSz + slotGap);
       const s = inv.slots[globalIdx];
       this._renderSlot(ctx, sx, sy, slotSz, s && s.id !== "coin" ? s : null, false);
     }
 
-    const invNavY = invTop + invPageRows * (slotSz + slotGap) + 8;
-    this._invNavY = invNavY;
-    if (invTotalPages > 1) {
-      const invNavH = 32;
-      const invBtnR = 14;
-      ctx.fillStyle = "rgba(16,20,40,0.6)";
-      roundRect(ctx, x + bp, invNavY, w - bp * 2, invNavH, 6);
-      ctx.fill();
+    this._invTotalPages = invTotalPages;
 
-      const invPrevCx = x + bp + 24;
-      const invNextCx = x + w - bp - 24;
-      this._invPrevBtn = { x: invPrevCx - invBtnR, y: invNavY + 3, w: invBtnR * 2, h: invNavH - 6 };
-      this._invNextBtn = { x: invNextCx - invBtnR, y: invNavY + 3, w: invBtnR * 2, h: invNavH - 6 };
-
-      const canInvPrev = this.invPage > 0;
-      const canInvNext = this.invPage < invTotalPages - 1;
-
-      ctx.fillStyle = canInvPrev ? "rgba(70,90,170,0.5)" : "rgba(30,34,54,0.3)";
-      ctx.beginPath(); ctx.arc(invPrevCx, invNavY + invNavH / 2, invBtnR - 2, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = canInvPrev ? "#a8c0f0" : "#405068";
-      ctx.font = "bold 12px monospace";
-      ctx.textAlign = "center"; ctx.textBaseline = "middle";
-      ctx.fillText("<", invPrevCx, invNavY + invNavH / 2);
-
-      ctx.fillStyle = canInvNext ? "rgba(70,90,170,0.5)" : "rgba(30,34,54,0.3)";
-      ctx.beginPath(); ctx.arc(invNextCx, invNavY + invNavH / 2, invBtnR - 2, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = canInvNext ? "#a8c0f0" : "#405068";
-      ctx.fillText(">", invNextCx, invNavY + invNavH / 2);
-      ctx.textAlign = "start"; ctx.textBaseline = "alphabetic";
-
-      ctx.fillStyle = "#8090b0";
-      ctx.font = "10px monospace";
-      const invLbl = (this.invPage + 1) + " / " + invTotalPages;
-      ctx.fillText(invLbl, x + w / 2 - ctx.measureText(invLbl).width / 2, invNavY + invNavH / 2 + 1);
-    }
-
-    ctx.fillStyle = "#6070a0";
+    ctx.fillStyle = "#506080";
     ctx.font = "10px monospace";
-    const bottomY = y + h - 12;
-    ctx.fillText("[Esc] Kapat", x + bp, bottomY);
+    ctx.fillText("[Esc] Kapat", x + pad, y + h - 6);
     } catch(e) { console.error("BankPanel render:", e); }
   }
+  tryBeginScroll(id, mx, my) { return false; }
   handleClick(mx, my, cw, ch, inv) {
     if (!this.open) return false;
     const L = this._lastLayout;
@@ -10499,25 +10475,10 @@ class BankPanel {
         return true;
       }
     }
-    if (this._invPrevBtn) {
-      const pb = this._invPrevBtn;
-      if (mx >= pb.x && mx < pb.x + pb.w && my >= pb.y && my < pb.y + pb.h) {
-        if (this.invPage > 0) this.invPage--;
-        return true;
-      }
-    }
-    if (this._invNextBtn) {
-      const nb = this._invNextBtn;
-      if (mx >= nb.x && mx < nb.x + nb.w && my >= nb.y && my < nb.y + nb.h) {
-        const invTotalPages = Math.max(1, Math.ceil(inv.slots.length / this.invPageSize));
-        if (this.invPage < invTotalPages - 1) this.invPage++;
-        return true;
-      }
-    }
 
     const sz = this._bankGridSz || 40;
     const gap = this._bankGridGap || 4;
-    const cols = this._bankGridCols || 6;
+    const cols = this._bankGridCols || 4;
     const { slots: pageSlots } = this._getPageSlots();
 
     for (let r = 0; r < this._bankGridRows; r++) {
@@ -10540,15 +10501,20 @@ class BankPanel {
       }
     }
 
-    if (this._invGridY !== undefined) {
-      const displayCount = Math.min(inv.slots.length - this.invPage * this.invPageSize, this.invPageSize);
+    if (this._invGridX !== undefined) {
+      const invSz = this._invGridSz || 40;
+      const invCols = this._invGridCols || 4;
+      const invTotalPages = Math.max(1, Math.ceil(inv.slots.length / this.invPageSize));
+      const invStart = this.invPage * this.invPageSize;
+      const invEnd = Math.min(invStart + this.invPageSize, inv.slots.length);
+      const displayCount = invEnd - invStart;
       for (let i = 0; i < displayCount; i++) {
-        const c = i % cols;
-        const r = Math.floor(i / cols);
-        const globalIdx = this.invPage * this.invPageSize + i;
-        const sx = this._bankGridX + c * (sz + gap);
-        const sy = this._invGridY + r * (sz + gap);
-        if (mx >= sx && mx < sx + sz && my >= sy && my < sy + sz) {
+        const globalIdx = invStart + i;
+        const c = i % invCols;
+        const r = Math.floor(i / invCols);
+        const sx = this._invGridX + c * (invSz + (this._invGridGap || 4));
+        const sy = this._invGridY + r * (invSz + (this._invGridGap || 4));
+        if (mx >= sx && mx < sx + invSz && my >= sy && my < sy + invSz) {
           const s = inv.slots[globalIdx];
           if (s && s.id !== "coin") {
             const left = this.addStack(s);
@@ -16264,6 +16230,8 @@ function handleCanvasTouchStart(e) {
       continue;
     }
     if (bankPanel.open) {
+      if (bankPanel.tryBeginScroll(id, mx, my)) continue;
+      bankPanel.handleClick(mx, my, canvasW, canvasH, inventory);
       continue;
     }
     if (inventory.open) {
@@ -16357,10 +16325,16 @@ function handleCanvasTouchMove(e) {
     mouseX = mx;
     mouseY = my;
 
+    if (bankPanel.open && bankPanel.scrollTouchId === id) {
+      const dy = my - bankPanel.scrollLastY;
+      bankPanel.scrollLastY = my;
+      bankPanel.scrollY = Math.max(0, Math.min(bankPanel.scrollMax, bankPanel.scrollY - dy));
+    }
     if (shop.open && shop.gridScrollTouchId === id) {
-      const dy = my - shop.gridScrollLastY;
-      shop.gridScrollLastY = my;
-      shop.applyTouchGridScroll(-dy, canvasW, canvasH, inventory);
+      shop.gridScrollTouchId = -1;
+    }
+    if (id === bankPanel.scrollTouchId) {
+      bankPanel.scrollTouchId = -1;
     }
     if (inventory.open && inventorySlotInspect && id === inventoryInspectScrollTouchId && inventoryInspectScrollMax > 0) {
       const dy = my - inventoryInspectScrollLastY;
@@ -16489,7 +16463,7 @@ canvas.addEventListener("touchcancel", handleCanvasTouchCancel, { passive: false
 function renderTouchOverlay(ctx) {
   if (!touchState.mobileUI) return;
   const cw = canvasW, ch = canvasH;
-  const modal = dialog.active || inventory.open || petPanel.open || shop.open || craftPanel.open || charPanel.open || !!worldItemInspect || !!inventorySlotInspect;
+  const modal = dialog.active || inventory.open || petPanel.open || shop.open || craftPanel.open || charPanel.open || bankPanel.open || !!worldItemInspect || !!inventorySlotInspect;
   if (modal) {
     ctx.fillStyle = "rgba(30,30,50,0.85)";
     roundRect(ctx, cw - 50, 8, 42, 40, 8);
