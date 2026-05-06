@@ -363,6 +363,8 @@ const MOBILE_ATTACK_INTERACT_MS = 240;
 const DESKTOP_POWER_HOLD_MS = 280;
 const MOBILE_POWER_BUTTON_KEY = "power";
 let mouseAttackT0 = 0;
+let currentTargetMonster = null;
+let currentTargetMonsterTimer = 0;
 
 /** Mobil otomatik iksir tekrar kullan\u0131m bekleme (sn). */
 const MOBILE_AUTO_POT_COOLDOWN = 1.35;
@@ -648,36 +650,6 @@ function mobileButtonsLayout(cw, ch) {
     label: minimap.fullMap ? "\u2716" : "\uD83D\uDDFA\uFE0F",
     cx: mapBtnX, cy: mapBtnY, r: mapBtnR,
     x: mapBtnX - mapBtnR, y: mapBtnY - mapBtnR, w: mapBtnR * 2, h: mapBtnR * 2,
-  });
-  // Floating quest toggle (G button)
-  const questBtnR = 16;
-  const questBtnX = cw - questBtnR - 12;
-  const questBtnY = questBtnR + 12;
-  out.push({
-    key: "questToggle",
-    kind: "questToggle",
-    label: "G",
-    cx: questBtnX, cy: questBtnY, r: questBtnR,
-    x: questBtnX - questBtnR, y: questBtnY - questBtnR, w: questBtnR * 2, h: questBtnR * 2,
-  });
-  // Zoom toggle button below G
-  const zoomBtnY2 = questBtnY + questBtnR + 4 + 16;
-  const zoomOn = worldZoom > WORLD_ZOOM_STEPS[1] + 0.02;
-  out.push({
-    key: "zoomToggle",
-    kind: "zoomToggle",
-    label: zoomOn ? "\u2212" : "+",
-    cx: questBtnX, cy: zoomBtnY2, r: questBtnR,
-    x: questBtnX - questBtnR, y: zoomBtnY2 - questBtnR, w: questBtnR * 2, h: questBtnR * 2,
-  });
-  // Town teleport button below zoom
-  const townBtnY2 = zoomBtnY2 + questBtnR + 4 + 16;
-  out.push({
-    key: "townTeleport",
-    kind: "townTeleport",
-    label: "\uD83C\uDFE0",
-    cx: questBtnX, cy: townBtnY2, r: questBtnR,
-    x: questBtnX - questBtnR, y: townBtnY2 - questBtnR, w: questBtnR * 2, h: questBtnR * 2,
   });
   if (touchState.mobileUI) {
     const menuH = isLandscape ? 30 : 28;
@@ -1216,6 +1188,7 @@ function isPlayerBehindMonster(player, monster) {
 }
 
 function applyOutgoingPlayerDamage(baseDmg, player, inventory, opts) {
+  if (player.adminMode) return 999999;
   opts = opts || {};
   const agg = aggregateEquipmentExtras(inventory);
   const atkPowerFloor = getEquipmentAttackPowerTotal(inventory);
@@ -3255,8 +3228,8 @@ const charPanel = {
 
     // â”€â”€ Section 2: Stat cards (STR, AGI, WIS) â”€â”€
     const statMeta = [
-      { label: "GUC", val: player.str, eq: player._eqStr, color: "#ff7070", accent: "#803030", bg: "rgba(60,20,20,0.6)", stat: "str", desc: "Yak\u0131n Has +Krit Has" },
-      { label: "CEV", val: player.agi, eq: player._eqAgi, color: "#60c0ff", accent: "#204060", bg: "rgba(20,30,60,0.6)", stat: "agi", desc: "Ok Has +Krit +\u0130vme" },
+      { label: "GUC", val: player.str, eq: player._eqStr, color: "#ff7070", accent: "#803030", bg: "rgba(60,20,20,0.6)", stat: "str", desc: "Hasar Artışı" },
+      { label: "CEV", val: player.agi, eq: player._eqAgi, color: "#60c0ff", accent: "#204060", bg: "rgba(20,30,60,0.6)", stat: "agi", desc: "Kritik Hasar + Kritik Vuruş" },
       { label: "BIL", val: player.wis, eq: player._eqWis, color: "#60ff80", accent: "#206030", bg: "rgba(20,50,25,0.6)", stat: "wis", desc: "Max MP +Mana Reg" },
       { label: "DAY", val: player.vit, eq: player._eqVit, color: "#ff60a0", accent: "#802850", bg: "rgba(60,20,45,0.6)", stat: "vit", desc: "Max HP +HP Reg" },
       { label: "BEC", val: player.dex, eq: player._eqDex, color: "#d060ff", accent: "#602080", bg: "rgba(40,20,60,0.6)", stat: "dex", desc: "Sald H\u0131z" },
@@ -3342,11 +3315,11 @@ const charPanel = {
     const rangedDmg = Math.floor(player.getRangedDamage());
     const def = player._eqDefense || 0;
     const critChance = 5 + Math.floor(player.agi / 2);
-    const critDmg = 150 + Math.floor(player.str / 3);
+    const critDmg = 150 + Math.floor(player.agi * 0.5) + Math.floor(player.str / 4);
     const baseSpeed = 130;
     const agiBonus = player.agi * 2;
     const moveSpd = baseSpeed + agiBonus;
-    const atkSpd = (1.0 + player.agi / 100).toFixed(2);
+    const dexSpd = player.getAttackSpeedMultiplier();
 
     // Toplam vuruş hasarı (ekipman dahil, kritik hariç)
     const calcTotalDmg = () => {
@@ -3365,15 +3338,15 @@ const charPanel = {
     const totalDmg = calcTotalDmg();
 
     // SATIR 1 (4 sütun)
-    drawCell("Yak\u0131n Sava\u015f " + meleeDmg + " dmg", "#ff9060", 0, 0);
-    drawCell("Toplam Vuru\u015f " + totalDmg + " dmg", "#60b0ff", 1, 0);
-    drawCell("Savunma " + def + " def", "#f0d060", 2, 0);
-    drawCell("HP Yenileme +" + player.hpRegen.toFixed(1) + "/s", "#ff8080", 3, 0);
+    drawCell("Ok Hasar\u0131 " + rangedDmg + " dmg", "#60d0ff", 0, 0);
+    drawCell("Savunma " + def + " def", "#f0d060", 1, 0);
+    drawCell("HP Yenileme +" + player.hpRegen.toFixed(1) + "/s", "#ff8080", 2, 0);
+    drawCell("Kritik \u0130htimal " + critChance + "%", "#ff60d0", 3, 0);
 
     // SATIR 2 (4 sütun)
-    drawCell("Y\u00fcr\u00fcme H\u0131z\u0131 " + moveSpd, "#80ff80", 0, 1);
-    drawCell("Atak H\u0131z " + atkSpd, "#60ffff", 1, 1);
-    drawCell("Kritik \u0130htimal " + critChance + "%", "#ff60d0", 2, 1);
+    drawCell("Atak H\u0131z x" + (1 / dexSpd).toFixed(2), "#60ffff", 0, 1);
+    drawCell("Y\u00fcr\u00fcme H\u0131z\u0131 " + moveSpd, "#80ff80", 1, 1);
+    drawCell("MP Yenileme +" + player.manaRegen.toFixed(1) + "/s", "#8080ff", 2, 1);
     drawCell("Kritik Hasar " + critDmg + "%", "#d060ff", 3, 1);
 
     
@@ -5131,7 +5104,6 @@ class Player {
 
     this.dmgFlashTimer = 0;
     this.levelUpTimer = 0;
-    this.powerCharging = false;
     this.powerCharge = 0;
     /** 0\u20131: canavara her vuru\u015fta dolar; [G] ile t\u00fcketilir. */
     this.rageMeter = 0;
@@ -5203,8 +5175,8 @@ class Player {
     let skHp = 0, skMana = 0;
     if (this.skills.vitality) skHp += 25;
     if (this.skills.arcane) skMana += 22;
-    this.maxHp = this.baseMaxHp + eqHp + skHp;
-    this.maxMana = this.baseMaxMana + eqMana + skMana;
+    this.maxHp = this.baseMaxHp + this.vit * 8 + eqHp + skHp;
+    this.maxMana = this.baseMaxMana + this.wis * 6 + eqMana + skMana;
     if (adv.pctHp) this.maxHp = Math.max(1, Math.floor(this.maxHp * (1 + adv.pctHp / 100)));
     if (adv.pctMana) this.maxMana = Math.max(1, Math.floor(this.maxMana * (1 + adv.pctMana / 100)));
     if (this.rageBurstTimer > 0) {
@@ -5308,7 +5280,7 @@ class Player {
     const eqBow = (typeof inventory !== "undefined" && inventory && inventory.equipped) ? inventory.equipped.bow : null;
     let d;
     if (eqBow && ITEMS[eqBow.id]) {
-      d = Math.max(1, this._eqRangedDmg) + Math.floor((this.agi + this._eqAgi) * 0.05) + Math.floor((this.level - 1) * 0.35);
+      d = Math.max(1, this._eqRangedDmg) + Math.floor((this.agi + this._eqAgi) * 0.05) + Math.floor((this.str + this._eqStr) * 0.15) + Math.floor((this.level - 1) * 0.35);
     } else {
       d = this.getDamage() + this._eqRangedDmg;
     }
@@ -5319,6 +5291,11 @@ class Player {
   getPowerDamage() {
     const charge = Math.min(this.powerCharge, 1);
     return this.getRangedDamage() * (2 + charge * 2);
+  }
+
+  getAttackSpeedMultiplier() {
+    const totalDex = (this.dex || 0) + (this._eqDex || 0);
+    return Math.max(0.4, 1 - totalDex * 0.018);
   }
 
   getMeleeDamage() {
@@ -5354,10 +5331,6 @@ class Player {
     if (this.poisonTimer > 0) {
       this.poisonTimer -= dt;
       this.takeDamage(4.5 * dt, { kind: "poison" });
-    }
-
-    if (this.powerCharging) {
-      this.powerCharge = Math.min(1, this.powerCharge + dt * 0.8);
     }
 
     if (!this.inBoat && this.boatAutoBoardCooldown > 0) {
@@ -5901,6 +5874,39 @@ class Player {
       ctx.restore();
     }
 
+    if (this.powerCharge > 0.01) {
+      const charge = Math.min(this.powerCharge, 1);
+      const radius = 20;
+      const startAngle = -Math.PI / 2;
+      const endAngle = startAngle + charge * Math.PI * 2;
+      const pulse = 0.75 + 0.25 * Math.sin(performance.now() * 0.006);
+      ctx.save();
+      if (charge >= 1) {
+        ctx.globalAlpha = 0.5 + 0.3 * pulse;
+        const rg = ctx.createRadialGradient(cx, cy - 2, 1, cx, cy - 2, 30 + pulse * 10);
+        rg.addColorStop(0, "rgba(255,50,30,0.7)");
+        rg.addColorStop(0.6, "rgba(255,30,10,0.3)");
+        rg.addColorStop(1, "rgba(200,0,0,0)");
+        ctx.fillStyle = rg;
+        ctx.beginPath();
+        ctx.arc(cx, cy - 2, 30 + pulse * 10, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = charge >= 1 ? 0.9 : 0.7;
+      ctx.strokeStyle = charge >= 1 ? "#ff3010" : "#ff6030";
+      ctx.lineWidth = 4;
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      ctx.arc(cx, cy - 2, radius, startAngle, endAngle);
+      ctx.stroke();
+      ctx.strokeStyle = charge >= 1 ? "rgba(255,150,80,0.5)" : "rgba(255,120,60,0.3)";
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(cx, cy - 2, radius, startAngle, endAngle);
+      ctx.stroke();
+      ctx.restore();
+    }
+
     this._drawEquipmentAura(ctx, cx, cy, vis);
     this._drawEquippedItemEffects(ctx, cx, cy, inv);
     if (vis.showFantasyBack) {
@@ -6085,7 +6091,8 @@ class Player {
       this._drawEquippedBlade(ctx, cx, cy, bounce, a, bladeId);
     }
     if (this.swingAnim > 0) this._drawMeleeSwing(ctx, cx, cy, bounce);
-    drawEntityNameLabel(ctx, this.centerX, this.y - 14, getPlayerWorldLabelName(), {
+    const labelName = "Lv" + (typeof player !== 'undefined' && player ? player.level : 1) + " " + getPlayerWorldLabelName();
+    drawEntityNameLabel(ctx, this.centerX, this.y - 14, labelName, {
       color: "#e8f4ff",
       border: "rgba(120, 170, 220, 0.5)",
       bg: "rgba(10, 18, 36, 0.82)",
@@ -6319,6 +6326,39 @@ class Player {
 
     ctx.restore();
 
+    if (this.powerCharge > 0.01) {
+      const charge = Math.min(this.powerCharge, 1);
+      const radius = 20;
+      const startAngle = -Math.PI / 2;
+      const endAngle = startAngle + charge * Math.PI * 2;
+      const pulse = 0.75 + 0.25 * Math.sin(performance.now() * 0.006);
+      ctx.save();
+      if (charge >= 1) {
+        ctx.globalAlpha = 0.5 + 0.3 * pulse;
+        const rg = ctx.createRadialGradient(cx, cy + wave - 2, 1, cx, cy + wave - 2, 30 + pulse * 10);
+        rg.addColorStop(0, "rgba(255,50,30,0.7)");
+        rg.addColorStop(0.6, "rgba(255,30,10,0.3)");
+        rg.addColorStop(1, "rgba(200,0,0,0)");
+        ctx.fillStyle = rg;
+        ctx.beginPath();
+        ctx.arc(cx, cy + wave - 2, 30 + pulse * 10, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = charge >= 1 ? 0.9 : 0.7;
+      ctx.strokeStyle = charge >= 1 ? "#ff3010" : "#ff6030";
+      ctx.lineWidth = 4;
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      ctx.arc(cx, cy + wave - 2, radius, startAngle, endAngle);
+      ctx.stroke();
+      ctx.strokeStyle = charge >= 1 ? "rgba(255,150,80,0.5)" : "rgba(255,120,60,0.3)";
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(cx, cy + wave - 2, radius, startAngle, endAngle);
+      ctx.stroke();
+      ctx.restore();
+    }
+
     ctx.save();
     ctx.globalAlpha = 0.25;
     ctx.fillStyle = "#80c0ff";
@@ -6336,7 +6376,8 @@ class Player {
     ctx.globalAlpha = 1;
     ctx.restore();
 
-    drawEntityNameLabel(ctx, cx, Math.round(cy + wave - 34), getPlayerWorldLabelName(), {
+    const labelName2 = "Lv" + (typeof player !== 'undefined' && player ? player.level : 1) + " " + getPlayerWorldLabelName();
+    drawEntityNameLabel(ctx, cx, Math.round(cy + wave - 34), labelName2, {
       color: "#e8f4ff",
       border: "rgba(120, 170, 220, 0.4)",
     });
@@ -6734,7 +6775,7 @@ class MonSpell {
 const MONSTER_TYPES = {
   island_treasure_chest: { name: "Hazine Sandigi", hp: 160, dmg: 0, speed: 0, xp: 32, aggroRange: 0, atkRange: 0, atkCd: 99,
               loot: [{id:"boss_chest",c:1,ch:0.2}] },
-   slime:    { name: "BalÃ§Ä±k",   hp: 30,  dmg: 5,  speed: 35,  xp: 8,  aggroRange: TILE_SIZE*5,  atkRange: TILE_SIZE*0.8, atkCd: 1.2,
+    slime:    { name: "Balçık",   hp: 30,  dmg: 5,  speed: 35,  xp: 8,  aggroRange: TILE_SIZE*5,  atkRange: TILE_SIZE*0.8, atkCd: 1.2,
                loot: [{id:"seed",c:2,ch:0.3}] },
    wolf:     { name: "Kurt",     hp: 55,  dmg: 10, speed: 70,  xp: 15, aggroRange: TILE_SIZE*6,  atkRange: TILE_SIZE*0.9, atkCd: 0.8,
                loot: [{id:"potion",c:1,ch:0.2},{id:"potion_mana",c:1,ch:0.12},{id:"bow",c:1,ch:0.06}] },
@@ -9219,6 +9260,7 @@ class Monster {
         typeof player !== "undefined" && player && player.rageBurstTimer > 0);
       if (typeof player !== "undefined" && player) {
         player.rageMeter = Math.min(1, (player.rageMeter || 0) + 0.048 + dealt / 650);
+        player.powerCharge = Math.min(1, (player.powerCharge || 0) + 0.05 + dealt / 500);
       }
     }
     this.hitFlash = 0.15;
@@ -12060,102 +12102,13 @@ let combatTownTeleportRect = null;
 let combatZoomRect = null;
 
 function layoutCombatPotions(cw, ch) {
-  const w = 46, h = 46, gap = 6;
-  const bottomPad = touchState.mobileUI ? 38 : 24;
-  let x1, x2;
-  let y = ch - h - bottomPad;
-
-  if (touchState.mobileUI) {
-    const G = mobileCombatClusterGeom(cw, ch);
-    const potW = 42, potH = 42, innerGap = 10;
-    /** Sola al: sa\u011f alt 3l\u00fc vuru\u015f/zoom \u00fcst \u00fcste binmesin. */
-    const margin = 10;
-    const hpX = margin;
-    const hpY = Math.max(52, Math.min(G.centerY - 100, ch - 180));
-    const manaX = hpX;
-    const manaY = Math.round(hpY + potH + innerGap);
-    combatTownTeleportRect = null;
-    combatZoomRect = { x: margin, y: Math.max(44, hpY - 36), w: 32, h: 32, key: "+" };
-    combatPotionRects = [
-      { kind: "hp", x: hpX, y: hpY, w: potW, h: potH, key: "Q" },
-      { kind: "mana", x: manaX, y: manaY, w: potW, h: potH, key: "R" },
-    ];
-    return combatPotionRects;
-  } else {
-    const pad = 12;
-    x2 = cw - pad - w;
-    x1 = x2 - w - gap;
-    y = ch - h - bottomPad;
-  }
-
-  combatPotionRects = [
-    { kind: "hp", x: x1, y, w, h, key: "Q" },
-    { kind: "mana", x: x2, y, w, h, key: "R" },
-  ];
-  combatTownTeleportRect = { x: x1 - w - gap - 8, y, w: w + 8, h, key: "T" };
-  combatZoomRect = { x: combatTownTeleportRect.x - w - gap - 8, y, w: w + 8, h, key: "+" };
+  combatPotionRects = [];
+  combatTownTeleportRect = null;
+  combatZoomRect = null;
   return combatPotionRects;
 }
 
 function drawCombatPotions(ctx, cw, ch, inventory) {
-  const rects = layoutCombatPotions(cw, ch);
-  for (const r of rects) {
-    const id = r.kind === "hp" ? "potion" : "potion_mana";
-    const n = inventory.countItem(id);
-    ctx.fillStyle = "rgba(12,12,28,0.88)";
-    roundRect(ctx, r.x - 2, r.y - 14, r.w + 4, r.h + 18, 6);
-    ctx.fill();
-    ctx.strokeStyle = n > 0 ? "#7080a8" : "#504050";
-    ctx.lineWidth = 1;
-    roundRect(ctx, r.x - 2, r.y - 14, r.w + 4, r.h + 18, 6);
-    ctx.stroke();
-    drawItemIconFancy(ctx, id, r.x + 6, r.y + 4, r.w - 12, {});
-    ctx.fillStyle = n > 0 ? "#e0e8ff" : "#806060";
-    ctx.font = "bold 10px monospace";
-    ctx.fillText(String(n), r.x + r.w - 14, r.y + r.h - 4);
-    ctx.fillStyle = "#a0a8c0";
-    ctx.font = "9px monospace";
-    ctx.fillText("[" + r.key + "]", r.x + 4, r.y - 4);
-  }
-  if (combatTownTeleportRect && !touchState.mobileUI) {
-    const r = combatTownTeleportRect;
-    ctx.fillStyle = "rgba(12,18,32,0.9)";
-    roundRect(ctx, r.x - 2, r.y - 14, r.w + 4, r.h + 18, 6);
-    ctx.fill();
-    ctx.strokeStyle = "#6f8fb8";
-    ctx.lineWidth = 1;
-    roundRect(ctx, r.x - 2, r.y - 14, r.w + 4, r.h + 18, 6);
-    ctx.stroke();
-    ctx.fillStyle = "#d8e8ff";
-    ctx.font = "bold 10px monospace";
-    ctx.fillText("Kasaba", r.x + 8, r.y + 18);
-    ctx.fillStyle = "#9fb8d8";
-    ctx.font = "9px monospace";
-    ctx.fillText("[T]", r.x + 16, r.y + r.h - 4);
-  }
-  if (combatZoomRect) {
-    const r = combatZoomRect;
-    const on = worldZoom > WORLD_ZOOM_STEPS[1] + 0.02;
-    const cx = r.x + r.w * 0.5;
-    const cy = r.y + r.h * 0.5;
-    const rr = Math.min(r.w, r.h) * 0.5;
-    ctx.fillStyle = on ? "rgba(44,22,66,0.94)" : "rgba(12,18,32,0.92)";
-    ctx.beginPath();
-    ctx.arc(cx, cy, rr, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = on ? "#c890ff" : "#6f8fb8";
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.arc(cx, cy, rr - 0.5, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.fillStyle = on ? "#f0d8ff" : "#d8e8ff";
-    ctx.font = "bold 16px monospace";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText("+", cx, cy - 1);
-    ctx.textAlign = "start";
-    ctx.textBaseline = "alphabetic";
-  }
 }
 
 function tryTeleportToVillage() {
@@ -12181,7 +12134,6 @@ function tryTeleportToVillage() {
   player.y = spot.r * TILE_SIZE;
   player.vx = 0;
   player.vy = 0;
-  player.powerCharging = false;
   player.powerCharge = 0;
   player.inBoat = false;
   camera.x = player.x - camera.viewW * 0.5;
@@ -15594,21 +15546,21 @@ function tryPlayerMeleeAttack(player, inventory, monsters) {
   if (!best) return false;
   const rawMelee = player.getMeleeDamage();
   best.takeDamage(applyOutgoingPlayerDamage(rawMelee, player, inventory, { monster: best }));
-  player.meleeCooldown = 0.48;
+  player.meleeCooldown = 0.48 * player.getAttackSpeedMultiplier();
   player.swingAnim = 0.28;
   gameAudio.playMelee();
   return true;
 }
 
 function tryReleasePowerShotClick() {
-  if (!player.powerCharging || player.powerCharge <= 0.1) return false;
+  if ((player.powerCharge || 0) < 1) return false;
   if (!playerHasBowEquipped(inventory)) {
     pickupMsgText = "G\u00fc\u00e7l\u00fc ok i\u00e7in yay ku\u015fan!";
     pickupMsgTimer = 1.2;
   } else if ((inventory.countItem("arrow") > 0 || player.adminMode) && player.mana >= player.manaCostPower) {
     if (!player.adminMode) inventory.removeItem("arrow", 1);
     player.useMana(player.manaCostPower);
-    player.shootCooldown = 0.5;
+    player.shootCooldown = 0.5 * player.getAttackSpeedMultiplier();
     player.shootAnim = 0.3;
     const sx = player.centerX + Math.cos(player.angle) * 14;
     const sy = player.centerY + Math.sin(player.angle) * 14;
@@ -15622,7 +15574,6 @@ function tryReleasePowerShotClick() {
     registerRangedAimTarget(aim.target);
     gameAudio.playPowerShoot();
   }
-  player.powerCharging = false;
   player.powerCharge = 0;
   return true;
 }
@@ -15638,7 +15589,7 @@ function tryMeleeOrRangedClick() {
     } else if (player.useMana(player.manaCostShoot)) {
       if (!player.adminMode) inventory.removeItem("arrow", 1);
       const rapid = player.archerRapidFireTimer > 0;
-      player.shootCooldown = rapid ? 0.2 : 0.35;
+      player.shootCooldown = (rapid ? 0.45 : 0.7) * player.getAttackSpeedMultiplier();
       player.shootAnim = 0.25;
       const sx = player.centerX + Math.cos(player.angle) * 14;
       const sy = player.centerY + Math.sin(player.angle) * 14;
@@ -15672,7 +15623,7 @@ function tryShootSlowArrow() {
     } else if (player.mana >= player.manaCostShoot * 1.5) {
       if (!player.adminMode) inventory.removeItem("arrow", 1);
       player.useMana(player.manaCostShoot * 1.5);
-      player.shootCooldown = 0.5;
+    player.shootCooldown = 0.85 * player.getAttackSpeedMultiplier();
       player.shootAnim = 0.3;
       const sx = player.centerX + Math.cos(player.angle) * 14;
       const sy = player.centerY + Math.sin(player.angle) * 14;
@@ -15707,7 +15658,7 @@ function tryShootPierceArrow() {
     } else if (player.mana >= player.manaCostShoot * 2) {
       if (!player.adminMode) inventory.removeItem("arrow", 1);
       player.useMana(player.manaCostShoot * 2);
-      player.shootCooldown = 0.6;
+      player.shootCooldown = 0.6 * player.getAttackSpeedMultiplier();
       player.shootAnim = 0.35;
       const sx = player.centerX + Math.cos(player.angle) * 14;
       const sy = player.centerY + Math.sin(player.angle) * 14;
@@ -15888,7 +15839,6 @@ function skillCastPowerBurst() {
     pickupMsgTimer = 0.9;
     return false;
   }
-  player.powerCharging = true;
   player.powerCharge = 1;
   return tryReleasePowerShotClick();
 }
@@ -15969,20 +15919,12 @@ function tryAutoAttackWhileHeld() {
   // GÃ¼Ã§lÃ¼ ok (power shot) yalnÄ±zca Shift basÄ±lÄ± tutulurken ÅŸarj olur;
   // normal sol tÄ±k basÄ±lÄ± tutma = sÃ¼rekli otomatik ateÅŸ.
   if (mouseHeld && !player.inBoat && playerHasBowEquipped(inventory) && shiftHeld) {
-    const holdMs = performance.now() - mouseAttackT0;
-    if (holdMs >= DESKTOP_POWER_HOLD_MS && inventory.countItem("arrow") > 0 && player.mana >= player.manaCostPower) {
-      if (!player.powerCharging) {
-        player.powerCharging = true;
-        player.powerCharge = 0;
-      }
-      return;
-    }
+    return;
   }
   if (mobileAttackHeld) {
     const dur = performance.now() - touchState.attackT0;
     if (dur < MOBILE_ATTACK_INTERACT_MS && mobileInteractEligible()) return;
   }
-  if (shiftHeld && player.powerCharging) return;
   tryMeleeOrRangedClick();
 }
 
@@ -16112,9 +16054,6 @@ canvas.addEventListener("mousedown", (e) => {
   }
 
   if (e.button === 0 && !inventory.open && !bankPanel.open && !petPanel.open && !dialog.active && !shop.open && !craftPanel.open && !charPanel.open && !player.inBoat) {
-    if (player.powerCharging && player.powerCharge > 0.1) {
-      tryReleasePowerShotClick();
-    }
   }
 });
 canvas.addEventListener("contextmenu", (e) => { if (inventory.open || shop.open) e.preventDefault(); });
@@ -16162,12 +16101,6 @@ window.addEventListener("mouseup", (e) => {
   if (e.button === 0) {
     fullMapDragging = false;
     canvasMouse0Down = false;
-    if (player.powerCharging && (performance.now() - mouseAttackT0) >= DESKTOP_POWER_HOLD_MS) {
-      tryReleasePowerShotClick();
-    } else if (!(isDown("ShiftLeft") || isDown("ShiftRight"))) {
-      player.powerCharging = false;
-      player.powerCharge = 0;
-    }
     if (inventory.open) inventory.finishSlotPress(e.clientX, e.clientY, canvasW, canvasH, false);
   }
 });
@@ -16431,10 +16364,6 @@ function handleCanvasTouchEnd(e) {
       if (touchState.mobileUI && attackDur < MOBILE_ATTACK_INTERACT_MS &&
           !combatPanelsBlockAutoAttack() && !player.inBoat && mobileInteractEligible() && actionCooldown <= 0) {
         handleInteraction();
-      }
-      if (!(isDown("ShiftLeft") || isDown("ShiftRight"))) {
-        player.powerCharging = false;
-        player.powerCharge = 0;
       }
     }
 
@@ -16910,7 +16839,7 @@ function playerToSave(p) {
     str: p.str, agi: p.agi, wis: p.wis, int: p.int, vit: p.vit, dex: p.dex,
     _eqStr: p._eqStr, _eqAgi: p._eqAgi, _eqWis: p._eqWis, _eqInt: p._eqInt, _eqVit: p._eqVit, _eqDex: p._eqDex, _eqMeleeDmg: p._eqMeleeDmg, _eqRangedDmg: p._eqRangedDmg,
     manaCostShoot: p.manaCostShoot, manaCostPower: p.manaCostPower,
-    dmgFlashTimer: p.dmgFlashTimer, levelUpTimer: p.levelUpTimer, powerCharging: p.powerCharging, powerCharge: p.powerCharge,
+    dmgFlashTimer: p.dmgFlashTimer, levelUpTimer: p.levelUpTimer, powerCharge: p.powerCharge,
     rageMeter: p.rageMeter || 0, rageBurstTimer: p.rageBurstTimer || 0,
     statPoints: p.statPoints, skills: Object.assign({}, p.skills || {}),
     _pendingFullHeal: !!p._pendingFullHeal,
@@ -16936,6 +16865,7 @@ function applyPlayerSave(p, d) {
   if (!p.activeSkillCd || p.activeSkillCd.length < 8) p.activeSkillCd = [0, 0, 0, 0, 0, 0, 0, 0];
   if (d.rageMeter == null) p.rageMeter = 0;
   if (d.rageBurstTimer == null) p.rageBurstTimer = 0;
+  if (d.powerCharge == null) p.powerCharge = 0;
   if (d.levelDamageBonus == null) p.levelDamageBonus = Math.max(0, (p.level | 0) - 1);
 }
 
@@ -17622,17 +17552,12 @@ function gameLoop(now) {
   craftPanel.update(dt);
   const uiOpen = dialog.active || inventory.open || bankPanel.open || petPanel.open || shop.open || craftPanel.open || charPanel.open || !!worldItemInspect || !!inventorySlotInspect || questTracker.questLogOpen || minimap.fullMap;
 
-  const desktopPowerHold = canvasMouse0Down && !touchState.mobileUI && (performance.now() - mouseAttackT0) >= DESKTOP_POWER_HOLD_MS;
-  if ((isDown("ShiftLeft") || isDown("ShiftRight") || desktopPowerHold) && !uiOpen && !player.inBoat) {
-    if (!player.powerCharging) { player.powerCharging = true; player.powerCharge = 0; }
-  } else if (player.powerCharging && player.powerCharge < 0.1 &&
-    !isDown("ShiftLeft") && !isDown("ShiftRight") && !desktopPowerHold) {
-    player.powerCharging = false; player.powerCharge = 0;
-  }
-
   if (wasJustPressed("KeyQ") && !uiOpen) tryUseHpPotion();
   if (wasJustPressed("KeyR") && !uiOpen) tryUseManaPotion();
-  if (wasJustPressed("KeyG") && !uiOpen && !player.inBoat) tryActivateRageBurst();
+  if (wasJustPressed("KeyG") && !uiOpen && !player.inBoat) {
+    if (player.powerCharge >= 1) { tryReleasePowerShotClick(); }
+    else { tryActivateRageBurst(); }
+  }
   if (wasJustPressed("KeyT") && !uiOpen) tryUseExpScroll("exp_scroll_small");
   if (wasJustPressed("KeyY") && !uiOpen) tryUseExpScroll("exp_scroll_medium");
   if (wasJustPressed("KeyU") && !uiOpen) tryUseExpScroll("exp_scroll_large");
@@ -17697,6 +17622,9 @@ function gameLoop(now) {
       player.aimAt(wm.x, wm.y);
     }
     player.update(dt, map);
+    const aimResult = arrowAimAssist(player.centerX, player.centerY, player.angle, monsters);
+    currentTargetMonster = aimResult.target;
+    currentTargetMonsterTimer = 3;
     tryAutoChopNearbyTree(dt);
     tryAutoAttackWhileHeld();
     if (touchState.mobileUI) {
@@ -17839,6 +17767,7 @@ function gameLoop(now) {
   questTracker.update(dt);
   camera.follow(player, map.widthPx, map.heightPx);
   camera.updateShake(dt);
+  if (currentTargetMonsterTimer > 0) currentTargetMonsterTimer -= dt;
 
   let nearNPC = false, nearItem = false, nearWild = false, nearMonster = false, nearTreeChop = false;
   if (!uiOpen) {
@@ -18010,6 +17939,47 @@ function gameLoop(now) {
   camera.resetTransform(ctx);
 
   if (!inventory.open && !petPanel.open && !shop.open && !craftPanel.open) {
+    let questPanelBottom = 14;
+    const quest = questTracker.getCurrentQuest();
+    if (quest && !questTracker.questLogOpen && questTracker.questHUDVisible) {
+      const lineH = 13;
+      const panelH = 38 + quest.objectives.length * lineH;
+      questPanelBottom = 6 + panelH + 6;
+    }
+    if (currentTargetMonster && currentTargetMonster.alive && currentTargetMonster.state !== "dying" && currentTargetMonsterTimer > 0) {
+      const tgt = currentTargetMonster;
+      const tgtBarW = Math.min(320, canvasW - 40);
+      const tgtBarH = 22;
+      const tgtBarX = (canvasW - tgtBarW) / 2;
+      const tgtBarY = questPanelBottom;
+      const hpRatio = Math.max(0, tgt.hp / tgt.maxHp);
+      const mt = MONSTER_TYPES[tgt.type];
+      const nm = (mt && mt.name) ? mt.name : tgt.type;
+      const lvName = (tgt.ultraBoss ? "ULTRA " : "") + "Lv." + tgt.level + " " + nm;
+      ctx.fillStyle = "rgba(12, 14, 30, 0.88)";
+      roundRect(ctx, tgtBarX, tgtBarY, tgtBarW, tgtBarH, 6);
+      ctx.fill();
+      ctx.strokeStyle = "rgba(100, 120, 180, 0.4)";
+      ctx.lineWidth = 1;
+      roundRect(ctx, tgtBarX, tgtBarY, tgtBarW, tgtBarH, 6);
+      ctx.stroke();
+      const barInnerX = tgtBarX + 4;
+      const barInnerW = tgtBarW - 8;
+      const barInnerY = tgtBarY + tgtBarH - 7;
+      const barInnerH = 4;
+      ctx.fillStyle = "rgba(20, 20, 40, 0.7)";
+      roundRect(ctx, barInnerX, barInnerY, barInnerW, barInnerH, 2);
+      ctx.fill();
+      const hpColor = hpRatio > 0.5 ? "#55e065" : hpRatio > 0.25 ? "#f0c840" : "#ff5050";
+      ctx.fillStyle = hpColor;
+      roundRect(ctx, barInnerX, barInnerY, barInnerW * hpRatio, barInnerH, 2);
+      ctx.fill();
+      ctx.fillStyle = tgt.boss ? "#ffd060" : "#e8f4ff";
+      ctx.font = "bold 10px monospace";
+      ctx.textAlign = "center";
+      ctx.fillText(lvName, tgtBarX + tgtBarW / 2, tgtBarY + 13);
+      ctx.textAlign = "left";
+    }
     // Small info panel (top-left) - removed coordinates
     const hx = 10, hy = 10, hw = 80, pad = 10;
     const panelH = 34;
