@@ -458,6 +458,7 @@ const STRONG_BOSS_TYPES = new Set([
   "ice_queen", "dune_king", "jungle_behemoth", "thunder_lord", "abyss_crab", "volcanic_titan",
   "godzilla", "scorpion_king", "giant_bee_queen", "skywing_dragon",
   "ancient_flame_dragon", "frost_ancient_wyrm", "storm_sovereign_dragon", "void_ancient_dragon",
+  "slime_boss", "wolf_boss",
 ]);
 function loadLootPresetSettings() {
   try {
@@ -666,8 +667,9 @@ function getMovementVector() {
   if (isDown("ArrowLeft")  || isDown("KeyA")) dx -= 1;
   if (isDown("ArrowRight") || isDown("KeyD")) dx += 1;
   if (touchState.mobileUI && touchState.joyId >= 0) {
-  dx += touchState.joyDx;
-  dy += touchState.joyDy;
+  // Joystick ölü bölge (dead zone): çok hafif dokunuşları yok say
+  if (Math.abs(touchState.joyDx) > 0.15) dx += touchState.joyDx;
+  if (Math.abs(touchState.joyDy) > 0.15) dy += touchState.joyDy;
   }
   const len = Math.hypot(dx, dy);
   if (len > 1.0001) { dx /= len; dy /= len; }
@@ -756,18 +758,21 @@ const ITEMS = {
   weapon_chest: { id: "weapon_chest", name: "Silah Kutusu", stackable: true, maxStack: 99, desc: "10 elmasla a\u00e7\u0131l\u0131r, rastgele bir yay verir.", buyPrice: 0, sellPrice: 0 },
   armor_chest: { id: "armor_chest", name: "Giysi Kutusu", stackable: true, maxStack: 99, desc: "10 elmasla a\u00e7\u0131l\u0131r, rastgele bir z\u0131rh par\u00e7as\u0131 verir.", buyPrice: 0, sellPrice: 0 },
   accessory_chest: { id: "accessory_chest", name: "Tak\u0131 Kutusu", stackable: true, maxStack: 99, desc: "10 elmasla a\u00e7\u0131l\u0131r, rastgele bir tak\u0131 verir.", buyPrice: 0, sellPrice: 0 },
+  gold_weapon_chest: { id: "gold_weapon_chest", name: "Alt\u0131n Silah Kutusu", stackable: true, maxStack: 99, desc: "500 alt\u0131nla a\u00e7\u0131l\u0131r, rastgele bir yay verir.", buyPrice: 500, sellPrice: 0 },
+  gold_armor_chest: { id: "gold_armor_chest", name: "Alt\u0131n Giysi Kutusu", stackable: true, maxStack: 99, desc: "500 alt\u0131nla a\u00e7\u0131l\u0131r, rastgele bir z\u0131rh par\u00e7as\u0131 verir.", buyPrice: 500, sellPrice: 0 },
+  gold_accessory_chest: { id: "gold_accessory_chest", name: "Alt\u0131n Tak\u0131 Kutusu", stackable: true, maxStack: 99, desc: "500 alt\u0131nla a\u00e7\u0131l\u0131r, rastgele bir tak\u0131 verir.", buyPrice: 500, sellPrice: 0 },
   arrow:  { id: "arrow",  name: "Ok",  stackable: true, maxStack: 1000, desc: "Keskin u\u00e7lu ok.",  buyPrice: 2,  sellPrice: 1  },
   bow:  { id: "bow",  name: "Tahta Yay", rarity: "common", equipSlot: "bow", stackable: true, maxStack: 32, minLevel: 1,
-  stats: { str: 0, agi: 1, wis: 0, maxHp: 0, maxMana: 0, meleeDmg: 0, rangedDmg: 1 },
+  stats: { str: 0, wis: 0, maxHp: 0, maxMana: 0, meleeDmg: 0 },
   advanced: { attackPower: 1 },
   desc: "Sa\u011flam ah\u015fap yay." },
   bow_hunter: { id: "bow_hunter", name: "Avc\u0131 Yay\u0131", stackable: true, maxStack: 32, rarity: "rare", equipSlot: "bow", weight: 3.2,
-  stats: { str: 1, agi: 4, wis: 0, maxHp: 0, maxMana: 5, meleeDmg: 0, rangedDmg: 45 },
-  advanced: { attackPower: 55, defArrow: 4 },
+  stats: { str: 1, agi: 4, wis: 0, maxHp: 0, maxMana: 5, meleeDmg: 0, rangedDmg: 12 },
+  advanced: { attackPower: 12, defArrow: 4 },
   desc: "G\u00fc\u00e7l\u00fc gerilim.", buyPrice: 0, sellPrice: 35 },
   bow_long: { id: "bow_long", name: "Uzun Yay", stackable: true, maxStack: 32, rarity: "epic", equipSlot: "bow", weight: 4,
-  stats: { str: 0, agi: 3, wis: 2, maxHp: 0, maxMana: 10, meleeDmg: 0, rangedDmg: 180 },
-  advanced: { attackPower: 190, elemFlame: 78, defense: 5 },
+  stats: { str: 0, agi: 3, wis: 2, maxHp: 0, maxMana: 10, meleeDmg: 0, rangedDmg: 65 },
+  advanced: { attackPower: 65, elemFlame: 15, defense: 5 },
   extras: {
   itemLevel: { cur: 1, max: 40 },
   displayBaseDmg: 132,
@@ -775,8 +780,8 @@ const ITEMS = {
   passives: [{ text: "Yava\u015f at\u0131\u015f; y\u00fcksek menzil (rol)." }]},
   desc: "Menzil ve isabet.", buyPrice: 0, sellPrice: 85 },
   bow_storm_legendary: { id: "bow_storm_legendary", name: "Firtina Efsane Yayi", stackable: true, maxStack: 32, rarity: "legendary", equipSlot: "bow", minLevel: 70, weight: 4.4,
-  stats: { str: 2, agi: 9, wis: 4, maxHp: 12, maxMana: 20, meleeDmg: 0, rangedDmg: 340 },
-  advanced: { attackPower: 380, elemLightning: 140, elemFlame: 20, critRate: 8 },
+  stats: { str: 2, agi: 9, wis: 4, maxHp: 12, maxMana: 20, meleeDmg: 0, rangedDmg: 100 },
+  advanced: { attackPower: 100, elemLightning: 25, elemFlame: 5, critRate: 8 },
   extras: {
   itemLevel: { cur: 1, max: 40 },
   displayBaseDmg: 186,
@@ -788,8 +793,8 @@ const ITEMS = {
   special: { text: "Hedef uzaksa +%25 hasar.", dmgBonus: 0.25 }},
   desc: "Gokten muhurlenmis yay; guclu tekli vuruslar icin.", buyPrice: 0, sellPrice: 620 },
   bow_dragon_legendary: { id: "bow_dragon_legendary", name: "Ejder Nefesi Yayi", stackable: true, maxStack: 32, rarity: "legendary", equipSlot: "bow", minLevel: 70, weight: 4.8,
-  stats: { str: 4, agi: 8, wis: 6, maxHp: 20, maxMana: 28, meleeDmg: 0, rangedDmg: 500 },
-  advanced: { attackPower: 500, elemFlame: 180, elemLightning: 45, defense: 10, critRate: 10 },
+  stats: { str: 4, agi: 8, wis: 6, maxHp: 20, maxMana: 28, meleeDmg: 0, rangedDmg: 125 },
+  advanced: { attackPower: 125, elemFlame: 30, elemLightning: 10, defense: 10, critRate: 10 },
   extras: {
   itemLevel: { cur: 1, max: 40 },
   displayBaseDmg: 214,
@@ -801,28 +806,28 @@ const ITEMS = {
   special: { text: "Can %60 ustundeyken +%30 ilave hasar.", dmgBonus: 0.3 }},
   desc: "Kadim ejderha kalbinden guc alir; en yuksek yay hasarlarindan biri.", buyPrice: 0, sellPrice: 880 },
   bow_short: { id: "bow_short", name: "Kisa Av Yayi", stackable: true, maxStack: 32, rarity: "common", equipSlot: "bow", weight: 2.9,
-  stats: { str: 0, agi: 2, wis: 0, maxHp: 0, maxMana: 0, meleeDmg: 0, rangedDmg: 8 },
-  advanced: { attackPower: 8, defArrow: 1 }, desc: "Baslangic ustu bir av yayi.", buyPrice: 0, sellPrice: 14 },
+  stats: { str: 0, agi: 2, wis: 0, maxHp: 0, maxMana: 0, meleeDmg: 0, rangedDmg: 3 },
+  advanced: { attackPower: 3, defArrow: 1 }, desc: "Baslangic ustu bir av yayi.", buyPrice: 0, sellPrice: 14 },
   bow_recurve: { id: "bow_recurve", name: "Kivrimli Yay", stackable: true, maxStack: 32, rarity: "common", equipSlot: "bow", weight: 3.0,
-  stats: { str: 0, agi: 2, wis: 1, maxHp: 0, maxMana: 2, meleeDmg: 0, rangedDmg: 16 },
-  advanced: { attackPower: 16, defArrow: 1 }, desc: "Daha duzgun cekis verir.", buyPrice: 0, sellPrice: 20 },
+  stats: { str: 0, agi: 2, wis: 1, maxHp: 0, maxMana: 2, meleeDmg: 0, rangedDmg: 5 },
+  advanced: { attackPower: 5, defArrow: 1 }, desc: "Daha duzgun cekis verir.", buyPrice: 0, sellPrice: 20 },
   bow_composite: { id: "bow_composite", name: "Kompozit Yay", stackable: true, maxStack: 32, rarity: "rare", equipSlot: "bow", weight: 3.5,
-  stats: { str: 1, agi: 5, wis: 1, maxHp: 0, maxMana: 6, meleeDmg: 0, rangedDmg: 90 },
-  advanced: { attackPower: 90, defArrow: 5, critRate: 2 }, desc: "Kemik ve ahsap katmanli yay.", buyPrice: 0, sellPrice: 60 },
+  stats: { str: 1, agi: 5, wis: 1, maxHp: 0, maxMana: 6, meleeDmg: 0, rangedDmg: 18 },
+  advanced: { attackPower: 18, defArrow: 5, critRate: 2 }, desc: "Kemik ve ahsap katmanli yay.", buyPrice: 0, sellPrice: 60 },
   bow_war: { id: "bow_war", name: "Savas Yayi", stackable: true, maxStack: 32, rarity: "rare", equipSlot: "bow", weight: 3.8,
-  stats: { str: 2, agi: 6, wis: 1, maxHp: 4, maxMana: 8, meleeDmg: 0, rangedDmg: 130 },
-  advanced: { attackPower: 130, defArrow: 6, critRate: 3 }, desc: "On cephe okcularinin favorisi.", buyPrice: 0, sellPrice: 90 },
+  stats: { str: 2, agi: 6, wis: 1, maxHp: 4, maxMana: 8, meleeDmg: 0, rangedDmg: 25 },
+  advanced: { attackPower: 25, defArrow: 6, critRate: 3 }, desc: "On cephe okcularinin favorisi.", buyPrice: 0, sellPrice: 90 },
   bow_moon_epic: { id: "bow_moon_epic", name: "Ay Isigi Yayi", stackable: true, maxStack: 32, rarity: "epic", equipSlot: "bow", weight: 4.1,
-  stats: { str: 1, agi: 6, wis: 3, maxHp: 8, maxMana: 14, meleeDmg: 0, rangedDmg: 260 },
-  advanced: { attackPower: 260, elemMagic: 80, critRate: 5 },
+  stats: { str: 1, agi: 6, wis: 3, maxHp: 8, maxMana: 14, meleeDmg: 0, rangedDmg: 45 },
+  advanced: { attackPower: 45, elemMagic: 10, critRate: 5 },
   desc: "Gece avlarinda oldurucu isabet saglar.", buyPrice: 0, sellPrice: 180 },
   bow_sun_epic: { id: "bow_sun_epic", name: "Gunes Kiri Yayi", stackable: true, maxStack: 32, rarity: "epic", equipSlot: "bow", weight: 4.2,
-  stats: { str: 2, agi: 7, wis: 2, maxHp: 10, maxMana: 12, meleeDmg: 0, rangedDmg: 300 },
-  advanced: { attackPower: 300, elemFlame: 95, critRate: 6 },
+  stats: { str: 2, agi: 7, wis: 2, maxHp: 10, maxMana: 12, meleeDmg: 0, rangedDmg: 55 },
+  advanced: { attackPower: 55, elemFlame: 15, critRate: 6 },
   desc: "Yuksek gerilimli sicak cekis.", buyPrice: 0, sellPrice: 220 },
   bow_void_legendary: { id: "bow_void_legendary", name: "Bosluk Ucu Yayi", stackable: true, maxStack: 32, rarity: "legendary", equipSlot: "bow", minLevel: 70, weight: 4.7,
-  stats: { str: 3, agi: 10, wis: 6, maxHp: 18, maxMana: 26, meleeDmg: 0, rangedDmg: 440 },
-  advanced: { attackPower: 440, elemMagic: 140, critRate: 9, critDamage: 18 },
+  stats: { str: 3, agi: 10, wis: 6, maxHp: 18, maxMana: 26, meleeDmg: 0, rangedDmg: 115 },
+  advanced: { attackPower: 115, elemMagic: 25, critRate: 9, critDamage: 18 },
   desc: "Oklar hedefte bosluk izi birakir.", buyPrice: 0, sellPrice: 760 },
   rope:  { id: "rope",  name: "Halat",  stackable: true, maxStack: 150, desc: "Sa\u011flam kenevir halat.",  buyPrice: 6,  sellPrice: 2  },
   helm_leather:  { id: "helm_leather",  name: "Deri Mi\u011fer",  stackable: true, maxStack: 32, rarity: "common",  equipSlot: "head",  stats: { str: 1, agi: 0, wis: 0, maxHp: 8, maxMana: 0 }, advanced: { defense: 2 },
@@ -941,17 +946,17 @@ const ITEMS = {
   desc: "HÃ¢lÃ¢ atan bir ejderha kalbi. Sahibine Ã¶lÃ¼msÃ¼zlÃ¼ÄŸÃ¼n izlerini verir.", buyPrice: 0, sellPrice: 2000 },
   // === YENÄ° EÅžYALAR ===
   bow_swift: { id: "bow_swift", name: "HÄ±zlÄ± Yay", stackable: true, maxStack: 32, rarity: "rare", equipSlot: "bow", minLevel: 5,
-  stats: { str: 0, agi: 3, wis: 0, maxHp: 0, maxMana: 4, meleeDmg: 0, rangedDmg: 28 },
-  advanced: { attackPower: 30, critRate: 2 },
+  stats: { str: 0, agi: 3, wis: 0, maxHp: 0, maxMana: 4, meleeDmg: 0, rangedDmg: 8 },
+  advanced: { attackPower: 8, critRate: 2 },
   desc: "Hafif ve hÄ±zlÄ± atÄ±ÅŸ yapar.", buyPrice: 0, sellPrice: 28 },
   bow_shadow_epic: { id: "bow_shadow_epic", name: "GÃ¶lge YayÄ±", stackable: true, maxStack: 32, rarity: "epic", equipSlot: "bow", minLevel: 25,
-  stats: { str: 1, agi: 5, wis: 2, maxHp: 6, maxMana: 10, meleeDmg: 0, rangedDmg: 185 },
-  advanced: { attackPower: 200, elemMagic: 60, critRate: 5 },
+  stats: { str: 1, agi: 5, wis: 2, maxHp: 6, maxMana: 10, meleeDmg: 0, rangedDmg: 35 },
+  advanced: { attackPower: 35, elemMagic: 10, critRate: 5 },
   extras: { critChance: 10, passives: [{ text: "GÃ¶lge oklarÄ± hedefi yavaÅŸlatÄ±r." }] },
   desc: "KaranlÄ±ktan sÄ±yrÄ±lÄ±p gelen ok, iz bÄ±rakmaz.", buyPrice: 0, sellPrice: 145 },
   bow_crystal_legendary: { id: "bow_crystal_legendary", name: "Kristal Yay", stackable: true, maxStack: 32, rarity: "legendary", equipSlot: "bow", minLevel: 50,
-  stats: { str: 2, agi: 7, wis: 5, maxHp: 15, maxMana: 22, meleeDmg: 0, rangedDmg: 380 },
-  advanced: { attackPower: 420, elemGlacier: 120, defense: 8, critRate: 8 },
+  stats: { str: 2, agi: 7, wis: 5, maxHp: 15, maxMana: 22, meleeDmg: 0, rangedDmg: 80 },
+  advanced: { attackPower: 80, elemGlacier: 20, defense: 8, critRate: 8 },
   extras: { critChance: 14, critDamagePct: 22, bonusPctDmg: [12], passives: [{ text: "Kristal parÃ§alarÄ± dÃ¼ÅŸmana saplanÄ±r, ek buz hasarÄ±." }] },
   desc: "Saf kristalden dÃ¶vÃ¼lmÃ¼ÅŸ yay, buz gibi soÄŸuk oklar atar.", buyPrice: 0, sellPrice: 420 },
   helm_bone: { id: "helm_bone", name: "Kemik MiÄŸfer", stackable: true, maxStack: 32, rarity: "rare", equipSlot: "head",
@@ -1460,8 +1465,8 @@ function getEffectiveItemStatsMerged(def, upgradeLv) {
   }
   if (def.equipSlot) {
   const rr = rarityRank(def.rarity || "common");
-  const dmgMul = rr >= 4 ? 2.2 : rr >= 3 ? 1.7 : rr >= 2 ? 1.35 : 1;
-  const hpMul = rr >= 4 ? 1.35 : rr >= 3 ? 1.2 : rr >= 2 ? 1.08 : 1;
+  const dmgMul = rr >= 4 ? 1.15 : rr >= 3 ? 1.08 : rr >= 2 ? 1.04 : 1;
+  const hpMul = rr >= 4 ? 1.08 : rr >= 3 ? 1.04 : rr >= 2 ? 1.02 : 1;
   if (typeof stats.meleeDmg === "number" && stats.meleeDmg > 0) stats.meleeDmg = Math.max(1, Math.round(stats.meleeDmg * dmgMul));
   if (typeof stats.rangedDmg === "number" && stats.rangedDmg > 0) stats.rangedDmg = Math.max(1, Math.round(stats.rangedDmg * dmgMul));
   if (typeof stats.maxHp === "number" && stats.maxHp > 0) stats.maxHp = Math.max(1, Math.round(stats.maxHp * hpMul));
@@ -2505,6 +2510,37 @@ function drawItemIcon(ctx, itemId, x, y, size) {
   ctx.textBaseline = "alphabetic";
   break;
   }
+  case "weapon_chest":
+  case "armor_chest":
+  case "accessory_chest":
+  case "gold_weapon_chest":
+  case "gold_armor_chest":
+  case "gold_accessory_chest":
+  case "boss_chest": {
+  var isGoldChest = itemId.indexOf("gold_") === 0 || itemId === "boss_chest";
+  var chestGrad = ctx.createLinearGradient(x, y, x + s, y + s);
+  chestGrad.addColorStop(0, isGoldChest ? "#d4a030" : "#8a6a3a");
+  chestGrad.addColorStop(0.3, isGoldChest ? "#b08020" : "#6a4a2a");
+  chestGrad.addColorStop(0.7, isGoldChest ? "#906010" : "#4a2a18");
+  chestGrad.addColorStop(1, isGoldChest ? "#603800" : "#2a1008");
+  ctx.fillStyle = chestGrad;
+  roundRect(ctx, x + 1, y + 1, s - 2, s - 2, 3);
+  ctx.fill();
+  ctx.strokeStyle = isGoldChest ? "#ffd700" : "#5a3a1a";
+  ctx.lineWidth = 1;
+  roundRect(ctx, x + 1, y + 1, s - 2, s - 2, 3);
+  ctx.stroke();
+  ctx.fillStyle = isGoldChest ? "#ffd700" : "#c09050";
+  ctx.fillRect(x + 2, y + s * 0.3, s - 4, 2);
+  ctx.fillRect(x + 2, y + s * 0.55, s - 4, 2);
+  ctx.fillStyle = isGoldChest ? "#ffec80" : "#e0c080";
+  ctx.fillRect(x + s * 0.35, y + s * 0.15, s * 0.3, s * 0.15);
+  ctx.fillStyle = isGoldChest ? "#ffd700" : "#b08050";
+  ctx.fillRect(cx - 1, y + s * 0.15, 2, s * 0.7);
+  ctx.fillRect(x + s * 0.25, y + s * 0.38, 2, s * 0.25);
+  ctx.fillRect(x + s * 0.65, y + s * 0.38, 2, s * 0.25);
+  break;
+  }
   case "diamond": {
   var dg = ctx.createRadialGradient(cx - s*0.1, cy - s*0.15, 0, cx, cy, s*0.4);
   dg.addColorStop(0, "#ffffff");
@@ -3120,6 +3156,8 @@ const PLAYER_SKILL_DEFS = [
   { id: "chain_shot", name: "Zincir At\u0131\u015f", minLevel: 45, gold: 2000, type: "active", icon: "\u26C1", mana: 32, cooldown: 2, desc: "Ok hedefler aras\u0131nda seker (3 hedef)." },
   { id: "shadow_arrow", name: "G\u00f6lge Oku", minLevel: 50, gold: 2500, type: "active", icon: "\uD83C\uDF1A", mana: 35, cooldown: 2, desc: "Karanl\u0131k ok y\u00fcksek hasar verir." },
   { id: "death_mark", name: "\u00d6l\u00fcm \u0130\u015fareti", minLevel: 60, gold: 3500, type: "active", icon: "\u2620\uFE0F", mana: 40, cooldown: 3, desc: "Can\u0131 d\u00fc\u015f\u00fck hedefleri an\u0131nda \u00f6ld\u00fcr\u00fcr." },
+  { id: "vampiric_arrow", name: "Vampir Ok", minLevel: 55, gold: 3000, type: "active", icon: "\uD83E\uDE78", mana: 28, cooldown: 2.5, desc: "Vurdu\u011fun hasar\u0131n %20'sini can olarak geri al\u0131rs\u0131n." },
+  { id: "thunder_arrow", name: "Y\u0131ld\u0131r\u0131m Oku", minLevel: 65, gold: 4000, type: "active", icon: "\u26A1", mana: 38, cooldown: 3, desc: "Y\u0131ld\u0131r\u0131m hasar\u0131 verir, 3 hedefe \u00e7arpar." },
 ];
 
 const charPanel = {
@@ -3132,22 +3170,20 @@ const charPanel = {
   const pad = 28;
   const hdrH = land ? 30 : 34;
   const sg = land ? 8 : 10;
-  const infoH = land ? 44 : 52;
-  const cardH = land ? 68 : 78;
+  const cardH = land ? 44 : 50;
   const hintH = 14;
-  const combatH = land ? 95 : 105;
+  const combatH = land ? 62 : 68;
   const apH = touchState.mobileUI ? 60 : 0;
-  const calcH = () => pad + hdrH + sg + infoH + sg + cardH + hintH + sg + combatH + (apH > 0 ? sg + apH : 0) + pad + 14;
+  const calcH = () => pad + hdrH + sg + cardH + hintH + sg + combatH + (apH > 0 ? sg + apH : 0) + pad + 14;
   let ph = Math.min(Math.max(calcH(), 280), b.maxH);
   const px = Math.floor((cw - pw) / 2);
-  const py = Math.max(b.top, Math.min(ch - ph - b.bottom, Math.floor((ch - ph) / 2)));
-  let cy = py + hdrH + pad;
-  const infoY = cy; cy += infoH + sg;
+  const py = Math.max(b.top, Math.min(ch - ph - b.bottom, Math.floor((ch - ph) / 3)));
+  let cy = py + hdrH + Math.floor(pad * 0.6);
   const statsY = cy; cy += cardH + hintH + sg;
   const combatY = cy; cy += combatH;
   const autoPotY = apH > 0 ? (cy += sg, cy) : -1; if (apH > 0) cy += apH;
   const closeR = { x: px + pw - 32, y: py + 6, w: 26, h: 26 };
-  return { px, py, pw, ph, pad, hdrH, land, infoY, statsY, cardH, combatY, combatH, autoPotY, apH, closeR, iw: pw - pad * 2 };
+  return { px, py, pw, ph, pad, hdrH, land, statsY, cardH, combatY, combatH, autoPotY, apH, closeR, iw: pw - pad * 2 };
   },
   _statCardRects(L) {
   const x0 = L.px + L.pad;
@@ -3184,7 +3220,6 @@ const charPanel = {
   this.open = !this.open;
   if (this.open) {
   if (typeof inventory !== "undefined") inventory.close();
-  if (typeof petPanel !== "undefined") petPanel.open = false;
   if (typeof shop !== "undefined") shop.close();
   if (typeof craftPanel !== "undefined") craftPanel.close();
   if (typeof skillPanel !== "undefined") skillPanel.close();
@@ -3266,9 +3301,14 @@ const charPanel = {
   roundRect(ctx, px + 4, py + 4, pw - 8, hdrH, 7); ctx.fill();
   ctx.strokeStyle = "#7a8a4a"; ctx.lineWidth = 1;
   roundRect(ctx, px + 4, py + 4, pw - 8, hdrH, 7); ctx.stroke();
-  ctx.fillStyle = "#e8d878"; ctx.font = land ? "bold 13px monospace" : "bold 14px monospace";
-  const title = "\u2694 Karakter";
-  ctx.fillText(title, px + pw / 2 - ctx.measureText(title).width / 2, py + hdrH / 2 + 9);
+  ctx.fillStyle = "#b0c888"; ctx.font = land ? "bold 10px monospace" : "bold 11px monospace";
+  ctx.fillText("Sava\u015f\u00e7\u0131", px + pad + 8, py + hdrH / 2 + 9);
+  ctx.fillStyle = "#f0d050"; ctx.font = land ? "bold 12px monospace" : "bold 13px monospace";
+  ctx.fillText("\u2605 Lv." + player.level, px + pad + 80, py + hdrH / 2 + 9);
+  if (player.statPoints > 0) {
+  ctx.fillStyle = "#80ff90"; ctx.font = land ? "bold 8px monospace" : "bold 9px monospace";
+  ctx.fillText("+" + player.statPoints + " puan", px + pw - pad - 60, py + hdrH / 2 + 9);
+  }
 
   // Close button
   const cr = L.closeR;
@@ -3278,42 +3318,6 @@ const charPanel = {
   roundRect(ctx, cr.x, cr.y, cr.w, cr.h, 5); ctx.stroke();
   ctx.fillStyle = "#e0a0a0"; ctx.font = "bold 14px monospace";
   ctx.fillText("\u2715", cr.x + cr.w / 2 - ctx.measureText("\u2715").width / 2, cr.y + cr.h / 2 + 5);
-
-  // â”€â”€ Section 1: Info (class + level + XP) â”€â”€
-  const iy = L.infoY;
-  ctx.fillStyle = "rgba(20,30,18,0.7)";
-  roundRect(ctx, px + pad, iy, L.iw, L.infoY + 44 - iy > 0 ? (land ? 42 : 50) : 42, 6); ctx.fill();
-  ctx.strokeStyle = "rgba(100,120,70,0.4)"; ctx.lineWidth = 1;
-  roundRect(ctx, px + pad, iy, L.iw, land ? 42 : 50, 6); ctx.stroke();
-
-  ctx.fillStyle = "#b0c888"; ctx.font = land ? "bold 10px monospace" : "bold 11px monospace";
-  ctx.fillText("Sava\u015f\u00e7\u0131", px + pad + 8, iy + (land ? 16 : 18));
-  ctx.fillStyle = "#f0d050"; ctx.font = land ? "bold 13px monospace" : "bold 14px monospace";
-  const lvTxt = "\u2605 Lv." + player.level;
-  ctx.fillText(lvTxt, px + pad + 88, iy + (land ? 16 : 18));
-  if (player.statPoints > 0) {
-  ctx.fillStyle = "#80ff90"; ctx.font = land ? "bold 9px monospace" : "bold 10px monospace";
-  ctx.fillText("+" + player.statPoints + " puan", px + pw - pad - 72, iy + (land ? 16 : 18));
-  }
-
-  // XP bar
-  const xbY = iy + (land ? 22 : 26);
-  const xbW = L.iw - 16;
-  const xbH = land ? 12 : 14;
-  ctx.fillStyle = "#1a2a1a";
-  roundRect(ctx, px + pad + 8, xbY, xbW, xbH, 3); ctx.fill();
-  const xpR = Math.min(1, player.xp / player.xpToNext);
-  if (xpR > 0) {
-  const xG = ctx.createLinearGradient(px + pad + 8, xbY, px + pad + 8, xbY + xbH);
-  xG.addColorStop(0, "#7aa040"); xG.addColorStop(1, "#4a6020");
-  ctx.fillStyle = xG;
-  roundRect(ctx, px + pad + 8, xbY, xbW * xpR, xbH, 3); ctx.fill();
-  }
-  ctx.strokeStyle = "#6a7a4a"; ctx.lineWidth = 0.7;
-  roundRect(ctx, px + pad + 8, xbY, xbW, xbH, 3); ctx.stroke();
-  ctx.fillStyle = "#d0d8b0"; ctx.font = "bold 8px monospace";
-  const xpT = player.xp + " / " + player.xpToNext + " XP";
-  ctx.fillText(xpT, px + pad + 8 + xbW / 2 - ctx.measureText(xpT).width / 2, xbY + xbH - 3);
 
   // â”€â”€ Section 2: Stat cards (STR, AGI, WIS) â”€â”€
   const statMeta = [
@@ -3343,28 +3347,27 @@ const charPanel = {
   roundRect(ctx, c.card.x + 2, c.card.y + 2, c.card.w - 4, c.card.h - 4, 6); ctx.stroke();
   }
 
-  // Label
-  ctx.fillStyle = m.color + "aa"; ctx.font = land ? "bold 9px monospace" : "bold 10px monospace";
-  const lw = ctx.measureText(m.label).width;
-  ctx.fillText(m.label, c.card.x + c.card.w / 2 - lw / 2, c.card.y + (land ? 16 : 18));
-
-  // Value
-  ctx.fillStyle = m.color; ctx.font = land ? "bold 18px monospace" : "bold 20px monospace";
+  // Label + Value (side by side)
+  ctx.fillStyle = m.color; ctx.font = "bold 14px monospace";
   const vt = String(m.val);
-  ctx.fillText(vt, c.card.x + c.card.w / 2 - ctx.measureText(vt).width / 2, c.card.y + (land ? 32 : 36));
+  ctx.fillStyle = m.color + "aa"; ctx.font = "bold 9px monospace";
+  const lw2 = ctx.measureText(m.label).width;
+  ctx.fillText(m.label, c.card.x + 4, c.card.y + (land ? 16 : 18));
+  ctx.fillStyle = m.color; ctx.font = "bold 14px monospace";
+  ctx.fillText(vt, c.card.x + 4 + lw2 + 4, c.card.y + (land ? 16 : 18));
 
   // Description (what this stat affects)
   if (m.desc) {
   ctx.fillStyle = m.color + "88"; ctx.font = "bold 7px monospace";
   const dw = ctx.measureText(m.desc).width;
-  ctx.fillText(m.desc, c.card.x + c.card.w / 2 - dw / 2, c.card.y + (land ? 46 : 52));
+  ctx.fillText(m.desc, c.card.x + c.card.w / 2 - dw / 2, c.card.y + (land ? 28 : 32));
   }
 
   // Eq bonus
   if (m.eq > 0) {
   ctx.fillStyle = m.color + "88"; ctx.font = land ? "8px monospace" : "9px monospace";
   const et = "+" + m.eq + " ekip";
-  ctx.fillText(et, c.card.x + c.card.w / 2 - ctx.measureText(et).width / 2, c.card.y + (land ? 54 : 60));
+  ctx.fillText(et, c.card.x + c.card.w / 2 - ctx.measureText(et).width / 2, c.card.y + (land ? 38 : 44));
   }
 
   // Tüm kart tıklanabilir (buton kaldırıldı)
@@ -3389,48 +3392,35 @@ const charPanel = {
 
   const startY = cy + 20;
   const lineH = 18;
-  const colW = L.iw / 2;
+  const colW = L.iw / 4;
 
   const drawDmgLine = (label, value, color, row, col) => {
-  const x = px + pad + (col || 0) * colW + 8;
+  const x = px + pad + (col || 0) * colW + 5;
   const y = startY + row * lineH;
   const labelW = ctx.measureText(label).width;
-  ctx.fillStyle = "#8899aa"; ctx.font = "10px monospace";
+  ctx.fillStyle = "#8899aa"; ctx.font = "8px monospace";
   ctx.fillText(label, x, y + 12);
-  ctx.fillStyle = color; ctx.font = "bold 10px monospace";
-  ctx.fillText(String(value), x + labelW + 6, y + 12);
+  ctx.fillStyle = color; ctx.font = "bold 8px monospace";
+  ctx.fillText(String(value), x + labelW + 3, y + 12);
   };
 
-  // Temel ok hasarÄ± (oyuncunun base ranged damage'i)
   const baseRangedDmg = Math.floor(player.getRangedDamage());
   const eqAttackPower = getEquipmentAttackPowerTotal(inventory);
-  const elemFire = getEquipmentElementalTotal(inventory, "elemFlame");
-  const elemLightning = getEquipmentElementalTotal(inventory, "elemLightning");
-  const elemMagic = getEquipmentElementalTotal(inventory, "elemMagic");
-  const elemGlacier = getEquipmentElementalTotal(inventory, "elemGlacier");
   const critChance = Math.min(85, 5 + Math.floor(player.agi / 2) + (aggregateEquipmentExtras(inventory).critChance || 0));
   const critDmgPct = 150 + Math.floor(player.agi * 0.5) + Math.floor(player.str / 4) + (aggregateEquipmentExtras(inventory).critDamagePct || 0);
-
-  drawDmgLine("Ok Hasar\u0131:", baseRangedDmg + " dmg", "#60d0ff", 0, 0);
-  drawDmgLine("Sald\u0131r\u0131 G\u00fcc\u00fc:", "+" + eqAttackPower, "#80e0ff", 0, 1);
-
-  var elemParts = [];
-  if (elemFire > 0) elemParts.push("Ate\u015f +" + elemFire);
-  if (elemLightning > 0) elemParts.push("Y\u0131ld\u0131r\u0131m +" + elemLightning);
-  if (elemMagic > 0) elemParts.push("B\u00fcy\u00fc +" + elemMagic);
-  if (elemGlacier > 0) elemParts.push("Buz +" + elemGlacier);
-  var elemStr = elemParts.length > 0 ? elemParts.join(" ") : "Yok";
-
-  drawDmgLine("Elementel Hasar:", elemStr, "#ffb060", 1, 0);
-  drawDmgLine("Kritik \u0130htimal:", "%" + critChance, "#ff60d0", 1, 1);
-
   const def = player._eqDefense || 0;
   const dexSpd = player.getAttackSpeedMultiplier();
-  drawDmgLine("Savunma:", def + " def", "#f0d060", 2, 0);
-  drawDmgLine("Atak H\u0131z\u0131:", "x" + (1 / dexSpd).toFixed(2), "#60ffff", 2, 1);
+  const hpRegen = player.hpRegen || 0;
+  const mpRegen = player.manaRegen || 0;
 
-  drawDmgLine("Kritik Hasar:", "%" + critDmgPct, "#d060ff", 3, 0);
-  drawDmgLine("HP Yenileme:", "+" + player.hpRegen.toFixed(1) + "/s", "#ff8080", 3, 1);
+  drawDmgLine("Ok Hasarı:", baseRangedDmg + " dmg", "#60d0ff", 0, 0);
+  drawDmgLine("Kritik:", "%" + critChance, "#ff60d0", 0, 1);
+  drawDmgLine("Saldırı Gücü:", "+" + eqAttackPower, "#80e0ff", 0, 2);
+  drawDmgLine("Kritik Hasar:", "%" + critDmgPct, "#d060ff", 0, 3);
+  drawDmgLine("Savunma:", def + " def", "#f0d060", 1, 0);
+  drawDmgLine("Atak Hızı:", "x" + (1 / dexSpd).toFixed(2), "#60ffff", 1, 1);
+  drawDmgLine("Can Yenileme:", "+" + hpRegen.toFixed(1) + "/s", "#ff8080", 1, 2);
+  drawDmgLine("Mana Yenileme:", "+" + mpRegen.toFixed(1) + "/s", "#6090e0", 1, 3);
 
   // Set bonus g\u00F6sterimi
   const sb3 = getSetBonuses(inventory);
@@ -3494,22 +3484,26 @@ const skillPanel = {
   const pad = 24;
   const hdrH = land ? 28 : 32;
   const sg = land ? 8 : 10;
-  let rowStep = land ? 38 : 44;
   const skHdrH = land ? 18 : 22;
-  const skillsPerCol = Math.ceil(PLAYER_SKILL_DEFS.length / 2);
-  const cols = 2;
-  const rows = Math.ceil(PLAYER_SKILL_DEFS.length / cols);
-  const skillH = skHdrH + rows * rowStep;
   const extraH = 58;
-  const calcH = () => pad + hdrH + sg + skillH + sg + extraH + pad + 14;
-  let ph = Math.min(Math.max(calcH(), 260), b.maxH);
+  const cols = land ? 3 : 2;
+  const skillsPerCol = Math.ceil(PLAYER_SKILL_DEFS.length / cols);
+  const rows = Math.ceil(PLAYER_SKILL_DEFS.length / cols);
+  const hfNoSk = pad + hdrH + sg + sg + extraH + pad + 14;
+  const idealSkillH = skHdrH + rows * (land ? 38 : 44);
+  let ph = Math.min(Math.max(hfNoSk + idealSkillH, 260), b.maxH);
+  const availForRows = Math.max(1, ph - hfNoSk - skHdrH);
+  let rowStep = land ? Math.min(38, Math.floor(availForRows / rows)) : Math.min(44, Math.floor(availForRows / rows));
+  if (rowStep < 20) rowStep = 20;
+  const skillH = skHdrH + rows * rowStep;
+  ph = Math.min(Math.max(hfNoSk + skillH, 260), b.maxH);
   const px = Math.floor((cw - pw) / 2);
   const py = Math.max(b.top, Math.min(ch - ph - b.bottom, Math.floor((ch - ph) / 2)));
   const skillStartY = py + hdrH + pad + skHdrH;
-  const skillColW = (pw - pad * 2 - 16) / 2;
+  const skillColW = (pw - pad * 2 - 16) / cols;
   const slotBarY = py + hdrH + pad + skHdrH + skillH + sg;
   const closeR = { x: px + pw - 32, y: py + 6, w: 26, h: 26 };
-  return { px, py, pw, ph, pad, hdrH, land, rowStep, skillStartY, skillColW, closeR, skillsPerCol, slotBarY };
+  return { px, py, pw, ph, pad, hdrH, land, rowStep, skillStartY, skillColW, closeR, skillsPerCol, slotBarY, cols };
   },
   toggle() {
   this.open = !this.open;
@@ -3562,7 +3556,7 @@ const skillPanel = {
   const unlockH = 22;
   for (let i = 0; i < PLAYER_SKILL_DEFS.length; i++) {
   const sk = PLAYER_SKILL_DEFS[i];
-  const col = i < skillsPerCol ? 0 : 1;
+  const col = Math.floor(i / skillsPerCol);
   const row = i % skillsPerCol;
   const sx = L.px + L.pad + col * (L.skillColW + 5);
   const sy2 = L.skillStartY + row * L.rowStep;
@@ -3637,9 +3631,16 @@ const skillPanel = {
   const gold = inventory.countItem("coin");
   const skillsPerCol = L.skillsPerCol || 5;
 
+  const clipTop = L.skillStartY;
+  const clipBottom = Math.min(py + ph - 8, L.slotBarY - 4);
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(px, clipTop, pw, Math.max(0, clipBottom - clipTop));
+  ctx.clip();
+
   for (let i = 0; i < PLAYER_SKILL_DEFS.length; i++) {
   const sk = PLAYER_SKILL_DEFS[i];
-  const col = i < skillsPerCol ? 0 : 1;
+  const col = Math.floor(i / skillsPerCol);
   const row = i % skillsPerCol;
   const sx = px + pad + col * (L.skillColW + 5);
   const sy2 = L.skillStartY + row * L.rowStep;
@@ -3672,6 +3673,7 @@ const skillPanel = {
   ctx.fillText(t, uR.x + (uR.w - ctx.measureText(t).width) / 2, uR.y + 15);
   }
   }
+  ctx.restore();
 
   // Slot selection bar (only when pendingSlotSkill)
   const slotBtnW = 80, slotBtnH = 30, gap = 8;
@@ -3707,12 +3709,12 @@ const skillPanel = {
   } else {
   // Slot durumu g\u00F6ster (bekleyen se\u00E7im yok)
   ctx.fillStyle = "rgba(20,28,40,0.8)";
-  roundRect(ctx, px + pad - 4, L.slotBarY - 2, L.pw - pad * 2 + 8, 42, 8); ctx.fill();
+  roundRect(ctx, px + pad - 4, L.slotBarY - 2, L.pw - pad * 2 + 8, 44, 8); ctx.fill();
   ctx.strokeStyle = "#506080"; ctx.lineWidth = 1;
-  roundRect(ctx, px + pad - 4, L.slotBarY - 2, L.pw - pad * 2 + 8, 42, 8); ctx.stroke();
+  roundRect(ctx, px + pad - 4, L.slotBarY - 2, L.pw - pad * 2 + 8, 44, 8); ctx.stroke();
   ctx.fillStyle = "#8899b0"; ctx.font = "bold 10px monospace";
-  ctx.fillText("Aktif Slotlar:", px + pad + 8, L.slotBarY + 14);
-  const btnY2 = L.slotBarY + 20;
+  ctx.fillText("Aktif Slotlar:", px + pad + 8, L.slotBarY + 12);
+  const btnY2 = L.slotBarY + 12;
   for (let si = 0; si < 3; si++) {
   const bx = startX + si * (slotBtnW + gap);
   const filled = !!player.activeSkillSlots[si];
@@ -3834,6 +3836,7 @@ class Inventory {
   this.invPage = 0;
   this.sortStrongFirst = true;
   this.autoEquipOnPickup = false;
+  this.repairMode = false;
   
   // GeliÅŸmiÅŸ envanter Ã¶zellikleri
   this.searchQuery = "";
@@ -4060,6 +4063,7 @@ class Inventory {
   if (count <= 0) return 0;
   const u = upgradeLevel | 0;
   if (typeof questTracker !== "undefined" && itemId !== "coin") questTracker.onItemCollect(itemId, count);
+  if (typeof updateDailyQuestProgress !== "undefined" && itemId !== "coin") updateDailyQuestProgress("collect", itemId);
 
   // Yeni eÅŸya takibi
   if (itemId !== "coin") {
@@ -4196,6 +4200,7 @@ class Inventory {
 
   close() {
   if (!this.open) return;
+  this.repairMode = false;
   this._mergeSlotCoinsIntoGold();
   this._consolidateItemStacks();
   this.invPage = Math.max(0, Math.min(this._invPageCount() - 1, this.invPage));
@@ -4482,6 +4487,14 @@ class Inventory {
 
   const layout = this._invLayout(canvasW, canvasH);
   const inR = (r) => !!r && mx >= r.x && mx < r.x + r.w && my >= r.y && my < r.y + r.h;
+
+  // Close button (X)
+  const clX = layout.px + layout.panelW - 28;
+  const clY = layout.py + 6;
+  if (mx >= clX && mx < clX + 22 && my >= clY && my < clY + 22) {
+  this.close();
+  return true;
+  }
 
   // Crusher modu: kapatma çarpısı
   if (this.crusherMode && mx >= canvasW - 64 && mx <= canvasW - 16 && my >= 10 && my <= 42) {
@@ -4926,7 +4939,14 @@ class Inventory {
   ctx.textAlign = "start";
 
   ctx.fillStyle = "#888"; ctx.font = "11px monospace";
-  ctx.fillText("[I] Kapat", layout.px + layout.panelW - 80, layout.py + 26);
+  const clX = layout.px + layout.panelW - 28;
+  const clY = layout.py + 6;
+  ctx.fillStyle = "rgba(70,30,30,0.7)";
+  roundRect(ctx, clX, clY, 22, 22, 4); ctx.fill();
+  ctx.strokeStyle = "#a06050"; ctx.lineWidth = 1;
+  roundRect(ctx, clX, clY, 22, 22, 4); ctx.stroke();
+  ctx.fillStyle = "#e0a0a0"; ctx.font = "bold 12px monospace";
+  ctx.fillText("\u2715", clX + 22 / 2 - ctx.measureText("\u2715").width / 2, clY + 16);
 
   // Karakter Ã¶nizleme ve ekipman
   drawInventoryCharacterPreview(ctx, this, layout.previewX, layout.previewY, layout.previewW, layout.previewH);
@@ -5606,7 +5626,7 @@ class Player {
   this.x = col * TILE_SIZE;
   this.y = row * TILE_SIZE;
   this.w = 20; this.h = 20;
-  this.speed = 130;
+  this.speed = 145;
   this.angle = Math.PI / 2;
   this.direction = DIR.DOWN;
   this._gateTeleportReady = false;
@@ -5696,9 +5716,9 @@ class Player {
   this.level++;
   // Seviye başına artan ama dengeli XP gereksinimi
   const getXpToNext = (level) => {
-  if (level <= 20) return Math.floor(30 * Math.pow(1.18, level - 1));
-  else if (level <= 40) return Math.floor(8000 + (level - 20) * 2000);
-  else return Math.floor(48000 + (level - 40) * 4000);
+  if (level <= 20) return Math.floor(40 * Math.pow(1.22, level - 1));
+  else if (level <= 40) return Math.floor(12000 + (level - 20) * 3000);
+  else return Math.floor(72000 + (level - 40) * 6000);
   };
   this.xpToNext = getXpToNext(this.level);
   this.baseMaxHp += 8;
@@ -5909,14 +5929,9 @@ class Player {
   }
 
   const agiBonus = 1 + (this.agi + this._eqAgi) * 0.008;
-  const spd = (this.inBoat ? 160 : this.speed) * agiBonus;
+  const spd = (this.inBoat ? 160 : this.speed) * agiBonus * (this.powerModeTimer > 0 ? 1.25 : 1);
 
   if (this.moving) {
-  if (dy > 0) this.direction = DIR.DOWN;
-  else if (dy < 0) this.direction = DIR.UP;
-  if (dx < 0) this.direction = DIR.LEFT;
-  else if (dx > 0) this.direction = DIR.RIGHT;
-
   this.animTimer += dt;
   if (this.animTimer >= 0.15) { this.animTimer = 0; this.animFrame = (this.animFrame + 1) % 4; }
   this.walkPhase += dt * 9.2;
@@ -5928,7 +5943,7 @@ class Player {
   this.x = newX;
   this.y = newY;
   } else {
-  const margin = 3;
+  const margin = 2;
   if (!this._collides(newX, this.y, map, margin)) this.x = newX;
   if (!this._collides(this.x, newY, map, margin)) this.y = newY;
   }
@@ -5937,12 +5952,10 @@ class Player {
   this.walkPhase += dt * 1.35;
   }
 
-  /* OkÃ§u gÃ¶vdesi/kanadÄ± niÅŸan yÃ¶nÃ¼nÃ¼ takip etsin. */
-  const bowOn = !!(typeof inventory !== "undefined" && inventory && inventory.equipped && inventory.equipped.bow);
-  if (bowOn) {
-  const ax = Math.cos(this.angle), ay = Math.sin(this.angle);
-  if (Math.abs(ax) > Math.abs(ay)) this.direction = ax >= 0 ? DIR.RIGHT : DIR.LEFT;
-  else this.direction = ay >= 0 ? DIR.DOWN : DIR.UP;
+  // Hareket yönüne göre sprite direction belirle (4 yön)
+  if (this.moving) {
+  if (Math.abs(dy) > Math.abs(dx)) this.direction = dy > 0 ? DIR.DOWN : DIR.UP;
+  else this.direction = dx > 0 ? DIR.RIGHT : DIR.LEFT;
   }
   }
 
@@ -6678,10 +6691,29 @@ class Player {
   if (showBow && bowInFront) this._drawBowAndArms(ctx, cx, cy, bounce, pull, bowId, armBob, shootT);
   if (this.swingAnim > 0) this._drawMeleeSwing(ctx, cx, cy, bounce);
   const labelName = "Lv" + (typeof player !== 'undefined' && player ? player.level : 1) + " " + getPlayerWorldLabelName();
-  drawEntityNameLabel(ctx, this.centerX, this.y - 14, labelName, {
+  if (this.levelUpTimer > 0) {
+  ctx.fillStyle = "#f0d050"; ctx.font = "6px monospace";
+  ctx.textAlign = "center";
+  ctx.fillText("SEV\u0130YE ATLADI!", this.centerX, this.y - 26);
+  ctx.textAlign = "start";
+  }
+  drawEntityNameLabel(ctx, this.centerX, this.y - 22, labelName, {
   color: "#e8f4ff",
   border: "rgba(120, 170, 220, 0.5)",
   bg: "rgba(10, 18, 36, 0.82)"});
+  // Health bar above player
+  const hpW = 26;
+  const hpH = 3;
+  const hpBarY = this.y - 8;
+  const hpRatio = this.maxHp > 0 ? Math.max(0, Math.min(1, this.hp / this.maxHp)) : 0;
+  const hpR = Math.floor(255 * (1 - hpRatio));
+  const hpG = Math.floor(180 * hpRatio);
+  ctx.fillStyle = "rgba(0,0,0,0.6)";
+  ctx.fillRect(this.centerX - hpW / 2, hpBarY, hpW, hpH);
+  if (hpRatio > 0) {
+  ctx.fillStyle = "rgb(" + hpR + "," + hpG + ",40)";
+  ctx.fillRect(this.centerX - hpW / 2, hpBarY, hpW * hpRatio, hpH);
+  }
   }
 
 
@@ -7051,6 +7083,12 @@ class Arrow {
   } else if (this.element === "poison") {
   shaft = "#50a040"; tip = "#b0ff90"; feather = "#40c060";
   ctx.shadowColor = "#70ff60"; ctx.shadowBlur = 6;
+  } else if (this.element === "lightning") {
+  shaft = "#8060c0"; tip = "#e8d0ff"; feather = "#a080e0";
+  ctx.shadowColor = "#c080ff"; ctx.shadowBlur = 7;
+  } else if (this.vampiric) {
+  shaft = "#c02050"; tip = "#ff88b0"; feather = "#e04070";
+  ctx.shadowColor = "#ff4080"; ctx.shadowBlur = 7;
   }
   if (this.slowArrow) {
   shaft = "#4090d0"; tip = "#a0e8ff"; feather = "#60c0f0";
@@ -7332,18 +7370,22 @@ const MONSTER_TYPES = {
   loot: [{id:"seed",c:2,ch:0.3}] },
   wolf:  { name: "Kurt",  hp: 55,  dmg: 10, speed: 70,  xp: 15, aggroRange: TILE_SIZE*6,  atkRange: TILE_SIZE*0.9, atkCd: 0.8,
   loot: [{id:"potion",c:1,ch:0.2},{id:"potion_mana",c:1,ch:0.12},{id:"bow",c:1,ch:0.06}] },
+  wolf_boss: { name: "Kurt Kral\u0131", hp: 1500, dmg: 28, speed: 55, xp: 280, aggroRange: TILE_SIZE*12, atkRange: TILE_SIZE*1.0, atkCd: 0.6,
+  boss: true, loot: [{id:"potion",c:4,ch:0.8},{id:"chest_steel",c:1,ch:0.18},{id:"boots_swift",c:1,ch:0.2},{id:"bow_hunter",c:1,ch:0.12}] },
+  slime_boss: { name: "Dev Bal\u00E7\u0131k Kral\u0131", hp: 1200, dmg: 18, speed: 25, xp: 220, aggroRange: TILE_SIZE*10, atkRange: TILE_SIZE*1.1, atkCd: 1.5,
+  boss: true, rangedKind: "poison", rangedMax: TILE_SIZE*7, loot: [{id:"potion",c:3,ch:0.7},{id:"chest_epic",c:1,ch:0.14},{id:"helm_iron",c:1,ch:0.2},{id:"bow_hunter",c:1,ch:0.1}] },
   skeleton: { name: "\u0130skelet",  hp: 80,  dmg: 14, speed: 50,  xp: 22, aggroRange: TILE_SIZE*7,  atkRange: TILE_SIZE*0.9, atkCd: 1.0,
   loot: [{id:"arrow",c:5,ch:0.4},{id:"bow",c:1,ch:0.08},{id:"potion",c:1,ch:0.05}] },
   orc:  { name: "Ork",  hp: 120, dmg: 20, speed: 55,  xp: 35, aggroRange: TILE_SIZE*7,  atkRange: TILE_SIZE,  atkCd: 1.3,
   loot: [{id:"potion",c:1,ch:0.35},{id:"potion_mana",c:1,ch:0.14},{id:"bow_hunter",c:1,ch:0.05}] },
   golem:  { name: "Golem",  hp: 200, dmg: 30, speed: 30,  xp: 60, aggroRange: TILE_SIZE*8,  atkRange: TILE_SIZE*1.1, atkCd: 2.0,
-  rangedKind: "meteor", rangedMax: TILE_SIZE*5, loot: [{id:"stone",c:10,ch:0.6},{id:"potion",c:2,ch:0.4},{id:"potion_mana",c:1,ch:0.2},{id:"bow_long",c:1,ch:0.04}] },
+  rangedKind: "meteor", rangedMax: TILE_SIZE*5, loot: [{id:"potion",c:2,ch:0.4},{id:"potion_mana",c:1,ch:0.2},{id:"bow_long",c:1,ch:0.04}] },
   forest_treant: { name: "Kadim K\u00f6k", hp: 900, dmg: 38, speed: 22, xp: 280, aggroRange: TILE_SIZE*10, atkRange: TILE_SIZE*1.3, atkCd: 1.5,
   boss: true, rangedKind: "poison", rangedMax: TILE_SIZE*8, loot: [{id:"wood",c:25,ch:0.7},{id:"helm_epic",c:1,ch:0.15},{id:"bow_long",c:1,ch:0.1}] },
   desert_titan: { name: "Kum Titan\u0131", hp: 1100, dmg: 42, speed: 28, xp: 320, aggroRange: TILE_SIZE*10, atkRange: TILE_SIZE*1.2, atkCd: 1.4,
-  boss: true, rangedKind: "fire", rangedMax: TILE_SIZE*10, loot: [{id:"stone",c:30,ch:0.8},{id:"chest_epic",c:1,ch:0.12},{id:"bow_hunter",c:1,ch:0.1}] },
+  boss: true, rangedKind: "fire", rangedMax: TILE_SIZE*10, loot: [{id:"chest_epic",c:1,ch:0.12},{id:"bow_hunter",c:1,ch:0.1}] },
   rock_warden: { name: "Kayal\u0131k Bek\u00e7isi", hp: 850, dmg: 44, speed: 18, xp: 300, aggroRange: TILE_SIZE*9, atkRange: TILE_SIZE*1.25, atkCd: 1.8,
-  boss: true, rangedKind: "meteor", rangedMax: TILE_SIZE*8, loot: [{id:"stone",c:40,ch:1},{id:"gloves_archer",c:1,ch:0.2},{id:"bow_hunter",c:1,ch:0.14}] },
+  boss: true, rangedKind: "meteor", rangedMax: TILE_SIZE*8, loot: [{id:"gloves_archer",c:1,ch:0.2},{id:"bow_hunter",c:1,ch:0.14}] },
   flower_queen: { name: "\u00c7i\u00e7ek Krali\u00e7esi", hp: 650, dmg: 32, speed: 40, xp: 260, aggroRange: TILE_SIZE*10, atkRange: TILE_SIZE*1.0, atkCd: 1.2,
   boss: true, rangedKind: "poison", rangedMax: TILE_SIZE*7, loot: [{id:"coin",c:20,ch:1},{id:"boots_epic",c:1,ch:0.18},{id:"bow_long",c:1,ch:0.12}] },
   north_frost: { name: "Buz Trol\u00fc", hp: 1000, dmg: 40, speed: 25, xp: 310, aggroRange: TILE_SIZE*10, atkRange: TILE_SIZE*1.2, atkCd: 1.5,
@@ -7355,21 +7397,21 @@ const MONSTER_TYPES = {
   frost_spirit: { name: "Buz Ruhu", hp: 260, dmg: 26, speed: 62, xp: 55, aggroRange: TILE_SIZE*7, atkRange: TILE_SIZE*0.85, atkCd: 0.9,
   rangedKind: "ice", rangedMax: TILE_SIZE*6, loot: [{id:"potion",c:1,ch:0.35},{id:"arrow",c:8,ch:0.4}] },
   dune_raider: { name: "Kum Ak\u0131nc\u0131s\u0131", hp: 300, dmg: 30, speed: 75, xp: 62, aggroRange: TILE_SIZE*8, atkRange: TILE_SIZE*0.9, atkCd: 0.85,
-  loot: [{id:"stone",c:6,ch:0.5},{id:"bow_hunter",c:1,ch:0.05}] },
+  loot: [{id:"bow_hunter",c:1,ch:0.05}] },
   vine_horror: { name: "Asma Dehset", hp: 340, dmg: 28, speed: 40, xp: 70, aggroRange: TILE_SIZE*7, atkRange: TILE_SIZE*1.1, atkCd: 1.15,
   rangedKind: "poison", rangedMax: TILE_SIZE*6, loot: [{id:"seed",c:8,ch:0.6},{id:"potion",c:2,ch:0.4}] },
   crystalline: { name: "Kristal Canavar", hp: 420, dmg: 34, speed: 38, xp: 88, aggroRange: TILE_SIZE*8, atkRange: TILE_SIZE, atkCd: 1.25,
-  rangedKind: "ice", rangedMax: TILE_SIZE*6, loot: [{id:"stone",c:12,ch:0.7},{id:"potion",c:2,ch:0.1}] },
+  rangedKind: "ice", rangedMax: TILE_SIZE*6, loot: [{id:"potion",c:2,ch:0.1}] },
   void_hound: { name: "Bo\u015fluk Taz\u0131s\u0131", hp: 380, dmg: 36, speed: 88, xp: 80, aggroRange: TILE_SIZE*9, atkRange: TILE_SIZE*0.95, atkCd: 0.75,
   rangedKind: "poison", rangedMax: TILE_SIZE*6, loot: [{id:"potion",c:2,ch:0.45},{id:"bow_hunter",c:1,ch:0.07}] },
   iron_behemoth: { name: "Demir Kolos", hp: 720, dmg: 52, speed: 32, xp: 140, aggroRange: TILE_SIZE*9, atkRange: TILE_SIZE*1.2, atkCd: 1.6,
-  rangedKind: "fire", rangedMax: TILE_SIZE*7, loot: [{id:"stone",c:20,ch:0.8},{id:"chest_steel",c:1,ch:0.04},{id:"bow_hunter",c:1,ch:0.15}] },
+  rangedKind: "fire", rangedMax: TILE_SIZE*7, loot: [{id:"chest_steel",c:1,ch:0.04},{id:"bow_hunter",c:1,ch:0.15}] },
   storm_wraith: { name: "F\u0131rt\u0131na Hortla\u011f\u0131", hp: 480, dmg: 40, speed: 95, xp: 110, aggroRange: TILE_SIZE*10, atkRange: TILE_SIZE*0.9, atkCd: 0.7,
   rangedKind: "lightning", rangedMax: TILE_SIZE*7, loot: [{id:"arrow",c:12,ch:0.55},{id:"potion",c:2,ch:0.5}] },
   ice_queen: { name: "Buz Krali\u00e7e", hp: 2400, dmg: 58, speed: 42, xp: 520, aggroRange: TILE_SIZE*12, atkRange: TILE_SIZE*1.25, atkCd: 1.2,
   boss: true, rangedKind: "ice", rangedMax: TILE_SIZE*12, loot: [{id:"potion",c:6,ch:0.95},{id:"helm_epic",c:1,ch:0.14},{id:"boots_epic",c:1,ch:0.1}] },
   dune_king: { name: "Kum Kral\u0131", hp: 2800, dmg: 62, speed: 36, xp: 600, aggroRange: TILE_SIZE*12, atkRange: TILE_SIZE*1.3, atkCd: 1.15,
-  boss: true, rangedKind: "fire", rangedMax: TILE_SIZE*11, loot: [{id:"stone",c:40,ch:1},{id:"chest_epic",c:1,ch:0.16},{id:"bow_long",c:1,ch:0.1},{id:"ring_power",c:1,ch:0.06}] },
+  boss: true, rangedKind: "fire", rangedMax: TILE_SIZE*11, loot: [{id:"chest_epic",c:1,ch:0.16},{id:"bow_long",c:1,ch:0.1},{id:"ring_power",c:1,ch:0.06}] },
   jungle_behemoth: { name: "Muson Dev", hp: 2200, dmg: 54, speed: 48, xp: 560, aggroRange: TILE_SIZE*11, atkRange: TILE_SIZE*1.2, atkCd: 1.05,
   boss: true, rangedKind: "poison", rangedMax: TILE_SIZE*10, loot: [{id:"wood",c:40,ch:0.9},{id:"chest_epic",c:1,ch:0.14},{id:"boots_epic",c:1,ch:0.1},{id:"gloves_archer",c:1,ch:0.1}] },
   thunder_lord: { name: "G\u00f6k G\u00fcc\u00fc", hp: 3200, dmg: 68, speed: 52, xp: 720, aggroRange: TILE_SIZE*13, atkRange: TILE_SIZE*1.15, atkCd: 0.95,
@@ -7377,11 +7419,11 @@ const MONSTER_TYPES = {
   abyss_crab: { name: "U\u00e7urum Yengeci", hp: 3600, dmg: 56, speed: 28, xp: 680, aggroRange: TILE_SIZE*10, atkRange: TILE_SIZE*1.35, atkCd: 1.4,
   boss: true, rangedKind: "ice", rangedMax: TILE_SIZE*9, loot: [{id:"potion",c:30,ch:0.8},{id:"chest_epic",c:1,ch:0.12},{id:"ring_power",c:1,ch:0.08},{id:"bow_long",c:1,ch:0.1}] },
   volcanic_titan: { name: "Lav Titan\u0131", hp: 4000, dmg: 72, speed: 30, xp: 800, aggroRange: TILE_SIZE*12, atkRange: TILE_SIZE*1.4, atkCd: 1.35,
-  boss: true, rangedKind: "meteor", rangedMax: TILE_SIZE*12, loot: [{id:"stone",c:50,ch:1},{id:"helm_epic",c:1,ch:0.12},{id:"chest_epic",c:1,ch:0.12},{id:"bow_long",c:1,ch:0.1}] },
+  boss: true, rangedKind: "meteor", rangedMax: TILE_SIZE*12, loot: [{id:"helm_epic",c:1,ch:0.12},{id:"chest_epic",c:1,ch:0.12},{id:"bow_long",c:1,ch:0.1}] },
   godzilla: { name: "Kaiju Titan (Godzilla)", hp: 5200, dmg: 78, speed: 20, xp: 960, aggroRange: TILE_SIZE*14, atkRange: TILE_SIZE*1.35, atkCd: 1.2,
-  boss: true, rangedKind: "meteor", rangedMax: TILE_SIZE*13, loot: [{id:"stone",c:55,ch:0.9},{id:"chest_epic",c:1,ch:0.16},{id:"helm_epic",c:1,ch:0.12},{id:"ring_power",c:1,ch:0.07}] },
+  boss: true, rangedKind: "meteor", rangedMax: TILE_SIZE*13, loot: [{id:"chest_epic",c:1,ch:0.16},{id:"helm_epic",c:1,ch:0.12},{id:"ring_power",c:1,ch:0.07}] },
   scorpion_king: { name: "Akrep Kral", hp: 4000, dmg: 66, speed: 36, xp: 820, aggroRange: TILE_SIZE*13, atkRange: TILE_SIZE*1.15, atkCd: 0.88,
-  boss: true, rangedKind: "poison", rangedMax: TILE_SIZE*11, loot: [{id:"stone",c:35,ch:0.9},{id:"chest_epic",c:1,ch:0.2},{id:"gloves_archer",c:1,ch:0.12}] },
+  boss: true, rangedKind: "poison", rangedMax: TILE_SIZE*11, loot: [{id:"chest_epic",c:1,ch:0.2},{id:"gloves_archer",c:1,ch:0.12}] },
   giant_bee_queen: { name: "Dev E\u015fek Ar\u0131s\u0131", hp: 3600, dmg: 55, speed: 68, xp: 720, aggroRange: TILE_SIZE*13, atkRange: TILE_SIZE*0.95, atkCd: 0.62,
   boss: true, rangedKind: "poison", rangedMax: TILE_SIZE*12, loot: [{id:"seed",c:50,ch:0.7},{id:"chest_epic",c:1,ch:0.14},{id:"potion",c:8,ch:0.6},{id:"ring_power",c:1,ch:0.08}] },
   ancient_root: { name: "A\u011fa\u00e7 Adam", hp: 220, dmg: 26, speed: 19, xp: 58, aggroRange: TILE_SIZE*7, atkRange: TILE_SIZE*1.05, atkCd: 1.35,
@@ -7441,6 +7483,32 @@ function drawMonsterSprite(ctx, type, x, y, dir, frame, hitFlash, atkAnim, bw, b
   ctx.globalAlpha = 1;
   break;
   }
+  case "slime_boss": {
+  const sqB = 1 + Math.sin(frame * Math.PI) * 0.15;
+  const hB = (bhh * 0.7) * sqB, wB = (bww * 0.85) / sqB;
+  const strideB = mstate === "chase" || mstate === "attack" ? 1 : 0.5;
+  const blobB = Math.sin(frame * Math.PI * 1.3) * 2 * strideB;
+  ctx.fillStyle = "rgba(0,0,0,0.25)";
+  ctx.beginPath(); ctx.ellipse(cx, cy + bhh * 0.45, wB * 0.5, 4, 0, 0, Math.PI * 2); ctx.fill();
+  const gB2 = ctx.createRadialGradient(cx - 4, cy - 3, 0, cx, cy + 6, Math.max(wB, hB) * 0.75);
+  gB2.addColorStop(0, hitFlash > 0 ? "#ffaaaa" : "#c060e0");
+  gB2.addColorStop(0.5, hitFlash > 0 ? "#ff6666" : "#8030a0");
+  gB2.addColorStop(1, hitFlash > 0 ? "#9a2424" : "#501870");
+  ctx.fillStyle = gB2;
+  ctx.beginPath(); ctx.ellipse(cx, cy + 5, wB * 0.55, hB * 0.55, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = "rgba(255,200,255,0.25)";
+  ctx.beginPath(); ctx.ellipse(cx - 3, cy + 2, wB * 0.25, hB * 0.12, -0.2, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = hitFlash > 0 ? "rgba(255,120,120,0.3)" : "rgba(220,180,255,0.2)";
+  ctx.beginPath(); ctx.ellipse(cx - 5, cy - 1, wB * 0.3, hB * 0.12, 0, 0, Math.PI * 2); ctx.fill();
+  // Taç
+  ctx.fillStyle = "#ffd700";
+  ctx.fillRect(cx - 6, cy - hB * 0.5 - 5, 12, 4);
+  ctx.fillRect(cx - 5, cy - hB * 0.5 - 9, 2, 6);
+  ctx.fillRect(cx - 2, cy - hB * 0.5 - 11, 2, 8);
+  ctx.fillRect(cx + 1, cy - hB * 0.5 - 10, 2, 7);
+  ctx.fillRect(cx + 4, cy - hB * 0.5 - 7, 2, 5);
+  break;
+  }
   case "slime": {
   const sq = 1 + Math.sin(frame * Math.PI) * 0.18;
   const h = (bhh * 0.6) * sq, w = (bww * 0.78) / sq;
@@ -7480,6 +7548,46 @@ function drawMonsterSprite(ctx, type, x, y, dir, frame, hitFlash, atkAnim, bw, b
   ctx.fillStyle = hitFlash > 0 ? "rgba(255,100,100,0.25)" : "rgba(100,255,140,0.25)";
   ctx.beginPath(); ctx.arc(cx, cy + 2, w * 0.65, h * 0.65, 0, Math.PI * 2); ctx.fill();
   }
+  break;
+  }
+  case "wolf_boss": {
+  const wbRun = Math.sin(frame * Math.PI) * 3.5;
+  const wbFace = dir === DIR.LEFT ? -1 : dir === DIR.RIGHT ? 1 : 1;
+  var wbScale = 1.25;
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.scale(wbScale, wbScale);
+  ctx.translate(-cx, -cy);
+  ctx.fillStyle = "rgba(0,0,0,0.2)";
+  ctx.beginPath(); ctx.ellipse(cx, cy + 10, 14, 4, 0, 0, Math.PI * 2); ctx.fill();
+  var wbCol = hitFlash > 0 ? "#ff8888" : "#885533";
+  var wbDark = hitFlash > 0 ? "#cc4444" : "#553322";
+  ctx.fillStyle = wbCol;
+  ctx.beginPath(); ctx.ellipse(cx - 3, cy - 1, 16, 12, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = wbDark;
+  ctx.beginPath(); ctx.ellipse(cx - 7 + wbRun * 0.2, cy - 9, 8, 7, -0.1, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(cx + 3 + wbRun * 0.1, cy - 8, 7, 6, 0.1, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = "#aaccdd";
+  ctx.beginPath(); ctx.arc(cx - 8 + wbRun * 0.2, cy - 12, 2.5, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(cx + 1 + wbRun * 0.1, cy - 11, 2.2, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = "#222";
+  ctx.beginPath(); ctx.arc(cx - 8 + wbRun * 0.2, cy - 12, 1, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(cx + 1 + wbRun * 0.1, cy - 11, 0.9, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = "#200";
+  ctx.beginPath(); ctx.ellipse(cx - 3 + wbRun * 0.3, cy - 1, 6, 3, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(cx + 3 + wbRun * 0.2, cy - 1, 5, 2.5, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = hitFlash > 0 ? "#ff6666" : "#ddaa77";
+  ctx.beginPath(); ctx.ellipse(cx - 10 + wbRun * 0.15, cy + 3, 6, 4, -0.1, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(cx + 8 + wbRun * 0.1, cy + 3, 5, 4, 0.1, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = "#885533"; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(cx - 12 + wbRun * 0.15, cy + 5); ctx.lineTo(cx - 18 + wbRun * 0.2, cy + 12); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(cx + 10 + wbRun * 0.1, cy + 5); ctx.lineTo(cx + 14 + wbRun * 0.1, cy + 12); ctx.stroke();
+  ctx.fillRect(cx - 11, cy - 9, 2, 2);
+  ctx.fillRect(cx + 7, cy - 8, 2, 2);
+  ctx.fillStyle = "#ff0000";
+  ctx.fillRect(cx - 2, cy - 18, 4, 3);
+  ctx.fillRect(cx - 1, cy - 20, 2, 3);
+  ctx.restore();
   break;
   }
   case "wolf": {
@@ -9686,6 +9794,8 @@ class Monster {
   else if (type === "storm_sovereign_dragon") { this.w = 115; this.h = 98; }
   else if (type === "void_ancient_dragon") { this.w = 120; this.h = 102; }
   else if (type === "island_treasure_chest") { this.w = 22; this.h = 20; }
+  else if (type === "slime_boss") { this.w = 32; this.h = 30; }
+  else if (type === "wolf_boss") { this.w = 34; this.h = 28; }
   else if (type === "forest_treant") { this.w = 30; this.h = 34; }
   else if (type === "metin_stone") { this.w = 28; this.h = 24; }
   else if (type === "ancient_root") { this.w = 24; this.h = 30; }
@@ -10142,7 +10252,7 @@ class Monster {
 /* â”€â”€ NPC â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 class NPC {
-  constructor({ col, row, name, color, dialog, wanderRadius = 0, merchant = false, stock = null, shopPool = null, buildsBoat = false, banker = false, itemCrusher = false, itemRepairer = false, teleportGate = false, dungeonPortal = false, enclosure = null }) {
+  constructor({ col, row, name, color, dialog, wanderRadius = 0, merchant = false, stock = null, shopPool = null, buildsBoat = false, banker = false, itemCrusher = false, itemRepairer = false, teleportGate = false, dungeonPortal = false, questGiver = false, enclosure = null }) {
   this.x = col * TILE_SIZE; this.y = row * TILE_SIZE;
   this.w = 20; this.h = 20;
   this.name = name; this.color = color || "#c06030";
@@ -10156,6 +10266,7 @@ class NPC {
   this.itemRepairer = !!itemRepairer;
   this.teleportGate = !!teleportGate;
   this.dungeonPortal = !!dungeonPortal;
+  this.questGiver = !!questGiver;
   this.enclosure = enclosure;
   this.direction = DIR.DOWN;
   this.homeX = this.x; this.homeY = this.y;
@@ -10307,495 +10418,7 @@ class NPC {
   }
 }
 
-/* â”€â”€ Pet System â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
-
-const PET_TYPES = {
-  cat:  { name: "Kedi",  speed: 110, bodyColor: "#d4a040", earColor: "#b88030", cost: 50 },
-  dog:  { name: "Köpek",  speed: 130, bodyColor: "#b08050", earColor: "#8a6030", cost: 75 },
-  bunny:  { name: "Tavşan",  speed: 140, bodyColor: "#d0d0d0", earColor: "#e8b0b0", cost: 40 },
-  bird:  { name: "Kuş",  speed: 100, bodyColor: "#50a0e0", earColor: "#3080c0", cost: 30 },
-  fox:  { name: "Tilki",  speed: 120, bodyColor: "#d06020", earColor: "#a04010", cost: 60 }};
-
-function drawPetSprite(ctx, type, x, y, dir, animFrame, moving) {
-  const pt = PET_TYPES[type];
-  const bounce = moving ? Math.sin(animFrame * Math.PI / 2) * 1.5 : 0;
-  const legOff = moving ? Math.sin(animFrame * Math.PI) * 2 : 0;
-
-  if (type === "bird") {
-  const wingFlap = moving ? Math.sin(animFrame * Math.PI) * 4 : 0;
-  ctx.fillStyle = pt.bodyColor;
-  ctx.beginPath(); ctx.ellipse(x + 8, y + 8 - bounce, 6, 5, 0, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = pt.earColor;
-  ctx.beginPath(); ctx.moveTo(x + 2, y + 6 - bounce - wingFlap); ctx.lineTo(x + 6, y + 8 - bounce); ctx.lineTo(x + 2, y + 10 - bounce); ctx.fill();
-  ctx.beginPath(); ctx.moveTo(x + 14, y + 6 - bounce + wingFlap); ctx.lineTo(x + 10, y + 8 - bounce); ctx.lineTo(x + 14, y + 10 - bounce); ctx.fill();
-  ctx.fillStyle = "#e8a020";
-  ctx.beginPath(); ctx.moveTo(x + 12, y + 8 - bounce);
-  if (dir === DIR.RIGHT) { ctx.lineTo(x + 17, y + 7 - bounce); ctx.lineTo(x + 12, y + 9 - bounce); }
-  else if (dir === DIR.LEFT) { ctx.lineTo(x - 1, y + 7 - bounce); ctx.lineTo(x + 4, y + 9 - bounce); }
-  else { ctx.lineTo(x + 9, y + 6 - bounce); ctx.lineTo(x + 7, y + 9 - bounce); }
-  ctx.fill();
-  ctx.fillStyle = "#111";
-  if (dir !== DIR.UP) {
-  ctx.fillRect(x + (dir === DIR.LEFT ? 5 : 9), y + 6 - bounce, 2, 2);
-  }
-  return;
-  }
-
-  ctx.fillStyle = pt.bodyColor;
-  ctx.fillRect(x + 2, y + 6 - bounce, 12, 8);
-
-  ctx.fillStyle = pt.earColor;
-  if (type === "bunny") {
-  ctx.fillRect(x + 3, y - 4 - bounce, 3, 8);
-  ctx.fillRect(x + 10, y - 4 - bounce, 3, 8);
-  } else if (type === "cat") {
-  ctx.beginPath(); ctx.moveTo(x + 2, y + 2 - bounce); ctx.lineTo(x + 5, y + 6 - bounce); ctx.lineTo(x - 1, y + 6 - bounce); ctx.fill();
-  ctx.beginPath(); ctx.moveTo(x + 14, y + 2 - bounce); ctx.lineTo(x + 11, y + 6 - bounce); ctx.lineTo(x + 17, y + 6 - bounce); ctx.fill();
-  } else if (type === "fox") {
-  ctx.beginPath(); ctx.moveTo(x + 1, y + 1 - bounce); ctx.lineTo(x + 5, y + 6 - bounce); ctx.lineTo(x - 2, y + 6 - bounce); ctx.fill();
-  ctx.beginPath(); ctx.moveTo(x + 15, y + 1 - bounce); ctx.lineTo(x + 11, y + 6 - bounce); ctx.lineTo(x + 18, y + 6 - bounce); ctx.fill();
-  ctx.fillStyle = "#fff"; ctx.fillRect(x + 4, y + 10 - bounce, 8, 4);
-  } else {
-  ctx.fillRect(x + 1, y + 2 - bounce, 4, 6);
-  ctx.fillRect(x + 11, y + 2 - bounce, 4, 6);
-  }
-
-  ctx.fillStyle = pt.bodyColor;
-  ctx.fillRect(x + 2, y + 2 - bounce, 12, 6);
-
-  ctx.fillStyle = pt.earColor;
-  ctx.fillRect(x + 3 + legOff, y + 14 - bounce, 3, 3);
-  ctx.fillRect(x + 10 - legOff, y + 14 - bounce, 3, 3);
-
-  if (type === "cat" || type === "fox") {
-  ctx.fillStyle = pt.earColor;
-  const tailWag = Math.sin(Date.now() / 200) * 3;
-  if (dir === DIR.LEFT) ctx.fillRect(x + 14, y + 8 - bounce + tailWag, 5, 2);
-  else if (dir === DIR.RIGHT) ctx.fillRect(x - 3, y + 8 - bounce + tailWag, 5, 2);
-  else ctx.fillRect(x + 14, y + 6 - bounce + tailWag, 5, 2);
-  }
-  if (type === "dog") {
-  ctx.fillStyle = pt.earColor;
-  const tailWag = Math.sin(Date.now() / 150) * 4;
-  ctx.fillRect(x + 13, y + 6 - bounce + tailWag, 3, 2);
-  ctx.fillRect(x + 15, y + 5 - bounce + tailWag, 2, 2);
-  }
-
-  ctx.fillStyle = "#111";
-  if (dir !== DIR.UP) {
-  ctx.fillRect(x + (dir === DIR.LEFT ? 3 : 5), y + 5 - bounce, 2, 2);
-  ctx.fillRect(x + (dir === DIR.LEFT ? 8 : 10), y + 5 - bounce, 2, 2);
-  }
-
-  ctx.fillStyle = "#222";
-  if (dir === DIR.DOWN || dir === DIR.LEFT || dir === DIR.RIGHT) {
-  ctx.fillRect(x + 6, y + 8 - bounce, 4, 1);
-  }
-}
-
-/** Evcil hayvan loot Ã¼zerindeyken toplama mesafesi (px). */
-const PET_LOOT_PICKUP_RANGE = TILE_SIZE * 1.35;
-/** Pet bu yarÄ±Ã§ap iÃ§inde bir loot gÃ¶rÃ¼r ve yÃ¼rÃ¼yerek gider. */
-const PET_LOOT_SENSE_RANGE = TILE_SIZE * 11;
-/** Oyuncudan daha uzaktaki lootlar iÃ§in pet hedef almaz (tÃ¼m haritaya koÅŸmasÄ±n). */
-const PET_LOOT_MAX_CHASE_FROM_PLAYER = TILE_SIZE * 13;
-
-class Pet {
-  constructor(type, name) {
-  this.type = type;
-  this.name = name;
-  this.x = 0; this.y = 0;
-  this.w = 16; this.h = 16;
-  this.direction = DIR.DOWN;
-  this.animTimer = 0; this.animFrame = 0; this.moving = false;
-  this.happiness = 80;
-  this.lastFedTimer = 0;
-  this.heartTimer = 0;
-  this.posHistory = [];
-  this.followDist = 28;
-  /** @type {WorldItem | null} */
-  this.lootTarget = null;
-  /** G\u00fc\u00e7 [G] ile verilen canavar hedefi */
-  this.combatTarget = null;
-  this.petAttackCd = 0;
-  }
-
-  feed(itemId) {
-  let gain = 15;
-  this.happiness = Math.min(100, this.happiness + gain);
-  this.lastFedTimer = 0;
-  this.heartTimer = 1.5;
-  return gain;
-  }
-
-  update(dt, player, map, worldItems, inventory, monsters) {
-  this.lastFedTimer += dt;
-  if (this.lastFedTimer > 60) this.happiness = Math.max(0, this.happiness - dt * 0.5);
-  if (this.heartTimer > 0) this.heartTimer -= dt;
-
-  this.posHistory.push({ x: player.centerX, y: player.centerY });
-  if (this.posHistory.length > 30) this.posHistory.shift();
-
-  if (!player.rageBurstTimer || player.rageBurstTimer <= 0) {
-  this.combatTarget = null;
-  } else if (this.combatTarget && (!this.combatTarget.alive || this.combatTarget.state === "dying")) {
-  this.combatTarget = null;
-  }
-
-  const rageFight = player.rageBurstTimer > 0 && this.combatTarget && this.combatTarget.alive &&
-  this.combatTarget.state !== "dying" && monsters && !player.inBoat;
-  if (rageFight) {
-  const m = this.combatTarget;
-  let mdx = m.cx - this.centerX, mdy = m.cy - this.centerY;
-  let md = Math.hypot(mdx, mdy) || 1;
-  if (md < 40) {
-  this.petAttackCd -= dt;
-  if (this.petAttackCd <= 0) {
-  const raw = player.getMeleeDamage() * 0.5;
-  m.takeDamage(applyOutgoingPlayerDamage(raw, player, inventory, { monster: m }));
-  this.petAttackCd = 0.55;
-  }
-  this.moving = md > 3;
-  if (Math.abs(mdx) > Math.abs(mdy)) this.direction = mdx > 0 ? DIR.RIGHT : DIR.LEFT;
-  else this.direction = mdy > 0 ? DIR.DOWN : DIR.UP;
-  this.animTimer += dt;
-  if (this.animTimer >= 0.12) {
-  this.animTimer = 0;
-  this.animFrame = (this.animFrame + 1) % 4;
-  }
-  } else {
-  const speed = PET_TYPES[this.type].speed * 1.7;
-  const nx = mdx / md, ny = mdy / md;
-  const newX = this.x + nx * speed * dt;
-  const newY = this.y + ny * speed * dt;
-  const mm = 2;
-  if (!map.isSolidPx(newX + mm, this.y + mm) && !map.isSolidPx(newX + this.w - mm, this.y + mm)) this.x = newX;
-  if (!map.isSolidPx(this.x + mm, newY + mm) && !map.isSolidPx(this.x + this.w - mm, newY + mm)) this.y = newY;
-  this.moving = true;
-  if (Math.abs(mdx) > Math.abs(mdy)) this.direction = mdx > 0 ? DIR.RIGHT : DIR.LEFT;
-  else this.direction = mdy > 0 ? DIR.DOWN : DIR.UP;
-  this.animTimer += dt;
-  if (this.animTimer >= 0.12) {
-  this.animTimer = 0;
-  this.animFrame = (this.animFrame + 1) % 4;
-  }
-  }
-  return;
-  }
-
-  if (player.inBoat) this.lootTarget = null;
-
-  const maxCh2 = PET_LOOT_MAX_CHASE_FROM_PLAYER * PET_LOOT_MAX_CHASE_FROM_PLAYER;
-  if (this.lootTarget) {
-  if (!this.lootTarget.alive) {
-  this.lootTarget = null;
-  } else {
-  const qdx = this.lootTarget.x - player.centerX, qdy = this.lootTarget.y - player.centerY;
-  if (qdx * qdx + qdy * qdy > maxCh2) this.lootTarget = null;
-  }
-  }
-
-  const canHunt = !player.inBoat && worldItems && inventory;
-  if (canHunt && !this.lootTarget) {
-  let best = null, bestD2 = Infinity;
-  const sense2 = PET_LOOT_SENSE_RANGE * PET_LOOT_SENSE_RANGE;
-  for (const wi of worldItems) {
-  if (!wi.alive) continue;
-  const wpx = wi.x - player.centerX, wpy = wi.y - player.centerY;
-  if (wpx * wpx + wpy * wpy > maxCh2) continue;
-  const vx = wi.x - this.centerX, vy = wi.y - this.centerY;
-  const d2 = vx * vx + vy * vy;
-  if (d2 > sense2) continue;
-  if (d2 < bestD2) {
-  bestD2 = d2;
-  best = wi;
-  }
-  }
-  this.lootTarget = best;
-  }
-
-  let didLootChase = false;
-  if (canHunt && this.lootTarget && this.lootTarget.alive) {
-  const lx = this.lootTarget.x, ly = this.lootTarget.y;
-  let ldx = lx - this.centerX, ldy = ly - this.centerY;
-  let ld = Math.sqrt(ldx * ldx + ldy * ldy);
-  if (ld <= PET_LOOT_PICKUP_RANGE) {
-  const wi = this.lootTarget;
-  const itemId = wi.itemId;
-  const before = wi.count;
-  const ok = wi.tryPickup(inventory);
-  if (ok) {
-  inventory._consolidateItemStacks();
-  const picked = before - (wi.alive ? wi.count : 0);
-  const def = ITEMS[itemId];
-  if (def && picked > 0) {
-  pickupMsgText = this.name + " toplad\u0131: +" + picked + " " + def.name;
-  pickupMsgTimer = 1.2;
-  }
-  } else {
-  this.lootTarget = null;
-  }
-  if (this.lootTarget && !this.lootTarget.alive) this.lootTarget = null;
-  } else {
-  didLootChase = true;
-  const speed = PET_TYPES[this.type].speed;
-  const ldSafe = Math.max(ld, 4);
-  const moveSpeed = ldSafe > 110 ? speed * 2 : speed * 1.2;
-  const nx = ldx / ldSafe, ny = ldy / ldSafe;
-  const newX = this.x + nx * moveSpeed * dt;
-  const newY = this.y + ny * moveSpeed * dt;
-  const m = 2;
-  if (!map.isSolidPx(newX + m, this.y + m) && !map.isSolidPx(newX + this.w - m, this.y + this.h - m))
-  this.x = newX;
-  if (!map.isSolidPx(this.x + m, newY + m) && !map.isSolidPx(this.x + this.w - m, newY + this.h - m))
-  this.y = newY;
-  this.moving = true;
-  if (Math.abs(ldx) > Math.abs(ldy)) this.direction = ldx > 0 ? DIR.RIGHT : DIR.LEFT;
-  else this.direction = ldy > 0 ? DIR.DOWN : DIR.UP;
-  this.animTimer += dt;
-  if (this.animTimer >= 0.12) {
-  this.animTimer = 0;
-  this.animFrame = (this.animFrame + 1) % 4;
-  }
-  }
-  }
-
-  const targetIdx = Math.max(0, this.posHistory.length - 15);
-  const target = this.posHistory[targetIdx];
-  const tdx = target.x - (this.x + this.w / 2);
-  const tdy = target.y - (this.y + this.h / 2);
-  const tdist = Math.sqrt(tdx * tdx + tdy * tdy);
-
-  if (!didLootChase) {
-  if (tdist > this.followDist) {
-  const speed = PET_TYPES[this.type].speed;
-  const moveSpeed = tdist > 120 ? speed * 2 : speed;
-  const nx = tdx / tdist, ny = tdy / tdist;
-
-  const newX = this.x + nx * moveSpeed * dt;
-  const newY = this.y + ny * moveSpeed * dt;
-
-  const m = 2;
-  if (!map.isSolidPx(newX + m, this.y + m) && !map.isSolidPx(newX + this.w - m, this.y + this.h - m))
-  this.x = newX;
-  if (!map.isSolidPx(this.x + m, newY + m) && !map.isSolidPx(this.x + this.w - m, newY + this.h - m))
-  this.y = newY;
-
-  this.moving = true;
-  if (Math.abs(tdx) > Math.abs(tdy)) this.direction = tdx > 0 ? DIR.RIGHT : DIR.LEFT;
-  else this.direction = tdy > 0 ? DIR.DOWN : DIR.UP;
-
-  this.animTimer += dt;
-  if (this.animTimer >= 0.12) {
-  this.animTimer = 0;
-  this.animFrame = (this.animFrame + 1) % 4;
-  }
-  } else {
-  this.moving = false;
-  this.animFrame = 0;
-  this.direction = player.direction;
-  }
-  }
-
-  if (tdist > 300) {
-  this.x = player.x - 20;
-  this.y = player.y + 10;
-  this.posHistory = [];
-  this.lootTarget = null;
-  }
-  }
-
-  render(ctx) {
-  const furyPet = typeof player !== "undefined" && player && player.rageBurstTimer > 0;
-  if (furyPet) {
-  ctx.save();
-  const pcx = this.x + this.w / 2, pcy = this.y + this.h / 2;
-  ctx.translate(pcx, pcy);
-  ctx.scale(1.14, 1.14);
-  ctx.translate(-pcx, -pcy);
-  ctx.shadowColor = "rgba(255,120,40,0.95)";
-  ctx.shadowBlur = 16;
-  }
-  drawPetSprite(ctx, this.type, Math.round(this.x), Math.round(this.y), this.direction, this.animFrame, this.moving);
-  if (furyPet) {
-  ctx.shadowBlur = 0;
-  ctx.restore();
-  }
-
-  if (this.heartTimer > 0) {
-  const hAlpha = Math.min(1, this.heartTimer / 0.3);
-  const hOff = (1.5 - this.heartTimer) * 10;
-  ctx.globalAlpha = hAlpha;
-  ctx.fillStyle = "#ff4060"; ctx.font = "12px serif";
-  ctx.fillText("\u2764", this.x + 4, this.y - 6 - hOff);
-  ctx.globalAlpha = 1;
-  }
-  }
-
-  get centerX() { return this.x + this.w / 2; }
-  get centerY() { return this.y + this.h / 2; }
-}
-
-class WildPet {
-  constructor(col, row, type) {
-  this.x = col * TILE_SIZE; this.y = row * TILE_SIZE;
-  this.w = 16; this.h = 16;
-  this.type = type;
-  this.alive = true;
-  this.direction = DIR.DOWN;
-  this.animTimer = 0; this.animFrame = 0;
-  this.moving = false;
-  this.wanderTimer = 1 + Math.random() * 3;
-  this.moveDir = { dx: 0, dy: 0 }; this.moveTime = 0;
-  this.homeX = this.x; this.homeY = this.y;
-  this.tameProgress = 0;
-  this.exclamTimer = 0;
-  }
-
-  update(dt, map) {
-  if (!this.alive) return;
-  if (this.exclamTimer > 0) this.exclamTimer -= dt;
-
-  this.wanderTimer -= dt;
-  if (!this.moving && this.wanderTimer <= 0) {
-  const angle = Math.random() * Math.PI * 2;
-  this.moveDir = { dx: Math.cos(angle), dy: Math.sin(angle) };
-  this.moveTime = 0.4 + Math.random();
-  this.moving = true;
-  if (Math.abs(this.moveDir.dx) > Math.abs(this.moveDir.dy))
-  this.direction = this.moveDir.dx > 0 ? DIR.RIGHT : DIR.LEFT;
-  else
-  this.direction = this.moveDir.dy > 0 ? DIR.DOWN : DIR.UP;
-  }
-
-  if (this.moving) {
-  this.moveTime -= dt;
-  this.animTimer += dt;
-  if (this.animTimer >= 0.15) { this.animTimer = 0; this.animFrame = (this.animFrame + 1) % 4; }
-
-  const spd = 30;
-  const newX = this.x + this.moveDir.dx * spd * dt;
-  const newY = this.y + this.moveDir.dy * spd * dt;
-  const ddx = newX - this.homeX, ddy = newY - this.homeY;
-  if (Math.sqrt(ddx * ddx + ddy * ddy) < TILE_SIZE * 3) {
-  const m = 2;
-  if (!map.isSolidPx(newX + m, newY + m) && !map.isSolidPx(newX + this.w - m, newY + this.h - m)) {
-  this.x = newX; this.y = newY;
-  }
-  }
-  if (this.moveTime <= 0) {
-  this.moving = false; this.animFrame = 0;
-  this.wanderTimer = 2 + Math.random() * 4;
-  }
-  }
-  }
-
-  isNear(player, range = TILE_SIZE * 1.5) {
-  const dx = (this.x + this.w / 2) - player.centerX;
-  const dy = (this.y + this.h / 2) - player.centerY;
-  return Math.sqrt(dx * dx + dy * dy) < range;
-  }
-
-  tryTame(inventory) {
-  const pt = PET_TYPES[this.type];
-  const cost = pt.cost;
-
-  const gold = inventory.countItem("coin");
-  if (gold >= cost) {
-  inventory.removeItem("coin", cost);
-  this.tameProgress += 34;
-  this.exclamTimer = 1;
-  if (this.tameProgress >= 100) {
-  this.alive = false;
-  return new Pet(this.type, pt.name);
-  }
-  return null;
-  }
-  return false;
-  }
-
-  render(ctx) {
-  if (!this.alive) return;
-  drawPetSprite(ctx, this.type, Math.round(this.x), Math.round(this.y), this.direction, this.animFrame, this.moving);
-
-  if (this.tameProgress > 0) {
-  const bw = 20, bh = 3;
-  const bx = this.x + this.w / 2 - bw / 2, by = this.y - 8;
-  ctx.fillStyle = "rgba(0,0,0,0.5)"; ctx.fillRect(bx, by, bw, bh);
-  ctx.fillStyle = "#f06080"; ctx.fillRect(bx, by, bw * this.tameProgress / 100, bh);
-  }
-
-  if (this.exclamTimer > 0) {
-  ctx.fillStyle = "#ff4060"; ctx.font = "12px serif";
-  ctx.fillText("\u2764", this.x + 4, this.y - 10);
-  }
-  }
-}
-
-/* â”€â”€ PetPanel â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
-
-class PetPanel {
-  constructor() { this.open = false; }
-  toggle() { this.open = !this.open; }
-  close() { this.open = false; }
-
-  getPanelBounds(cw, ch) {
-  const b = uiModalBounds(cw, ch);
-  let pw = Math.min(260, b.maxW);
-  let ph = Math.min(200, b.maxH);
-  pw = Math.max(200, pw);
-  ph = Math.max(148, ph);
-  const px = Math.floor((cw - pw) / 2);
-  const py = Math.max(b.top, Math.min(ch - ph - b.bottom, Math.floor((ch - ph) / 2)));
-  return { px, py, pw, ph };
-  }
-
-  render(ctx, canvasW, canvasH, pet) {
-  if (!this.open || !pet) return;
-
-  const { px, py, pw, ph } = this.getPanelBounds(canvasW, canvasH);
-
-  ctx.fillStyle = "rgba(0,0,0,0.5)"; ctx.fillRect(0, 0, canvasW, canvasH);
-
-  ctx.fillStyle = "rgba(15, 15, 40, 0.95)";
-  ctx.strokeStyle = "#c08060"; ctx.lineWidth = 2;
-  roundRect(ctx, px, py, pw, ph, 10); ctx.fill(); ctx.stroke();
-
-  ctx.fillStyle = "#f0d050"; ctx.font = "bold 16px monospace";
-  ctx.fillText("Evcil Hayvan", px + 16, py + 26);
-  ctx.fillStyle = "#888"; ctx.font = "11px monospace";
-  ctx.fillText("[P] Kapat", px + pw - 80, py + 26);
-
-  const previewX = px + 20, previewY = py + 48, prevS = Math.min(48, ph - 72);
-  ctx.fillStyle = "rgba(40,40,60,0.6)"; ctx.strokeStyle = "#505070"; ctx.lineWidth = 1;
-  roundRect(ctx, previewX, previewY, prevS, prevS, 6); ctx.fill(); ctx.stroke();
-  drawPetSprite(ctx, pet.type, previewX + Math.floor(prevS / 2) - 8, previewY + Math.floor(prevS / 2) - 10, DIR.DOWN, 0, false);
-
-  const textX = px + 20 + prevS + 12;
-  ctx.fillStyle = "#e8e8f0"; ctx.font = "bold 14px monospace";
-  ctx.fillText(pet.name, textX, py + 62);
-
-  ctx.fillStyle = "#a0a0c0"; ctx.font = "12px monospace";
-  ctx.fillText("T\u00fcr: " + PET_TYPES[pet.type].name, textX, py + 80);
-
-  const barX = px + 20, barY = py + ph - 62, barW = pw - 40, barH = 12;
-  ctx.fillStyle = "#a0a0c0"; ctx.font = "11px monospace";
-  ctx.fillText("Mutluluk", barX, barY - 4);
-  ctx.fillStyle = "rgba(40,40,60,0.8)";
-  roundRect(ctx, barX, barY, barW, barH, 4); ctx.fill();
-  const hpColor = pet.happiness > 60 ? "#50c060" : pet.happiness > 30 ? "#d0a030" : "#d04040";
-  ctx.fillStyle = hpColor;
-  roundRect(ctx, barX, barY, barW * pet.happiness / 100, barH, 4); ctx.fill();
-  ctx.fillStyle = "#fff"; ctx.font = "bold 10px monospace";
-  ctx.fillText(Math.round(pet.happiness) + "%", barX + barW / 2 - 10, barY + 10);
-
-  ctx.fillStyle = "#a0a0c0"; ctx.font = touchState.mobileUI ? "10px monospace" : "11px monospace";
-  ctx.fillText("Besleme: 5 altın", barX, barY + 22);
-  ctx.fillText("Beslemek: [F]", barX, barY + 38);
-  }
-}
-
-/* â”€â”€ Bank Panel â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ── Bank Panel ──────────────────────────────────────────────── */
 class BankPanel {
   constructor() {
   this.open = false;
@@ -11068,7 +10691,7 @@ class BankPanel {
   this._bankGridY = gridTop;
   this._invGridY = gridTop;
 
-  this._lastLayout = { x, y, w, h, pad };
+  this._lastLayout = { x, y, w, h, pad, cbx: x + w - 28, cby: y + 6 };
 
   for (let r = 0; r < bankRows; r++) {
   for (let c = 0; c < bankCols; c++) {
@@ -11098,8 +10721,14 @@ class BankPanel {
   this._invTotalPages = invTotalPages;
 
   ctx.fillStyle = "#506080";
-  ctx.font = "10px monospace";
-  ctx.fillText("[Esc] Kapat", x + pad, y + h - 6);
+  const cbx = x + w - 28;
+  const cby = y + 6;
+  ctx.fillStyle = "rgba(70,30,30,0.7)";
+  roundRect(ctx, cbx, cby, 22, 22, 4); ctx.fill();
+  ctx.strokeStyle = "#a06050"; ctx.lineWidth = 1;
+  roundRect(ctx, cbx, cby, 22, 22, 4); ctx.stroke();
+  ctx.fillStyle = "#e0a0a0"; ctx.font = "bold 12px monospace";
+  ctx.fillText("\u2715", cbx + 11 - ctx.measureText("\u2715").width / 2, cby + 16);
   } catch(e) { console.error("BankPanel render:", e); }
   }
   tryBeginScroll(id, mx, my) { return false; }
@@ -11108,6 +10737,7 @@ class BankPanel {
   const L = this._lastLayout;
   if (!L) return false;
   if (mx < L.x || mx >= L.x + L.w || my < L.y || my >= L.y + L.h) return false;
+  if (L.cbx && mx >= L.cbx && mx < L.cbx + 22 && my >= L.cby && my < L.cby + 22) { this.close(); return true; }
 
   if (this._prevBtn) {
   const pb = this._prevBtn;
@@ -11334,13 +10964,15 @@ class Shop {
   const py = Math.max(b.top, Math.min(ch - ph - b.bottom, Math.floor((ch - ph) / 2)));
   const tabBuyX = px + 28;
   const tabSellX = px + 28 + (land ? 78 : 100);
-  const tabY = land ? py + 14 : py + 38;
+  const titleY = py + (land ? 18 : 24);
+  const tabY = titleY + (land ? 20 : 28);
   const tabW = land ? 72 : 90;
   const tabH = land ? 18 : 24;
-  const gridYStart = land ? py + 72 : py + 128;
+  const gridYStart = tabY + tabH + (land ? 24 : 28);
+  const closeBtn = { x: px + pw - 28, y: py + 6, w: 22, h: 22 };
   return {
   px, py, pw, ph, shopSlot, shopGap, shopPriceBand, shopCols, shopLand: land,
-  tabBuyX, tabSellX, tabY, tabW, tabH, gridYStart,
+  tabBuyX, tabSellX, tabY, tabW, tabH, gridYStart, titleY, closeBtn,
   canvasW: cw, canvasH: ch};
   }
 
@@ -11696,18 +11328,24 @@ class Shop {
   const def = ITEMS[si.id];
   if (!def) return false;
 
-  // Elmas ile kutu acma
-  if (si.id === "weapon_chest" || si.id === "armor_chest" || si.id === "accessory_chest") {
-  var diam = inventory.countItem("diamond");
-  if (diam < 10) {
-  this._showFeedback("10 elmas gerekli! (elmas\u0131n: " + diam + ")", "#d04040");
+  // Kutu açma (elmas veya altın)
+  var chestTypes = ["weapon_chest","armor_chest","accessory_chest","gold_weapon_chest","gold_armor_chest","gold_accessory_chest"];
+  if (chestTypes.indexOf(si.id) >= 0) {
+  var isGold = si.id.indexOf("gold_") === 0;
+  var cost = isGold ? 500 : 10;
+  var currencyName = isGold ? "altın" : "elmas";
+  var currencyId = isGold ? "coin" : "diamond";
+  var have = inventory.countItem(currencyId);
+  if (have < cost) {
+  this._showFeedback(cost + " " + currencyName + " gerekli! (" + currencyName + ": " + have + ")", "#d04040");
   return false;
   }
-  inventory.removeItem("diamond", 10);
+  inventory.removeItem(currencyId, cost);
   var pool = [];
-  if (si.id === "weapon_chest") {
+  var baseId = isGold ? si.id.replace("gold_", "") : si.id;
+  if (baseId === "weapon_chest") {
   pool = Object.keys(ITEMS).filter(function(id) { var d = ITEMS[id]; return d && d.equipSlot === "bow" && d.rarity; });
-  } else if (si.id === "armor_chest") {
+  } else if (baseId === "armor_chest") {
   pool = Object.keys(ITEMS).filter(function(id) {
   var d = ITEMS[id];
   return d && d.equipSlot && d.rarity && ["head","chest","feet","waist","arms","wings","cloak"].indexOf(d.equipSlot) >= 0;
@@ -11723,6 +11361,12 @@ class Shop {
   if (roll < 0.08) targetRarity = "legendary";
   else if (roll < 0.30) targetRarity = "epic";
   else if (roll < 0.65) targetRarity = "rare";
+  // Altın kutularda rare+ şansı biraz daha düşük
+  if (isGold) {
+  if (roll < 0.04) targetRarity = "legendary";
+  else if (roll < 0.18) targetRarity = "epic";
+  else if (roll < 0.50) targetRarity = "rare";
+  }
   var eligible = pool.filter(function(id) {
   var d = ITEMS[id];
   if (!d || !d.rarity) return false;
@@ -11735,12 +11379,12 @@ class Shop {
   var ulv = targetRarity === "legendary" ? 2 : targetRarity === "epic" ? 1 : 0;
   var left = inventory.addItem(chosen, 1, ulv);
   if (left > 0) {
-  this._showFeedback("Envanter dolu! Elmaslar iade edildi.", "#d04040");
-  inventory.addItem("diamond", 10);
+  this._showFeedback("Envanter dolu! " + currencyName + " iade edildi.", "#d04040");
+  inventory.addItem(currencyId, cost);
   return false;
   }
   var nameStr = ITEMS[chosen] ? ITEMS[chosen].name : chosen;
-  this._showFeedback(nameStr + " kazand\u0131n! (-10 elmas)", "#80ffa0");
+  this._showFeedback(nameStr + " kazand\u0131n! (-" + cost + " " + currencyName + ")", "#80ffa0");
   return true;
   }
 
@@ -11826,6 +11470,26 @@ class Shop {
   if (def.equipSlot) {
   const needLv = estimateEquipRequiredLevel(def);
   trail.push({ font: mob ? "12px monospace" : "10px monospace", color: "#ffa070", text: "Seviye " + needLv + "+ gerekli" });
+  if (def.equipSlot === "bow" && def.stats && def.stats.rangedDmg) {
+  var estDmg2 = def.stats.rangedDmg + Math.floor((player.agi + (def.stats.agi || 0)) * 0.05) + Math.floor((player.str + (def.stats.str || 0)) * 0.15) + Math.floor((player.level - 1) * 0.35);
+  trail.push({ font: mob ? "bold 14px monospace" : "bold 12px monospace", color: "#60d0ff", text: "→ Ok Hasarı: " + estDmg2 });
+  }
+  }
+  var chestTypes3 = ["weapon_chest","armor_chest","accessory_chest","gold_weapon_chest","gold_armor_chest","gold_accessory_chest","boss_chest"];
+  if (chestTypes3.indexOf(si.id) >= 0) {
+  var isGoldC2 = si.id.indexOf("gold_") === 0;
+  var chLabel = "";
+  if (si.id.indexOf("weapon") >= 0) chLabel = "Yay";
+  else if (si.id.indexOf("armor") >= 0) chLabel = "Z\u0131rh/Giysi";
+  else if (si.id.indexOf("accessory") >= 0) chLabel = "Tak\u0131/Aksesuar";
+  else chLabel = "Efsanevi";
+  var fsm = mob ? "13px monospace" : "10px monospace";
+  trail.push({ font: mob ? "bold 14px monospace" : "bold 12px monospace", color: "#ffd700", text: "\u26E8 " + chLabel + " Kutusu" });
+  trail.push({ font: fsm, color: "#c0c0e0", text: "\u0130\u00E7inden rastgele " + chLabel.toLowerCase() + " \u00E7\u0131kar." });
+  trail.push({ font: fsm, color: "#ffd700", text: "\u2605 Efsanevi: %" + (isGoldC2 ? "4" : "8") });
+  trail.push({ font: fsm, color: "#c060ff", text: "\u2605 Epik: %" + (isGoldC2 ? "14" : "22") });
+  trail.push({ font: fsm, color: "#4a9fff", text: "\u2605 Nadir: %" + (isGoldC2 ? "32" : "35") });
+  trail.push({ font: fsm, color: "#9aa0b0", text: "  S\u0131radan: Kalan %" + (isGoldC2 ? "50" : "35") });
   }
   const statsLayout = buildItemTooltipLayout(ctx, def, si.id, L.pw, mob, { omitPrices: true, omitIdentity: true, innerMax }, trail);
   this._buyPickerMetrics = { itemId: si.id, statsH: statsLayout.th, headerExtra };
@@ -11999,6 +11663,9 @@ class Shop {
   if (button === undefined) button = 0;
   if (!this.open) return false;
   const L = this._layout(cw, ch);
+
+  const cb = L.closeBtn;
+  if (mx >= cb.x && mx < cb.x + cb.w && my >= cb.y && my < cb.y + cb.h) { this.close(); return true; }
 
   const tabBuyX = L.tabBuyX, tabSellX = L.tabSellX, tabY = L.tabY, tabW = L.tabW, tabH = L.tabH;
   if (mx >= tabBuyX && mx < tabBuyX + tabW && my >= tabY && my < tabY + tabH) {
@@ -12284,12 +11951,17 @@ class Shop {
   roundRect(ctx, L.px, L.py, L.pw, L.ph, 10); ctx.fill(); ctx.stroke();
 
   const land = L.shopLand;
-  const titleY = L.py + (land ? 18 : 24);
+  const titleY = L.titleY;
   ctx.fillStyle = "#f0d050"; ctx.font = land ? "bold 14px monospace" : "bold 16px monospace";
   ctx.fillText(this.shopName, L.px + 28, titleY);
 
-  ctx.fillStyle = "#888"; ctx.font = land ? "10px monospace" : "11px monospace";
-  ctx.fillText("[Esc] Kapat", L.px + L.pw - 90, titleY);
+  const cb = L.closeBtn;
+  ctx.fillStyle = "rgba(80,30,30,0.7)";
+  roundRect(ctx, cb.x, cb.y, cb.w, cb.h, 4); ctx.fill();
+  ctx.strokeStyle = "#a06050"; ctx.lineWidth = 1;
+  roundRect(ctx, cb.x, cb.y, cb.w, cb.h, 4); ctx.stroke();
+  ctx.fillStyle = "#e0a0a0"; ctx.font = "bold 12px monospace";
+  ctx.fillText("\u2715", cb.x + cb.w / 2 - ctx.measureText("\u2715").width / 2, cb.y + 16);
 
   drawItemIcon(ctx, "coin", L.px + L.pw - 152, L.py + (land ? 6 : 12), land ? 12 : 14);
   ctx.fillStyle = "#f0d050"; ctx.font = land ? "bold 11px monospace" : "bold 12px monospace";
@@ -12341,7 +12013,7 @@ class Shop {
   const fssPad = fss < 10 ? "0" + fss : String(fss);
   ctx.fillStyle = "#e8c070";
   ctx.font = land ? "bold 8px monospace" : "bold 9px monospace";
-  ctx.fillText("\u2605 Stok yenileme: " + fmm + ":" + fssPad, L.tabBuyX, L.tabY - (land ? 2 : 4));
+  ctx.fillText("\u2605 " + fmm + ":" + fssPad, L.px + L.pw - 80, titleY);
 
   const gridX = L.px + 28, gridY = this._buyGridY(L);
   const clipBottom = this.tab === 1 && !this.sellPicker ? L.py + L.ph - 28 : L.py + L.ph - 10;
@@ -12404,12 +12076,35 @@ class Shop {
   if (def.equipSlot) {
   const needLv = estimateEquipRequiredLevel(def);
   trail.push({ font: fs, color: "#ffa070", text: "Seviye " + needLv + "+ gerekli" });
+  if (def.equipSlot === "bow" && def.stats && def.stats.rangedDmg) {
+  var estimatedDmg = def.stats.rangedDmg + Math.floor((player.agi + (def.stats.agi || 0)) * 0.05) + Math.floor((player.str + (def.stats.str || 0)) * 0.15) + Math.floor((player.level - 1) * 0.35);
+  trail.push({ font: fh2, color: "#60d0ff", text: "\u2192 Tahmini Ok Hasar\u0131: " + estimatedDmg });
   }
+  }
+  // Kutu içeriği bilgisi
+  var chestTypes2 = ["weapon_chest","armor_chest","accessory_chest","gold_weapon_chest","gold_armor_chest","gold_accessory_chest","boss_chest"];
+  if (chestTypes2.indexOf(this.tooltipItem) >= 0) {
+  var isGoldC = this.tooltipItem.indexOf("gold_") === 0;
+  var costStr = isGoldC ? "500 Alt\u0131n" : "10 Elmas";
+  var chestLabel = "";
+  if (this.tooltipItem.indexOf("weapon") >= 0) chestLabel = "Yay";
+  else if (this.tooltipItem.indexOf("armor") >= 0) chestLabel = "Z\u0131rh/Giysi";
+  else if (this.tooltipItem.indexOf("accessory") >= 0) chestLabel = "Tak\u0131/Aksesuar";
+  else chestLabel = "Efsanevi E\u015Fya";
+  trail.push({ font: fh2, color: "#ffd700", text: "\u26E8 " + chestLabel + " Kutusu" });
+  trail.push({ font: fs, color: "#c0c0e0", text: "\u0130\u00E7inden rastgele " + chestLabel.toLowerCase() + " \u00E7\u0131kar." });
+  trail.push({ font: fs, color: "#ffd700", text: "\u2605 Efsanevi: %" + (isGoldC ? "4" : "8") });
+  trail.push({ font: fs, color: "#c060ff", text: "\u2605 Epik: %" + (isGoldC ? "14" : "22") });
+  trail.push({ font: fs, color: "#4a9fff", text: "\u2605 Nadir: %" + (isGoldC ? "32" : "35") });
+  trail.push({ font: fs, color: "#9aa0b0", text: "  S\u0131radan: Kalan %" + (isGoldC ? "50" : "35") });
+  trail.push({ font: fs, color: "#f0a060", text: "\u00dccret: " + costStr });
+  } else {
   if (this.tab === 0) {
   trail.push({ font: fh, color: "#90f0a0", text: "Sat\u0131n alma: " + buyP + " alt\u0131n" });
   if (def.sellPrice != null) trail.push({ font: fh2, color: "#f0d080", text: "Tekil sat\u0131\u015f: " + def.sellPrice + " alt\u0131n" });
   } else {
   if (def.sellPrice != null) trail.push({ font: fh, color: "#f0e0a0", text: "Sat\u0131\u015f: " + def.sellPrice + " alt\u0131n / adet" });
+  }
   }
   ctx.save();
   const layoutTt = buildItemTooltipLayout(ctx, def, this.tooltipItem, cw, mob, { omitPrices: true }, trail);
@@ -12821,26 +12516,34 @@ function tryUseExpScroll(itemId) {
   const finalExp = Math.floor(def.expValue * levelMultiplier);
   
   inventory.removeItem(itemId, 1);
-  player.xp = player.xp + finalExp;
-  pickupMsgText = "+" + finalExp + " EXP (x" + levelMultiplier.toFixed(1) + ")";
-  pickupMsgTimer = 1.5;
-  gameAudio.playPickup();
-  // Level up kontrolü - dengeli formula
-  const getXpToNext = (level) => {
-  if (level <= 20) return Math.floor(30 * Math.pow(1.18, level - 1));
-  else if (level <= 40) return Math.floor(8000 + (level - 20) * 2000);
-  else return Math.floor(48000 + (level - 40) * 4000);
-  };
+  var oldXp = player.xp;
+  var oldLevel = player.level;
+  player.xp += finalExp;
   while (player.xp >= player.xpToNext) {
   player.xp -= player.xpToNext;
   player.level++;
-  player.xpToNext = getXpToNext(player.level);
+  const getXpToNext2 = (level) => {
+  if (level <= 20) return Math.floor(40 * Math.pow(1.22, level - 1));
+  else if (level <= 40) return Math.floor(12000 + (level - 20) * 3000);
+  else return Math.floor(72000 + (level - 40) * 6000);
+  };
+  player.xpToNext = getXpToNext2(player.level);
+  player.baseMaxHp += 8;
+  player.baseMaxMana += 5;
   player.statPoints += 3;
-  player.levelUpTimer = 2;
+  player.levelDamageBonus += 1;
+  player.levelUpTimer = 2.5;
   player._pendingFullHeal = true;
+  gameAudio.playLevelUp();
+  }
+  if (player.level > oldLevel) {
   pickupMsgText = "Seviye " + player.level + "! (+3 stat)";
   pickupMsgTimer = 2.5;
+  } else {
+  pickupMsgText = "+" + finalExp + " EXP (x" + levelMultiplier.toFixed(1) + ")";
+  pickupMsgTimer = 1.5;
   }
+  gameAudio.playPickup();
   return true;
 }
 
@@ -13284,7 +12987,7 @@ const ISLANDS = [
   { cx: 252, cy: 152, rx: 14, ry: 10, r: 12, biome: "forest", name: "YeÅŸil AdacÄ±k I",
   monsters: ["slime","wolf","slime","ancient_root"], scale: 0.9, boss: "wolf" },
   { cx: 282, cy: 166, rx: 12, ry: 10, r: 11, biome: "forest", name: "YeÅŸil AdacÄ±k II",
-  monsters: ["slime","wolf","skeleton","slime"], scale: 0.95, boss: "slime" },
+  monsters: ["slime","wolf","skeleton","slime"], scale: 0.95, boss: "slime_boss" },
   { cx: 300, cy: 192, rx: 13, ry: 11, r: 12, biome: "rain", name: "SazlÄ±k AdacÄ±ÄŸÄ±",
   monsters: ["slime","slime","wolf","slime"], scale: 0.5, boss: "slime" },
   { cx: 244, cy: 214, rx: 14, ry: 12, r: 12, biome: "forest", name: "Ã‡am AdacÄ±ÄŸÄ±",
@@ -13408,13 +13111,13 @@ function applyWorldDesignPass(ground, detail) {
   const vx = VOX + Math.floor(VCOLS / 2);
   const vy = VOY + Math.floor(VROWS / 2);
 
-  // 4 yonlu yol: kasabadan kuzey, guney, dogu, bati
+  // 4 yonlu yol: kasabadan kuzey, guney, dogu, bati - daha d\u00fcz
   var roadDir = function(dx, dy, steps) {
     var pts = [{ x: vx + dx * 2, y: vy + dy * 2 }];
     for (var s = 1; s <= steps; s++) {
-      pts.push({ x: vx + dx * (s * 28 + Math.sin(s * 1.3) * 6), y: vy + dy * (s * 28 + Math.cos(s * 0.9) * 6) });
+      pts.push({ x: vx + dx * (s * 28 + Math.sin(s * 0.7) * 2), y: vy + dy * (s * 28 + Math.cos(s * 0.5) * 2) });
     }
-    carveSplinePath(ground, detail, pts, 2.6, T.DIRT, true);
+    carveSplinePath(ground, detail, pts, 3.0, T.DIRT, true);
   };
   roadDir(0, -1, 7);  // Kuzey
   roadDir(0, 1, 7);   // Guney
@@ -13462,9 +13165,9 @@ function applyWorldDesignPass(ground, detail) {
   if (waterN >= 2 && hashXY(c * 11 + 7, r * 13 + 17) < beachThresh) {
   ground[idx] = T.SAND;
   detail[idx] = -1;
-  } else if (waterN === 0 && hashXY(c * 5 + 3, r * 9 + 1) < 0.008 && t === T.GRASS) {
+  } else if (waterN === 0 && hashXY(c * 5 + 3, r * 9 + 1) < 0.004 && t === T.GRASS) {
   detail[idx] = T.FLOWER;
-  } else if (waterN === 0 && hashXY(c * 7 + 2, r * 6 + 9) < 0.008 && t !== T.SNOW && t !== T.STONE_FLOOR) {
+  } else if (waterN === 0 && hashXY(c * 7 + 2, r * 6 + 9) < 0.003 && t !== T.SNOW && t !== T.STONE_FLOOR) {
   detail[idx] = T.TREE;
   }
   // Dekoratif kaya parÃ§alarÄ± (kÄ±yÄ± ve Ã§orak alanlarda)
@@ -13484,16 +13187,15 @@ function enrichWorldDetails(ground, detail) {
   const h = hashXY(c, r);
   const fPatch = fbm(c * 0.14 + 31.7, r * 0.14 + 52.3, 3);
   const mPatch = fbm(c * 0.22 + 11.1, r * 0.22 + 77.7, 2);
-  // Orman kÃ¼meleri: yalnÄ±z gibi duran aÄŸaÃ§larÄ± sil, toplu alanlara ekle
+  // Daha az ağaç: yalnız ağaçları sil (eşik yükseltildi), yenilerini daha az ekle
   if (detail[idx] === T.TREE) {
-  if (fPatch < 0.24) detail[idx] = -1;
+  if (fPatch < 0.40) detail[idx] = -1;
   } else if (detail[idx] === T.FLOWER) {
-  if (mPatch < 0.45) detail[idx] = -1;
+  if (mPatch < 0.50) detail[idx] = -1;
   } else if (detail[idx] === -1 && (t === T.GRASS || t === T.TALL_GRASS)) {
-  if (fPatch > 0.52 && h < 0.18) detail[idx] = T.TREE;
-  else if (mPatch > 0.62 && h < 0.26) detail[idx] = T.FLOWER;
+  if (fPatch > 0.68 && h < 0.10) detail[idx] = T.TREE;
+  else if (mPatch > 0.70 && h < 0.20) detail[idx] = T.FLOWER;
   }
-  // Ã‡orak/kaya alanlara dekoratif taÅŸlar
   if (detail[idx] === -1 && (t === T.DIRT || t === T.STONE_FLOOR || t === T.SAND)) {
   const rockPatch = fbm(c * 0.18 + 61.3, r * 0.18 + 29.1, 2);
   if (rockPatch > 0.68 && h < 0.12) detail[idx] = T.STONE_FLOOR;
@@ -13618,12 +13320,12 @@ function generateWorld() {
   if (h < 0.015) det = T.FLOWER;
   } else if (moisture > 0.5 || ridge > 0.48) {
   tile = T.TALL_GRASS;
-  if (h < 0.06) det = T.TREE;
-  else if (h < 0.12) det = T.FLOWER;
+  if (h < 0.035) det = T.TREE;
+  else if (h < 0.08) det = T.FLOWER;
   } else {
   tile = T.GRASS;
-  if (h < 0.05) det = T.TREE;
-  else if (h < 0.1) det = T.FLOWER;
+  if (h < 0.025) det = T.TREE;
+  else if (h < 0.06) det = T.FLOWER;
   }
   } else if (distMain < mainOuterR && !onIsland && !islandCoast) {
   if (elevation < 0.32 || moisture > 0.72) {
@@ -13632,8 +13334,8 @@ function generateWorld() {
   tile = T.SAND;
   } else {
   tile = moisture > 0.5 ? T.TALL_GRASS : T.GRASS;
-  if (h < 0.035) det = T.TREE;
-  else if (h < 0.07) det = T.FLOWER;
+  if (h < 0.015) det = T.TREE;
+  else if (h < 0.04) det = T.FLOWER;
   }
   } else if (distEdge > 0.99 && !onIsland && !islandCoast) {
   tile = T.WATER;
@@ -13645,7 +13347,7 @@ function generateWorld() {
   tile = T.SAND;
   } else {
   tile = elevation > 0.6 ? T.GRASS : T.SAND;
-  if (h < 0.02 && tile === T.GRASS) det = T.TREE;
+  if (h < 0.01 && tile === T.GRASS) det = T.TREE;
   }
   } else if (islandCoast) {
   tile = T.SAND;
@@ -13672,11 +13374,11 @@ function generateWorld() {
   }
   } else if (biome === "rain" || biome === "jungle") {
   tile = moisture > 0.42 ? T.TALL_GRASS : T.GRASS;
-  if (h2 < 0.07) det = T.TREE;
-  else if (h2 < 0.14) det = T.FLOWER;
+  if (h2 < 0.035) det = T.TREE;
+  else if (h2 < 0.08) det = T.FLOWER;
   } else if (biome === "storm") {
   tile = iElev > 0.7 ? T.STONE_FLOOR : T.DIRT;
-  if (h2 < 0.04) det = T.TREE;
+  if (h2 < 0.02) det = T.TREE;
   } else if (biome === "volcanic") {
   tile = iElev > 0.65 ? T.STONE_FLOOR : T.DIRT;
   if (h2 < 0.03) det = T.TREE;
@@ -13690,9 +13392,9 @@ function generateWorld() {
   if (h2 < 0.03) det = T.FLOWER;
   }
   } else {
-  if (iElev > 0.75) { tile = T.STONE_FLOOR; if (h < 0.03) det = T.TREE; }
-  else if (moisture > 0.5) { tile = T.TALL_GRASS; if (h < 0.06) det = T.TREE; else if (h < 0.12) det = T.FLOWER; }
-  else { tile = T.GRASS; if (h < 0.04) det = T.TREE; else if (h < 0.08) det = T.FLOWER; }
+  if (iElev > 0.75) { tile = T.STONE_FLOOR; if (h < 0.015) det = T.TREE; }
+  else if (moisture > 0.5) { tile = T.TALL_GRASS; if (h < 0.035) det = T.TREE; else if (h < 0.08) det = T.FLOWER; }
+  else { tile = T.GRASS; if (h < 0.02) det = T.TREE; else if (h < 0.05) det = T.FLOWER; }
   }
   } else {
   if (elevation < 0.24 || (ridge < 0.24 && moisture > 0.5)) {
@@ -13703,18 +13405,18 @@ function generateWorld() {
   tile = T.WALL;
   } else if (elevation > 0.68) {
   tile = T.STONE_FLOOR;
-  if (h < 0.035) det = T.TREE;
+  if (h < 0.02) det = T.TREE;
   } else if (moisture > 0.62) {
   tile = T.TALL_GRASS;
-  if (h < 0.045) det = T.TREE;
-  else if (h < 0.09) det = T.FLOWER;
+  if (h < 0.025) det = T.TREE;
+  else if (h < 0.06) det = T.FLOWER;
   } else if (moisture < 0.34 || heat > 0.72) {
   tile = T.DIRT;
-  if (h < 0.025) det = T.FLOWER;
+  if (h < 0.02) det = T.FLOWER;
   } else {
   tile = T.GRASS;
-  if (h < 0.025) det = T.TREE;
-  else if (h < 0.05) det = T.FLOWER;
+  if (h < 0.015) det = T.TREE;
+  else if (h < 0.035) det = T.FLOWER;
   }
   }
 
@@ -13939,16 +13641,16 @@ class Minimap {
   else { this.fullMap = false; this.visible = true; fullMapDragging = false; this._fullMapLayout = null; }
   }
 
-  render(ctx, canvasW, canvasH, cam, player, npcs, wildPets, activePet) {
+  render(ctx, canvasW, canvasH, cam, player, npcs) {
   if (!this.visible) return;
   if (this.fullMap) {
-  this._renderFullMap(ctx, canvasW, canvasH, cam, player, npcs, wildPets, activePet);
+  this._renderFullMap(ctx, canvasW, canvasH, cam, player, npcs);
   } else {
-  this._renderLocalMap(ctx, canvasW, canvasH, cam, player, npcs, wildPets, activePet);
+  this._renderLocalMap(ctx, canvasW, canvasH, cam, player, npcs);
   }
   }
 
-  _renderLocalMap(ctx, canvasW, canvasH, cam, player, npcs, wildPets, activePet) {
+  _renderLocalMap(ctx, canvasW, canvasH, cam, player, npcs) {
   const sz = this.localSize;
   const tileR = this.localTileRadius;
   const localPxPerTile = sz / (tileR * 2);
@@ -14021,28 +13723,6 @@ class Minimap {
   ctx.fillRect(nx - 1.5, ny - 1.5, 3, 3);
   }
 
-  for (const wp of wildPets) {
-  if (!wp.alive) continue;
-  const wTileX = wp.x / TILE_SIZE;
-  const wTileY = wp.y / TILE_SIZE;
-  if (Math.abs(wTileX - playerCol) > tileR || Math.abs(wTileY - playerRow) > tileR) continue;
-  const wx = dx + (wTileX - (playerCol - tileR)) * localPxPerTile;
-  const wy = dy + (wTileY - (playerRow - tileR)) * localPxPerTile;
-  ctx.fillStyle = "#ff80a0";
-  ctx.fillRect(wx - 1, wy - 1, 2, 2);
-  }
-
-  if (activePet) {
-  const aTileX = activePet.x / TILE_SIZE;
-  const aTileY = activePet.y / TILE_SIZE;
-  if (Math.abs(aTileX - playerCol) <= tileR && Math.abs(aTileY - playerRow) <= tileR) {
-  const ax = dx + (aTileX - (playerCol - tileR)) * localPxPerTile;
-  const ay = dy + (aTileY - (playerRow - tileR)) * localPxPerTile;
-  ctx.fillStyle = "#f0d050";
-  ctx.fillRect(ax - 1.5, ay - 1.5, 3, 3);
-  }
-  }
-
   const pcx = dx + sz / 2, pcy = dy + sz / 2;
   const blink2 = Math.sin(Date.now() / 250) > 0;
   ctx.fillStyle = blink2 ? "#fff" : "#40ff40";
@@ -14056,7 +13736,7 @@ class Minimap {
   ctx.fillText("[M] D\u00fcnya Haritas\u0131", dx + 4, dy + sz + 16);
   }
 
-  _renderFullMap(ctx, canvasW, canvasH, cam, player, npcs, wildPets, activePet) {
+  _renderFullMap(ctx, canvasW, canvasH, cam, player, npcs) {
   this._fullMapZoom = this._fullMapZoom || 1;
   this._fullMapPanX = this._fullMapPanX || 0;
   this._fullMapPanY = this._fullMapPanY || 0;
@@ -14100,9 +13780,8 @@ class Minimap {
   ctx.fillText("D\u00fcnya Haritas\u0131", dx + 8, dy - 12);
   ctx.fillStyle = "#c0b060"; ctx.font = "9px monospace";
   ctx.fillText("Canavar seviye b\u00f6lgeleri", dx + 8, dy + fh + 20);
-  ctx.fillStyle = "#888"; ctx.font = "10px monospace";
-  ctx.fillText("[M] Kapat", dx + fw - 65, dy - 12);
 
+  // Zoom buttons
   // Zoom controls
   const zoomBtnSz = 22;
   const zoomBtnY = dy - 16;
@@ -14126,18 +13805,9 @@ class Minimap {
 
   // Store layout for click handling
   const closeBtnSz = 22;
-  const closeBtnX = dx + fw + 14;
+  const closeBtnX = dx + fw - 30;
   const closeBtnY = dy - 28;
-  this._fullMapLayout = { dx, dy, fw, fh, baseFw, baseFh, fScale, zoomBtnX1, zoomBtnX2, zoomBtnY, zoomBtnSz, closeBtnX, closeBtnY, closeBtnSz };
-
-  // Close button
-  ctx.fillStyle = "rgba(40,45,70,0.9)";
-  ctx.strokeStyle = "#ff6060";
-  ctx.lineWidth = 1;
-  roundRect(ctx, closeBtnX, closeBtnY, closeBtnSz, closeBtnSz, 4); ctx.fill(); ctx.stroke();
-  ctx.fillStyle = "#ff8080";
-  ctx.font = "bold 14px monospace";
-  ctx.fillText("\u2716", closeBtnX + 6, closeBtnY + 16);
+  this._fullMapLayout = { dx, dy, fw, fh, baseFw, baseFh, fScale, zoomBtnX1, zoomBtnX2, zoomBtnY, zoomBtnSz };
 
   // Clip map content to panel bounds
   ctx.save();
@@ -14301,22 +13971,6 @@ class Minimap {
   ctx.fillRect(nx - 2, ny - 2, 4, 4);
   }
 
-  // Wild pets with pan
-  for (const wp of wildPets) {
-  if (!wp.alive) continue;
-  const wx = mapX + wp.x / TILE_SIZE * fScale;
-  const wy = mapY + wp.y / TILE_SIZE * fScale;
-  ctx.fillStyle = "#ff80a0";
-  ctx.fillRect(wx - 1, wy - 1, 2, 2);
-  }
-  // Active pet with pan
-  if (activePet) {
-  const ax = mapX + activePet.x / TILE_SIZE * fScale;
-  const ay = mapY + activePet.y / TILE_SIZE * fScale;
-  ctx.fillStyle = "#f0d050";
-  ctx.fillRect(ax - 2, ay - 2, 4, 4);
-  }
-
   // Island markers with pan
   for (const isl of ISLANDS) {
   const ctr = islandWorldCenter(isl);
@@ -14368,70 +14022,93 @@ class Minimap {
 const worldData = generateWorld();
 
 const VILLAGE_NPCS = [
-  { col: VOX+20,  row: VOY+3, name: "T\u00fcccar Elif", color: "#c05050",
-  dialog: ["Ho\u015f geldin! En iyi silahlar bende, sava\u015fa haz\u0131rlan!"], wanderRadius: 0,
-  merchant: true, shopPool: "village_weapon", stock: [
-  { id: "arrow" }, { id: "potion" }, { id: "potion_mana" },
-  { id: "bow_short", qty: 2 }, { id: "bow_recurve", qty: 2 },
-  { id: "bow_swift", qty: 1 }, { id: "bow_composite", qty: 1 },
-  { id: "bow_hunter", qty: 1 }, { id: "bow_war", qty: 1 },
-  { id: "axe", qty: 2 },
-  ], enclosure: { w: 12, h: 5, wallColor: "#c05050", floorColor: "#301818" } },
-  { col: VOX+37, row: VOY+3, name: "Liman Reisi", color: "#3080a0", buildsBoat: true,
-  dialog: ["Ho\u015f geldin, denizci!","Malzemeyi toplad\u0131\u011f\u0131nda sana \u00fccretsiz kurar\u0131m: 15 odun, 5 ta\u015f, 3 halat.",
-  "Konu\u015fmam\u0131z bitince in\u015fa paneli a\u00e7\u0131lacak. Orada malzemeyi bana emanet eder, tekneyi in\u015fa edersin.",
-  "Teknen olunca g\u00fcney kap\u0131dan sahil yoluna gel; \u00e7o\u011funlukla otomatik bini\u015f olur, istersen B ile de binersin / inersin.",
-  "Uzak adalarda hazineler ve nadir kaynaklar var."], wanderRadius: 0,
-  enclosure: { w: 5, h: 5, wallColor: "#3080a0", floorColor: "#182830" } },
-  { col: VOX+26, row: VOY+3, name: "Terzi Zeynep", color: "#a060c0",
-  dialog: ["Hoş geldin! En sağlam zırhlar ve giysiler bende!"], wanderRadius: 0,
-  merchant: true, shopPool: "village_armor", stock: [
-  { id: "helm_leather", qty: 2 }, { id: "helm_iron", qty: 2 },
-  { id: "helm_bone", qty: 1 },
-  { id: "chest_leather", qty: 2 }, { id: "chest_steel", qty: 2 },
-  { id: "chest_chain", qty: 1 }, { id: "chest_mithril", qty: 1 },
-  { id: "boots_leather", qty: 2 }, { id: "boots_swift", qty: 2 },
-  { id: "boots_iron", qty: 1 }, { id: "boots_epic", qty: 1 },
-  { id: "waist_cloth", qty: 2 }, { id: "waist_chain", qty: 1 },
-  { id: "arms_cloth", qty: 2 }, { id: "arms_iron", qty: 1 },
-  { id: "gloves_archer", qty: 2 },
-  { id: "ring_copper", qty: 1 }, { id: "ring_silver", qty: 1 },
-  { id: "ring_ruby", qty: 1 },
-  { id: "amulet_wood", qty: 1 }, { id: "amulet_iron", qty: 1 },
-  { id: "amulet_protection", qty: 1 },
-  { id: "cloak_common", qty: 1 }, { id: "cloak_shadow", qty: 1 },
-  { id: "talisman_common", qty: 1 }, { id: "talisman_fire", qty: 1 },
-  ] },
-  { col: VOX+32, row: VOY+3, name: "Bankacı Hasan", color: "#d0a030", banker: true,
-  dialog: ["Hoş geldin! Eşyalarını ve altınını bende güvenle saklayabilirsin."], wanderRadius: 0,
-  enclosure: { w: 5, h: 5, wallColor: "#d0a030", floorColor: "#282018" } },
-  { col: VOX+6, row: VOY+3, name: "Kutucu Ahmet", color: "#d0a030",
-  dialog: ["Hoş geldin! Elmaslarınla kutu açmak ister misin?", "Her kutu 10 elmas. Silah, giysi veya takı kutularım var.",
-  "Beğendiğini seç, al!"], wanderRadius: 0,
-  merchant: true, stock: [
-  { id: "weapon_chest", specialOffer: true, unlimited: true },
-  { id: "armor_chest", specialOffer: true, unlimited: true },
-  { id: "accessory_chest", specialOffer: true, unlimited: true },
-  ], enclosure: { w: 4, h: 4, wallColor: "#c09030", floorColor: "#282018" } },
-  { col: VOX+11, row: VOY+3, name: "Kırdırcı Mehmet", color: "#708090",
-  dialog: ["Atıl eşyalarını bana getir, karşılığında elmas vereyim.",
-  "Konuşunca envanterindeki tüm nadir eşyaları kırar elmasa çeviririm.",
-  "Dikkat et, kırılan eşyalar geri gelmez! Hazırsan konuş!"], wanderRadius: 0,
-  itemCrusher: true, enclosure: { w: 4, h: 4, wallColor: "#708090", floorColor: "#202830" } },
   { col: VOX+2, row: VOY+3, name: "I\u015F\u0131nlanma Gatesi", color: "#6080d0",
   dialog: ["Buradan canavar b\u00F6lgelerine \u0131\u015F\u0131nlanabilirsin.",
   "Z=Kuzey Yolu | X=G\u00FCney Yolu | C=Do\u011Fu Yolu | V=Bat\u0131 Yolu",
   "Haz\u0131rsan bir tu\u015Fa bas!"], wanderRadius: 0,
-  teleportGate: true, enclosure: { w: 3, h: 3, wallColor: "#6080d0", floorColor: "#182840" } },
-  { col: VOX+45, row: VOY+3, name: "Zindan Bekcisi", color: "#d04040",
-  dialog: ["Zindana girmek ister misin? 5 kat + boss. Her kat zorla\u015f\u0131r, \u00f6d\u00fcller b\u00fcy\u00fcr.",
-  "Haz\u0131rsan konu\u015f, sava\u015f ba\u015flas\u0131n!"], wanderRadius: 0,
-  dungeonPortal: true, enclosure: { w: 3, h: 3, wallColor: "#d04040", floorColor: "#301010" } },
-  { col: VOX+27, row: VOY+3, name: "Tamirci Usta", color: "#c09850",
-  dialog: ["Eşyaların mı yıprandı? Bana getir, altın karşılığı tamir edeyim.",
-  "Konuşunca tüm eşyalarını tamir ederim. Ne kadar yıpranmışsa o kadar altın alırım.",
-  "Hazırsan konuş, tamir edeyim!"], wanderRadius: 0,
-  itemRepairer: true, enclosure: { w: 4, h: 4, wallColor: "#c09850", floorColor: "#282018" } },
+  teleportGate: true },
+  { col: VOX+5, row: VOY+3, name: "Kutucu Ahmet", color: "#d0a030",
+  dialog: ["Ho\u015F geldin! Kutu a\u00E7mak ister misin?", "Elmas kutular\u0131 (10 elmas) veya Alt\u0131n kutular\u0131 (500 alt\u0131n). Silah, giysi, tak\u0131 se\u00E7enekleri var.",
+  "Be\u011Fendi\u011Fini se\u00E7, al!"], wanderRadius: 0,
+  merchant: true, stock: [
+  { id: "weapon_chest", specialOffer: true, unlimited: true },
+  { id: "armor_chest", specialOffer: true, unlimited: true },
+  { id: "accessory_chest", specialOffer: true, unlimited: true },
+  { id: "gold_weapon_chest", qty: 99 },
+  { id: "gold_armor_chest", qty: 99 },
+  { id: "gold_accessory_chest", qty: 99 },
+  ] },
+  { col: VOX+8, row: VOY+3, name: "K\u0131rd\u0131rc\u0131 Mehmet", color: "#708090",
+  dialog: ["At\u0131l e\u015Fyalar\u0131n\u0131 bana getir, kar\u015F\u0131l\u0131\u011F\u0131nda elmas vereyim.",
+  "Konu\u015Funca envanterindeki t\u00FCm nadir e\u015Fyalar\u0131 k\u0131rar elmasa \u00E7eviririm.",
+  "Dikkat et, k\u0131r\u0131lan e\u015Fyalar geri gelmez! Haz\u0131rsan konu\u015F!"], wanderRadius: 0,
+  itemCrusher: true },
+  { col: VOX+11, row: VOY+3, name: "T\u00fcccar Elif", color: "#c05050",
+  dialog: ["Ho\u015F geldin! En iyi silahlar bende, sava\u015Fa haz\u0131rlan!"], wanderRadius: 0,
+  merchant: true, shopPool: "village_weapon", stock: [
+  { id: "arrow" }, { id: "potion" }, { id: "potion_mana" },
+  { id: "bow_short", qty: 3 }, { id: "bow_recurve", qty: 2 },
+  { id: "bow_swift", qty: 2 }, { id: "bow_composite", qty: 2 },
+  { id: "bow_hunter", qty: 2 }, { id: "bow_war", qty: 2 },
+  { id: "bow_moon_epic", qty: 1 }, { id: "bow_sun_epic", qty: 1 },
+  { id: "bow_long", qty: 1 }, { id: "bow_crystal_legendary", qty: 1 },
+  { id: "bow_storm_legendary", qty: 1 }, { id: "bow_dragon_legendary", qty: 1 },
+  { id: "bow_void_legendary", qty: 1 }, { id: "bow_shadow_epic", qty: 1 },
+  { id: "axe", qty: 3 },
+  { id: "exp_scroll_small", qty: 5 }, { id: "exp_scroll_medium", qty: 3 }, { id: "exp_scroll_large", qty: 1 },
+  ] },
+  { col: VOX+14, row: VOY+3, name: "Terzi Zeynep", color: "#a060c0",
+  dialog: ["Ho\u015F geldin! En sa\u011Flam z\u0131rhlar ve giysiler bende!"], wanderRadius: 0,
+  merchant: true, shopPool: "village_armor", stock: [
+  { id: "helm_leather", qty: 3 }, { id: "helm_iron", qty: 2 },
+  { id: "helm_bone", qty: 2 }, { id: "helm_epic", qty: 1 },
+  { id: "helm_golden", qty: 1 }, { id: "helm_legendary", qty: 1 },
+  { id: "chest_leather", qty: 3 }, { id: "chest_steel", qty: 2 },
+  { id: "chest_chain", qty: 2 }, { id: "chest_mithril", qty: 1 },
+  { id: "chest_epic", qty: 1 }, { id: "chest_legendary", qty: 1 },
+  { id: "boots_leather", qty: 3 }, { id: "boots_swift", qty: 2 },
+  { id: "boots_iron", qty: 2 }, { id: "boots_epic", qty: 1 },
+  { id: "boots_legendary", qty: 1 },
+  { id: "waist_cloth", qty: 3 }, { id: "waist_chain", qty: 2 },
+  { id: "waist_epic", qty: 1 }, { id: "waist_legendary", qty: 1 },
+  { id: "arms_cloth", qty: 3 }, { id: "arms_iron", qty: 2 },
+  { id: "arms_epic", qty: 1 }, { id: "arms_legendary", qty: 1 },
+  { id: "gloves_archer", qty: 2 },
+  { id: "ring_copper", qty: 1 }, { id: "ring_silver", qty: 1 },
+  { id: "ring_ruby", qty: 1 }, { id: "ring_power", qty: 1 },
+  { id: "ring_dragon", qty: 1 },
+  { id: "amulet_wood", qty: 1 }, { id: "amulet_iron", qty: 1 },
+  { id: "amulet_protection", qty: 1 }, { id: "amulet_dragon", qty: 1 },
+  { id: "cloak_common", qty: 2 }, { id: "cloak_shadow", qty: 1 },
+  { id: "cloak_epic", qty: 1 }, { id: "cloak_legendary", qty: 1 },
+  { id: "talisman_common", qty: 1 }, { id: "talisman_fire", qty: 1 },
+  { id: "talisman_epic", qty: 1 }, { id: "talisman_void", qty: 1 },
+  { id: "wings_cloth", qty: 1 }, { id: "wings_azure", qty: 1 },
+  { id: "wings_epic", qty: 1 }, { id: "wings_legendary", qty: 1 },
+  { id: "shoulder_guard", qty: 1 }, { id: "bracelet_titan", qty: 1 },
+  { id: "earring_focus", qty: 1 }, { id: "artifact_common", qty: 1 },
+  { id: "artifact_moon", qty: 1 }, { id: "artifact_sun", qty: 1 },
+  { id: "artifact_epic", qty: 1 }, { id: "artifact_dragon_eye", qty: 1 },
+  ] },
+  { col: VOX+17, row: VOY+3, name: "Tamirci Usta", color: "#c09850",
+  dialog: ["E\u015Fyalar\u0131n m\u0131 y\u0131prand\u0131? Bana getir, alt\u0131n kar\u015F\u0131l\u0131\u011F\u0131 tamir edeyim.",
+  "Konu\u015Funca t\u00FCm e\u015Fyalar\u0131n\u0131 tamir ederim. Ne kadar y\u0131pranm\u0131\u015Fsa o kadar alt\u0131n al\u0131r\u0131m.",
+  "Haz\u0131rsan konu\u015F, tamir edeyim!"], wanderRadius: 0,
+  itemRepairer: true },
+  { col: VOX+20, row: VOY+3, name: "Bankac\u0131 Hasan", color: "#d0a030", banker: true,
+  dialog: ["Ho\u015F geldin! E\u015Fyalar\u0131n\u0131 ve alt\u0131n\u0131n\u0131 bende g\u00FCvenle saklayabilirsin."], wanderRadius: 0 },
+  { col: VOX+23, row: VOY+3, name: "Liman Reisi", color: "#3080a0", buildsBoat: true,
+  dialog: ["Ho\u015F geldin, denizci!","Malzemeyi toplad\u0131\u011F\u0131nda sana \u00FCcretsiz kurar\u0131m: 15 odun, 5 ta\u015F, 3 halat.",
+  "Konu\u015Fmam\u0131z bitince in\u015Fa paneli a\u00E7\u0131lacak. Orada malzemeyi bana emanet eder, tekneyi in\u015Fa edersin.",
+  "Teknen olunca g\u00FCney kap\u0131dan sahil yoluna gel; \u00E7o\u011Funlukla otomatik bini\u015F olur, istersen B ile de binersin / inersin.",
+  "Uzak adalarda hazineler ve nadir kaynaklar var."], wanderRadius: 0 },
+  { col: VOX+26, row: VOY+3, name: "Zindan Bekcisi", color: "#d04040",
+  dialog: ["Zindana girmek ister misin? 5 kat + boss. Her kat zorla\u015F\u0131r, \u00F6d\u00Fcller b\u00FCy\u00FCr.",
+  "Haz\u0131rsan konu\u015F, sava\u015F ba\u015Flas\u0131n!"], wanderRadius: 0,
+  dungeonPortal: true },
+  { col: VOX+29, row: VOY+3, name: "Görev Reisi", color: "#f0a030",
+  dialog: ["Görevlerini kontrol etmek ister misin?", "Hangi görevde olduğunu gör, günlük görevlerini teslim al."], wanderRadius: 0,
+  questGiver: true },
 ];
 
 const PLAYER_START = { col: Math.floor(WORLD_COLS / 2), row: Math.floor(WORLD_ROWS / 2) };
@@ -14445,6 +14122,10 @@ const GATE_LOCATIONS = [
   { id: "south", name: "G\u00fcney Yolu", col: VILLAGE_CENTER_COL, row: VILLAGE_CENTER_ROW + 70, color: "#ffb060" },
   { id: "east", name: "Do\u011fu Yolu", col: VILLAGE_CENTER_COL + 70, row: VILLAGE_CENTER_ROW, color: "#60ff80" },
   { id: "west", name: "Bat\u0131 Yolu", col: VILLAGE_CENTER_COL - 70, row: VILLAGE_CENTER_ROW, color: "#c080ff" },
+  { id: "north_far", name: "Kuzey Ucu", col: VILLAGE_CENTER_COL, row: VILLAGE_CENTER_ROW - 170, color: "#4080c0" },
+  { id: "south_far", name: "G\u00fcney Ucu", col: VILLAGE_CENTER_COL, row: VILLAGE_CENTER_ROW + 170, color: "#c08040" },
+  { id: "east_far", name: "Do\u011fu Ucu", col: VILLAGE_CENTER_COL + 170, row: VILLAGE_CENTER_ROW, color: "#40a060" },
+  { id: "west_far", name: "Bat\u0131 Ucu", col: VILLAGE_CENTER_COL - 170, row: VILLAGE_CENTER_ROW, color: "#9060c0" },
 ];
 
 const gatePanel = {
@@ -14452,79 +14133,101 @@ const gatePanel = {
   gates: GATE_LOCATIONS,
   scrollY: 0,
   handleClick(mx, my, cw, ch) {
-    if (!this.open) return false;
-    if (mx < cw * 0.15 || mx > cw * 0.85 || my < ch * 0.2 || my > ch * 0.8) {
-      this.open = false;
-      return true;
-    }
-    const bx = Math.round(cw * 0.2);
-    const bw = Math.round(cw * 0.6);
-    const gap = 8;
-    const bh = 42;
-    const startY = Math.round(ch * 0.25) - this.scrollY;
-    for (let i = 0; i < this.gates.length; i++) {
-      const g = this.gates[i];
-      const gy = startY + i * (bh + gap);
-      if (my >= gy && my <= gy + bh && mx >= bx && mx <= bx + bw) {
-        this.open = false;
-        executeGateTeleport(g);
-        return true;
-      }
-    }
-    return false;
+  if (!this.open) return false;
+  if (mx < cw * 0.15 || mx > cw * 0.85 || my < ch * 0.2 || my > ch * 0.8) {
+  this.open = false;
+  return true;
+  }
+  const cols = 3;
+  const cw2 = Math.round(cw * 0.6);
+  const bx = Math.round(cw * 0.2);
+  const gap = 8;
+  const bw = Math.floor((cw2 - 16 - gap * 2) / cols);
+  const bh = 42;
+  const startY = Math.round(ch * 0.25);
+  for (let i = 0; i < this.gates.length; i++) {
+  const g = this.gates[i];
+  const col = i % cols;
+  const row = Math.floor(i / cols);
+  const gx = bx + 8 + col * (bw + gap);
+  const gy = startY + row * (bh + gap);
+  if (my >= gy && my <= gy + bh && mx >= gx && mx <= gx + bw) {
+  this.open = false;
+  executeGateTeleport(g);
+  return true;
+  }
+  }
+  return false;
   },
   render(ctx, cw, ch) {
-    if (!this.open) return;
-    ctx.fillStyle = "rgba(0,0,0,0.65)";
-    ctx.fillRect(0, 0, cw, ch);
-    const bx = Math.round(cw * 0.2);
-    const by = Math.round(ch * 0.2);
-    const bw = Math.round(cw * 0.6);
-    const bhTotal = Math.round(ch * 0.6);
-    ctx.fillStyle = "rgba(12, 14, 36, 0.96)";
-    ctx.strokeStyle = "#6080d0";
-    ctx.lineWidth = 2;
-    roundRect(ctx, bx, by, bw, bhTotal, 12);
-    ctx.fill();
-    ctx.stroke();
-    ctx.fillStyle = "#f0d050";
-    ctx.font = "bold 16px monospace";
-    ctx.textAlign = "center";
-    ctx.fillText("I\u015eINLANMA GATES\u0130", cw / 2, by + 28);
-    ctx.textAlign = "left";
-    const gap = 8;
-    const bh = 42;
-    const startY = by + 50;
-    for (let i = 0; i < this.gates.length; i++) {
-      const g = this.gates[i];
-      const gy = startY + i * (bh + gap);
-      ctx.fillStyle = "rgba(" + (g.color === "#60b0ff" ? "60,176,255" : g.color === "#80d0ff" ? "128,208,255" : g.color === "#ffb060" ? "255,176,96" : g.color === "#60ff80" ? "96,255,128" : "192,128,255") + ",0.2)";
-      roundRect(ctx, bx + 8, gy, bw - 16, bh, 8);
-      ctx.fill();
-      ctx.strokeStyle = g.color;
-      ctx.lineWidth = 1.5;
-      roundRect(ctx, bx + 8, gy, bw - 16, bh, 8);
-      ctx.stroke();
-      ctx.fillStyle = "#e8ecf8";
-      ctx.font = "bold 13px monospace";
-      ctx.fillText(g.name, bx + 24, gy + 16);
-      ctx.fillStyle = "#8899b0";
-      ctx.font = "10px monospace";
-      ctx.fillText("Hedef: " + g.name, bx + 24, gy + 32);
-    }
-    ctx.fillStyle = "#8080aa";
-    ctx.font = "11px monospace";
-    ctx.textAlign = "center";
-    ctx.fillText("Ba\u015fka yere t\u0131kla = kapat", cw / 2, by + bhTotal - 10);
-    ctx.textAlign = "left";
+  if (!this.open) return;
+  ctx.fillStyle = "rgba(0,0,0,0.65)";
+  ctx.fillRect(0, 0, cw, ch);
+  const bx = Math.round(cw * 0.2);
+  const by = Math.round(ch * 0.2);
+  const cw2 = Math.round(cw * 0.6);
+  const bhTotal = Math.round(ch * 0.6);
+  ctx.fillStyle = "rgba(12, 14, 36, 0.96)";
+  ctx.strokeStyle = "#6080d0";
+  ctx.lineWidth = 2;
+  roundRect(ctx, bx, by, cw2, bhTotal, 12);
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = "#f0d050";
+  ctx.font = "bold 16px monospace";
+  ctx.textAlign = "center";
+  ctx.fillText("I\u015EINLANMA GATES\u0130", cw / 2, by + 28);
+  ctx.textAlign = "left";
+  const cols = 3;
+  const gap = 8;
+  const bw = Math.floor((cw2 - 16 - gap * 2) / cols);
+  const bh = 42;
+  const startY = by + 50;
+  for (let i = 0; i < this.gates.length; i++) {
+  const g = this.gates[i];
+  const col = i % cols;
+  const row = Math.floor(i / cols);
+  const gx = bx + 8 + col * (bw + gap);
+  const gy = startY + row * (bh + gap);
+  var gc = g.color.replace("#","");
+  var r2 = parseInt(gc.substring(0,2),16), g2 = parseInt(gc.substring(2,4),16), b2 = parseInt(gc.substring(4,6),16);
+  ctx.fillStyle = "rgba(" + r2 + "," + g2 + "," + b2 + ",0.2)";
+  roundRect(ctx, gx, gy, bw, bh, 8);
+  ctx.fill();
+  ctx.strokeStyle = g.color;
+  ctx.lineWidth = 1.5;
+  roundRect(ctx, gx, gy, bw, bh, 8);
+  ctx.stroke();
+  ctx.fillStyle = "#e8ecf8";
+  ctx.font = "bold 12px monospace";
+  ctx.fillText(g.name, gx + 8, gy + 18);
+  ctx.fillStyle = "#8899b0";
+  ctx.font = "9px monospace";
+  ctx.fillText("Hedef: " + g.name, gx + 8, gy + 33);
+  }
+  ctx.fillStyle = "#8080aa";
+  ctx.font = "11px monospace";
+  ctx.textAlign = "center";
+  ctx.fillText("Ba\u015Fka yere t\u0131kla = kapat", cw / 2, by + bhTotal - 10);
+  ctx.textAlign = "left";
   }
 };
 
 function executeGateTeleport(gate) {
-  var tx = gate.col * TILE_SIZE;
-  var ty = gate.row * TILE_SIZE;
-  player.x = tx;
-  player.y = ty;
+  var gCol = gate.col, gRow = gate.row;
+  // Güvenli nokta bul (su veya duvar değil)
+  if (map.isSolid(gCol, gRow)) {
+  var found = false;
+  for (var dy = -3; dy <= 3 && !found; dy++) {
+  for (var dx = -3; dx <= 3 && !found; dx++) {
+  var nc = gCol + dx, nr = gRow + dy;
+  if (nc >= 1 && nc < WORLD_COLS - 1 && nr >= 1 && nr < WORLD_ROWS - 1 && !map.isSolid(nc, nr)) {
+  gCol = nc; gRow = nr; found = true; }
+  }
+  }
+  }
+  player.x = gCol * TILE_SIZE + TILE_SIZE / 2;
+  player.y = gRow * TILE_SIZE + TILE_SIZE / 2;
   pickupMsgText = gate.name + "'a \u0131\u015f\u0131nland\u0131n!";
   pickupMsgTimer = 2;
   gameAudio.playLevelUp();
@@ -14592,26 +14295,6 @@ function renderCrusherUI(ctx, cw, ch) {
   ctx.fillText("\u2716 Kapat", cw - 40, 32);
   ctx.textAlign = "left";
 }
-
-const WILD_PETS_DATA = [
-  { col: VOX+5,  row: VOY+5,  type: "cat" },
-  { col: VOX+34, row: VOY+7,  type: "dog" },
-  { col: VOX+8,  row: VOY+22, type: "bunny" },
-  { col: VOX+32, row: VOY+24, type: "bird" },
-  { col: VOX+18, row: VOY+26, type: "fox" },
-  { col: 38,  row: 45,  type: "bunny" },
-  { col: 255, row: 52,  type: "bird" },
-  { col: 60,  row: 195, type: "cat" },
-  { col: 232, row: 180, type: "fox" },
-  { col: 150, row: 30,  type: "dog" },
-  { col: 42,  row: 33,  type: "fox" },
-  { col: 51,  row: 27,  type: "bunny" },
-  { col: 258, row: 36,  type: "bird" },
-  { col: 33,  row: 195, type: "cat" },
-  { col: 262, row: 195, type: "bunny" },
-  { col: 150, row: 18,  type: "bird" },
-  { col: 150, row: 213, type: "fox" },
-];
 
 const WORLD_ITEMS_DATA = [
   { col: VOX+5,  row: VOY+11, item: "wood",  count: 3 },
@@ -14758,8 +14441,6 @@ const hud = new HUD();
 const inventory = new Inventory();
 const worldItems = WORLD_ITEMS_DATA.filter(d => isSafeSpawn(d.col, d.row))
   .map(d => new WorldItem(d.col, d.row, d.item, d.count, d.respawnable !== false));
-const wildPets = WILD_PETS_DATA.filter(d => isSafeSpawn(d.col, d.row)).map(d => new WildPet(d.col, d.row, d.type));
-
 function closeInventorySlotInspect() {
   inventorySlotInspect = null;
   inventoryInspectScrollY = 0;
@@ -14861,13 +14542,14 @@ function inventorySlotInspectLayout(cw, ch) {
   const btnH = 34;
   const btnY = py + ph - btnH - 14;
   const gap = 8;
-  const nBtn = 3;
+  const nBtn = inventory && inventory.repairMode ? 4 : 3;
   const bw = Math.floor((pw - 32 - gap * (nBtn - 1)) / nBtn);
   const btnEquip = { x: px + 16, y: btnY, w: bw, h: btnH };
   const btnDrop = { x: px + 16 + bw + gap, y: btnY, w: bw, h: btnH };
-  const btnClose = { x: px + 16 + (bw + gap) * 2, y: btnY, w: bw, h: btnH };
+  const btnRepair = inventory && inventory.repairMode ? { x: px + 16 + (bw + gap) * 2, y: btnY, w: bw, h: btnH } : null;
+  const btnClose = { x: px + 16 + (bw + gap) * (nBtn - 1), y: btnY, w: bw, h: btnH };
   const btnUpgrade = { x: px + 16, y: btnY - btnH - 10, w: pw - 32, h: btnH };
-  return { px, py, pw, ph, btnEquip, btnDrop, btnClose, btnUpgrade };
+  return { px, py, pw, ph, btnEquip, btnDrop, btnClose, btnUpgrade, btnRepair };
 }
 
 function handleInventorySlotInspectClick(mx, my, cw, ch) {
@@ -14903,6 +14585,31 @@ function handleInventorySlotInspectClick(mx, my, cw, ch) {
   if (dropInventorySlotStackToWorld(kind, idx)) {
   closeInventorySlotInspect();
   player.applyEquipmentBonus(inventory);
+  }
+  return true;
+  }
+  if (L.btnRepair && inR(L.btnRepair)) {
+  var defR = ITEMS[slot.id];
+  if (defR && defR.equipSlot && slot.durability != null) {
+  var mxDura = getItemDurabilityMax(defR);
+  if (slot.durability < mxDura) {
+  var missing = mxDura - slot.durability;
+  var cost = Math.max(1, Math.ceil(missing * 0.5));
+  var goldHave = inventory.countItem("coin");
+  if (goldHave >= cost) {
+  inventory.removeItem("coin", cost);
+  slot.durability = mxDura;
+  pickupMsgText = defR.name + " tamir edildi! -" + cost + " alt\u0131n";
+  pickupMsgTimer = 2;
+  player.applyEquipmentBonus(inventory);
+  } else {
+  pickupMsgText = "Yeterli alt\u0131n yok! " + cost + " alt\u0131n gerekli.";
+  pickupMsgTimer = 2;
+  }
+  } else {
+  pickupMsgText = "Bu e\u015Fyan\u0131n tamire ihtiyac\u0131 yok.";
+  pickupMsgTimer = 1.5;
+  }
   }
   return true;
   }
@@ -15116,6 +14823,17 @@ function renderInventorySlotInspect(ctx, cw, ch) {
   const tDr = "Yere at";
   ctx.fillText(tDr, L.btnDrop.x + (L.btnDrop.w - ctx.measureText(tDr).width) / 2, L.btnDrop.y + 22);
 
+  if (L.btnRepair) {
+  ctx.fillStyle = "rgba(50,70,90,0.92)";
+  ctx.strokeStyle = "#70a0c0";
+  roundRect(ctx, L.btnRepair.x, L.btnRepair.y, L.btnRepair.w, L.btnRepair.h, 6);
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = "#d0e8ff";
+  ctx.font = "bold 11px monospace";
+  ctx.fillText("Tamir Et", L.btnRepair.x + (L.btnRepair.w - ctx.measureText("Tamir Et").width) / 2, L.btnRepair.y + 22);
+  }
+
   ctx.fillStyle = "rgba(60,55,70,0.92)";
   ctx.strokeStyle = "#807090";
   roundRect(ctx, L.btnClose.x, L.btnClose.y, L.btnClose.w, L.btnClose.h, 6);
@@ -15154,12 +14872,10 @@ function renderInventorySlotInspect(ctx, cw, ch) {
   : (fromEquip ? "Takili esya: ozellik gor, cikar veya yere at." : "Sol t\u0131k: panel; ba\u015far\u0131s\u0131z y\u00fckseltmelerde alt\u0131n harcan\u0131r."));
   ctx.fillText(hintText, L.px + 16, L.py + L.ph - 6);
 }
-const petPanel = new PetPanel();
 const bankPanel = new BankPanel();
 const shop = new Shop();
 const craftPanel = new CraftPanel();
 const minimap = new Minimap(map);
-let activePet = null;
 const arrows = [];
 
 /* ── Ana Hikaye Görev Sistemi ────────────────────────────────── */
@@ -15169,31 +14885,31 @@ const QUEST_DEFS = [
   id: "q01_village_call", title: "Köyün Çağrısı", giver: "Yaşlı Bilge", chapter: 1, chapterTitle: "Bölüm 1: Yeni Başlangıç",
   desc: "Yaşlı Bilge seni köyde karşıladı. Çevredeki ağaçlardan 10 odun toplayarak köye yardım et.",
   objectives: [{ type: "collect", itemId: "wood", count: 10, label: "Odun topla" }],
-  rewards: { xp: 50, gold: 15, items: [{ id: "axe", count: 1 }] },
+  rewards: { xp: 200, gold: 15, items: [{ id: "axe", count: 1 }, { id: "boots_leather", count: 1 }] },
   nextQuest: "q02_first_bow"},
   {
   id: "q02_first_bow", title: "İlk Yay", giver: "Tüccar Elif", chapter: 1,
   desc: "Tüccar Elif sana bir yay ve ok hediye edecek. Ona uğra ve ilk silahını al.",
   objectives: [{ type: "talk", npcName: "Tüccar Elif", label: "Tüccar Elif ile konuş" }],
-  rewards: { xp: 30, gold: 10, items: [{ id: "bow", count: 1 }, { id: "arrow", count: 20 }] },
+  rewards: { xp: 120, gold: 10, items: [{ id: "bow", count: 1 }, { id: "arrow", count: 20 }, { id: "helm_leather", count: 1 }] },
   nextQuest: "q03_village_defense"},
   {
   id: "q03_village_defense", title: "Köy Savunması", giver: "Muhtar", chapter: 1,
   desc: "Köyün etrafındaki balçıklar tehlike oluşturuyor. 5 balçık öldür.",
   objectives: [{ type: "kill", monsterType: "slime", count: 5, label: "Balçık öldür" }],
-  rewards: { xp: 80, gold: 25, items: [{ id: "potion", count: 3 }] },
+  rewards: { xp: 320, gold: 25, items: [{ id: "potion", count: 3 }, { id: "chest_leather", count: 1 }] },
   nextQuest: "q04_wolf_hunt"},
   {
   id: "q04_wolf_hunt", title: "Kurt Avı", giver: "Muhtar", chapter: 2, chapterTitle: "Bölüm 2: Karanlık İzler",
   desc: "Kurtlar köylülerin hayvanlarına saldırıyor. 4 kurt öldür.",
   objectives: [{ type: "kill", monsterType: "wolf", count: 4, label: "Kurt öldür" }],
-  rewards: { xp: 120, gold: 35, items: [{ id: "potion", count: 2 }, { id: "potion_mana", count: 2 }] },
+  rewards: { xp: 480, gold: 35, items: [{ id: "bow_short", count: 1 }, { id: "waist_cloth", count: 1 }] },
   nextQuest: "q05_skeleton_threat"},
   {
   id: "q05_skeleton_threat", title: "İskelet Tehdidi", giver: "Yaşlı Bilge", chapter: 2,
   desc: "İskeletler gizemli bir güç tarafından uyandırıldı. 4 iskelet yok et.",
   objectives: [{ type: "kill", monsterType: "skeleton", count: 4, label: "İskelet yok et" }],
-  rewards: { xp: 160, gold: 50, items: [{ id: "bow_hunter", count: 1 }] },
+  rewards: { xp: 640, gold: 50, items: [{ id: "bow_recurve", count: 1 }, { id: "helm_iron", count: 1 }] },
   nextQuest: "q06_forester_plea"},
   {
   id: "q06_forester_plea", title: "Ormancının Ricası", giver: "Ormancı", chapter: 2,
@@ -15202,7 +14918,7 @@ const QUEST_DEFS = [
   { type: "kill", monsterType: "orc", count: 3, label: "Ork öldür" },
   { type: "collect", itemId: "stone", count: 15, label: "Taş topla" },
   ],
-  rewards: { xp: 220, gold: 70, items: [{ id: "bow_hunter", count: 1 }] },
+  rewards: { xp: 880, gold: 70, items: [{ id: "bow_hunter", count: 1 }, { id: "chest_steel", count: 1 }] },
   nextQuest: "q07_desert_secrets"},
   {
   id: "q07_desert_secrets", title: "Çöl Sırları", giver: "Çöl Gezgini", chapter: 3, chapterTitle: "Bölüm 3: Boss Uyanışı",
@@ -15211,13 +14927,13 @@ const QUEST_DEFS = [
   { type: "kill", monsterType: "dune_raider", count: 3, label: "Kum Akıncısı öldür" },
   { type: "kill", monsterType: "golem", count: 2, label: "Golem öldür" },
   ],
-  rewards: { xp: 300, gold: 90, items: [{ id: "helm_iron", count: 1 }] },
+  rewards: { xp: 1200, gold: 90, items: [{ id: "bow_composite", count: 1 }, { id: "boots_swift", count: 1 }] },
   nextQuest: "q08_first_boss"},
   {
   id: "q08_first_boss", title: "Kadim Kökün Öfkesi", giver: "Yaşlı Bilge", chapter: 3,
   desc: "Ormanın derinliklerinde kadim bir ağaç canavar uyanmış! Kadim Kök boss'unu yen.",
   objectives: [{ type: "kill", monsterType: "forest_treant", count: 1, label: "Kadim Kök'ü yen" }],
-  rewards: { xp: 500, gold: 150, items: [{ id: "potion", count: 5 }, { id: "potion_mana", count: 5 }] },
+  rewards: { xp: 2000, gold: 150, items: [{ id: "bow_war", count: 1 }, { id: "gloves_archer", count: 1 }, { id: "waist_chain", count: 1 }] },
   nextQuest: "q09_boat_builder"},
   {
   id: "q09_boat_builder", title: "Denize Açılış", giver: "Liman Reisi", chapter: 4, chapterTitle: "Bölüm 4: Adalar ve Titanlar",
@@ -15227,45 +14943,113 @@ const QUEST_DEFS = [
   { type: "collect", itemId: "stone", count: 5, label: "Taş topla" },
   { type: "collect", itemId: "rope", count: 3, label: "Halat topla" },
   ],
-  rewards: { xp: 350, gold: 100, items: [{ id: "potion", count: 5 }] },
+  rewards: { xp: 1400, gold: 100, items: [{ id: "ring_copper", count: 1 }, { id: "arms_iron", count: 1 }] },
   nextQuest: "q10_desert_titan"},
   {
   id: "q10_desert_titan", title: "Kum Titanı", giver: "Çöl Bilgini", chapter: 4,
   desc: "Çöl Adası'nda devasa bir titan uyandı. Kum Titanı'nı yen!",
   objectives: [{ type: "kill", monsterType: "desert_titan", count: 1, label: "Kum Titanı'nı yen" }],
-  rewards: { xp: 600, gold: 200, items: [{ id: "chest_epic", count: 1 }] },
+  rewards: { xp: 2400, gold: 200, items: [{ id: "bow_moon_epic", count: 1 }, { id: "chest_chain", count: 1 }] },
   nextQuest: "q11_ice_queen"},
   {
   id: "q11_ice_queen", title: "Buzun Kraliçesi", giver: "Kuzey Kaşifi", chapter: 4,
   desc: "Kuzeyin buzlu topraklarında Buz Kraliçe hüküm sürüyor. Onu yen!",
   objectives: [{ type: "kill", monsterType: "ice_queen", count: 1, label: "Buz Kraliçe'yi yen" }],
-  rewards: { xp: 800, gold: 250, items: [{ id: "helm_epic", count: 1 }] },
+  rewards: { xp: 3200, gold: 250, items: [{ id: "chest_mithril", count: 1 }, { id: "boots_epic", count: 1 }] },
   nextQuest: "q12_thunder_lord"},
   {
   id: "q12_thunder_lord", title: "Gök Gücü", giver: "Yaşlı Bilge", chapter: 5, chapterTitle: "Bölüm 5: Karanlığın Yükselişi",
   desc: "Fırtına bölgesinde Gök Gücü adında korkunç bir varlık uyandı. Onu yen!",
   objectives: [{ type: "kill", monsterType: "thunder_lord", count: 1, label: "Gök Gücü'nü yen" }],
-  rewards: { xp: 1000, gold: 350, items: [{ id: "bow_long", count: 1 }, { id: "boots_epic", count: 1 }] },
+  rewards: { xp: 4000, gold: 350, items: [{ id: "bow_sun_epic", count: 1 }, { id: "ring_power", count: 1 }, { id: "helm_epic", count: 1 }] },
   nextQuest: "q13_volcanic_fury"},
   {
   id: "q13_volcanic_fury", title: "Volkanın Öfkesi", giver: "Güney Muhafızı", chapter: 5,
   desc: "Lav Titanı volkanik adada her şeyi yakıp yıkıyor. Bu tehlikeyi durdur.",
   objectives: [{ type: "kill", monsterType: "volcanic_titan", count: 1, label: "Lav Titanı'nı yen" }],
-  rewards: { xp: 1200, gold: 400, items: [{ id: "ring_power", count: 1 }, { id: "potion", count: 10 }] },
+  rewards: { xp: 4800, gold: 400, items: [{ id: "bracelet_titan", count: 1 }, { id: "chest_epic", count: 1 }, { id: "potion", count: 10 }] },
   nextQuest: "q14_scorpion_king"},
   {
   id: "q14_scorpion_king", title: "Akrep Kralın Laneti", giver: "Çöl Gezgini", chapter: 5,
   desc: "Akrep Kral çöl derinliklerinden yükseldi! Bu kadim yaratığı yen.",
   objectives: [{ type: "kill", monsterType: "scorpion_king", count: 1, label: "Akrep Kral'ı yen" }],
-  rewards: { xp: 1400, gold: 500, items: [{ id: "chest_epic", count: 1 }, { id: "potion_mana", count: 10 }] },
+  rewards: { xp: 5600, gold: 500, items: [{ id: "earring_focus", count: 1 }, { id: "amulet_protection", count: 1 }, { id: "cloak_shadow", count: 1 }] },
   nextQuest: "q15_kaiju_awakening"},
   {
   id: "q15_kaiju_awakening", title: "Kaiju Uyanışı", giver: "Yaşlı Bilge", chapter: 6, chapterTitle: "Bölüm 6: Son Savaş",
   desc: "Tüm kaos tek bir kaynaktan geliyor: Kaiju Titan! Dünyanın kaderi senin ellerinde!",
   objectives: [{ type: "kill", monsterType: "godzilla", count: 1, label: "Kaiju Titan'ı yen" }],
-  rewards: { xp: 2500, gold: 1000, items: [{ id: "bow_storm_legendary", count: 1 }] },
+  rewards: { xp: 10000, gold: 1000, items: [{ id: "bow_storm_legendary", count: 1 }, { id: "chest_legendary", count: 1 }, { id: "wings_legendary", count: 1 }] },
   nextQuest: null, finalQuest: true},
 ];
+
+// Günlük görev sistemi
+const DAILY_QUEST_POOL = [
+  { title: "Canavar Avcısı", desc: "10 canavar öldür.", type: "kill", target: "any", count: 10, xp: 800, gold: 100, diam: 1 },
+  { title: "Balçık Temizliği", desc: "8 balçık öldür.", type: "kill", target: "slime", count: 8, xp: 600, gold: 60, diam: 1 },
+  { title: "Kurt Kovalamacası", desc: "6 kurt öldür.", type: "kill", target: "wolf", count: 6, xp: 700, gold: 80, diam: 1 },
+  { title: "İskelet Katliamı", desc: "5 iskelet öldür.", type: "kill", target: "skeleton", count: 5, xp: 900, gold: 100, diam: 1 },
+  { title: "Ork Avı", desc: "4 ork öldür.", type: "kill", target: "orc", count: 4, xp: 1000, gold: 120, diam: 1 },
+  { title: "Oduncu", desc: "20 odun topla.", type: "collect", target: "wood", count: 20, xp: 500, gold: 50, diam: 1 },
+  { title: "Madenci", desc: "15 taş topla.", type: "collect", target: "stone", count: 15, xp: 600, gold: 60, diam: 1 },
+  { title: "Güç Toplama", desc: "3 elmas bul.", type: "collect", target: "diamond", count: 3, xp: 1500, gold: 200, diam: 1 },
+  { title: "Boss Kesici", desc: "1 boss canavarı öldür.", type: "kill", target: "boss", count: 1, xp: 2000, gold: 300, diam: 2 },
+  { title: "Zindan Fatihi", desc: "Zindanı tamamla.", type: "dungeon", target: "dungeon", count: 1, xp: 3000, gold: 500, diam: 3 },
+];
+const NUM_DAILY_QUESTS = 3;
+let dailyQuests = [];
+let dailyQuestProgress = [];
+let dailyQuestDate = "";
+
+function resetDailyQuests() {
+  var today = new Date().toDateString();
+  if (dailyQuestDate === today && dailyQuests.length > 0) return;
+  dailyQuestDate = today;
+  dailyQuests = [];
+  dailyQuestProgress = [];
+  var pool = DAILY_QUEST_POOL.slice();
+  for (var qi = 0; qi < NUM_DAILY_QUESTS; qi++) {
+  var idx = Math.floor(Math.random() * pool.length);
+  dailyQuests.push(pool[idx]);
+  pool.splice(idx, 1);
+  dailyQuestProgress.push(0);
+  }
+}
+
+function updateDailyQuestProgress(typeVal, targetVal) {
+  resetDailyQuests();
+  for (var di = 0; di < dailyQuests.length; di++) {
+  var dq = dailyQuests[di];
+  if (dq.type !== typeVal) continue;
+  if (typeVal === "kill" && dq.target !== "any" && dq.target !== "boss" && dq.target !== targetVal) continue;
+  if (typeVal === "kill" && dq.target === "boss" && !targetVal) continue;
+  if (typeVal === "collect" && dq.target !== targetVal) continue;
+  dailyQuestProgress[di] = Math.min(dq.count, dailyQuestProgress[di] + 1);
+  }
+}
+
+var questNotifyText = "";
+var questNotifyTimer = 0;
+var lootNotifyItems = [];
+
+function showQuestNotify(text) {
+  questNotifyText = text;
+  questNotifyTimer = 2.5;
+}
+
+function claimDailyReward(index) {
+  resetDailyQuests();
+  if (index < 0 || index >= dailyQuests.length) return false;
+  if (dailyQuestProgress[index] < dailyQuests[index].count) return false;
+  var dq = dailyQuests[index];
+  player.gainXP(dq.xp);
+  inventory.addItem("coin", dq.gold);
+  if (dq.diam > 0) inventory.addItem("diamond", dq.diam);
+  showQuestNotify("Günlük görev tamamlandı! +" + dq.xp + " XP +" + dq.gold + " Altın +" + dq.diam + " Elmas");
+  gameAudio.playLevelUp();
+  dailyQuestProgress[index] = -1;
+  return true;
+}
 
 const questTracker = {
   currentQuestId: "q01_village_call",
@@ -15339,8 +15123,7 @@ const questTracker = {
   if (quest.rewards.gold) inventory.addItem("coin", quest.rewards.gold);
   if (quest.rewards.items) for (const ri of quest.rewards.items) inventory.addItem(ri.id, ri.count);
   }
-  this.questCompleteText = quest.title + " tamamlandı!";
-  this.questCompleteTimer = 3.5;
+  showQuestNotify(quest.title + " tamamlandı!");
   gameAudio.playLevelUp();
   if (quest.finalQuest) {
   this.storyComplete = true; this.currentQuestId = null;
@@ -15394,7 +15177,7 @@ const questTracker = {
   const titleText = (quest.chapter ? "[B" + quest.chapter + "] " : "") + quest.title;
   const titleW = ctx.measureText(titleText).width;
   ctx.font = "9px monospace";
-  const hintW = ctx.measureText("[J] G\u00f6rev Defteri").width;
+  const hintW = 0;
   let maxObjW = 0;
   for (const obj of quest.objectives) {
   let cur = 0, max = 1;
@@ -15406,19 +15189,28 @@ const questTracker = {
   const ow = ctx.measureText(objText).width;
   if (ow > maxObjW) maxObjW = ow;
   }
+  // Ödül satırlarını hazırla (metin + simge ID'si)
+  var rewLines2 = [];
+  if (quest.rewards) {
+  if (quest.rewards.xp) rewLines2.push({ text: "+" + quest.rewards.xp + " XP", id: null });
+  if (quest.rewards.gold) rewLines2.push({ text: "+" + quest.rewards.gold + " Alt\u0131n", id: "coin" });
+  if (quest.rewards.items) for (var ri3 = 0; ri3 < quest.rewards.items.length; ri3++) {
+  var riDef3 = ITEMS[quest.rewards.items[ri3].id];
+  rewLines2.push({ text: (riDef3 ? riDef3.name : quest.rewards.items[ri3].id) + " x" + quest.rewards.items[ri3].count, id: quest.rewards.items[ri3].id });
+  }
+  }
+  var rewH = rewLines2.length > 0 ? 16 + (rewLines2.length - 1) * 13 + 6 : 0;
   const contentW = Math.max(titleW, hintW, maxObjW);
   const panelW = contentW + 32;
-  const panelH = 38 + quest.objectives.length * lineH;
-  const px = Math.floor((cw - panelW) / 2);
-  const py = 6;
+  const panelH = 38 + quest.objectives.length * lineH + rewH;
+  const px = 8;
+  const py = 50;
   ctx.fillStyle = "rgba(10,12,30,0.82)"; ctx.strokeStyle = "rgba(240,208,80,0.6)"; ctx.lineWidth = 1;
   roundRect(ctx, px, py, panelW, panelH, 8); ctx.fill(); ctx.stroke();
   ctx.fillStyle = "#f0d050"; ctx.font = "bold 10px monospace";
-  ctx.fillText(titleText, px + 24, py + 14);
-  ctx.fillStyle = "#808898"; ctx.font = "9px monospace";
-  ctx.fillText("[J] G\u00f6rev Defteri", px + 24, py + 26);
+  ctx.fillText(titleText, px + 12, py + 14);
   ctx.font = "9px monospace";
-  let oy = py + 38;
+  let oy = py + 30;
   for (const obj of quest.objectives) {
   let cur = 0, max = 1;
   if (obj.type === "kill") { cur = prog["kill_" + obj.monsterType] || 0; max = obj.count; }
@@ -15426,8 +15218,27 @@ const questTracker = {
   else if (obj.type === "talk") { cur = prog["talk_" + (obj.npcName || "")] ? 1 : 0; max = 1; }
   const done = cur >= max;
   ctx.fillStyle = done ? "#80ff80" : "#d0d8f0";
-  ctx.fillText((done ? "\u2713 " : "\u25c6 ") + obj.label + " (" + cur + "/" + max + ")", px + 26, oy);
+  ctx.fillText((done ? "\u2713 " : "\u25c6 ") + obj.label + " (" + cur + "/" + max + ")", px + 12, oy);
   oy += lineH;
+  }
+  if (rewLines2.length > 0) {
+  oy += 4;
+  ctx.fillStyle = "#d0a040";
+  ctx.font = "9px monospace";
+  ctx.fillText("\u00d6d\u00fcller:", px + 12, oy);
+  oy += 12;
+  for (var rli3 = 0; rli3 < rewLines2.length; rli3++) {
+  var rw2 = rewLines2[rli3];
+  var rIconX = px + 14;
+  if (rw2.id) {
+  drawItemIcon(ctx, rw2.id, rIconX, oy - 8, 10);
+  rIconX += 12;
+  }
+  ctx.fillStyle = "#c0c8e0";
+  ctx.font = "9px monospace";
+  ctx.fillText(rw2.text, rIconX + 2, oy);
+  oy += 13;
+  }
   }
   ctx.restore();
   },
@@ -15484,6 +15295,26 @@ const questTracker = {
   }
   ly += 16;
   }
+  // Günlük görevler
+  resetDailyQuests();
+  if (dailyQuests.length > 0) {
+  var dy = Math.max(ly + 10, py + ph - 150);
+  if (dy > py + ph - 20) dy = py + ph - 20;
+  ctx.fillStyle = "#d06040"; ctx.font = "bold 13px monospace";
+  ctx.fillText("G\u00fcnl\u00fck G\u00f6revler", px + 16, dy); dy += 20;
+  for (var dqi = 0; dqi < dailyQuests.length; dqi++) {
+  var dq = dailyQuests[dqi];
+  var prog = dailyQuestProgress[dqi];
+  var done = prog >= dq.count;
+  var claimed = prog === -1;
+  ctx.fillStyle = claimed ? "#606060" : (done ? "#80ff80" : "#c0c8e0");
+  ctx.font = (done && !claimed) ? "bold 10px monospace" : "10px monospace";
+  ctx.fillText((claimed ? "\u2713 " : done ? "\u25b6 " : "\u25c6 ") + dq.title + " (" + (claimed ? "teslim edildi" : Math.min(prog, dq.count) + "/" + dq.count) + ")", px + 20, dy); dy += 14;
+  ctx.fillStyle = "#8899aa"; ctx.font = "9px monospace";
+  ctx.fillText("  " + dq.desc + " | \u00d6d\u00fcl: +" + dq.xp + "XP +" + dq.gold + "Alt\u0131n +" + dq.diam + "Elmas", px + 28, dy); dy += 14;
+  }
+  }
+
   if (this.storyComplete) {
   ctx.fillStyle = "#f0d050"; ctx.font = "bold 14px monospace";
   ctx.fillText("\u2605 T\u00fcm ana hikaye g\u00f6revleri tamamland\u0131! \u2605", px + 16, py + ph - 12);
@@ -15661,7 +15492,15 @@ function buildRoadCamps() {
         var rr = vy + dir.dy * st.dist + offsetY;
         if (cc < 10 || cc >= WORLD_COLS - 10 || rr < 10 || rr >= WORLD_ROWS - 10) continue;
         var members = [];
-        for (var mi = 0; mi < 5; mi++) members.push(st.type);
+        if (st.type === "slime") {
+          for (var mi = 0; mi < 5; mi++) members.push("slime");
+          members.push("slime_boss");
+        } else if (st.type === "wolf") {
+          for (var mi = 0; mi < 5; mi++) members.push("wolf");
+          members.push("wolf_boss");
+        } else {
+          for (var mi = 0; mi < 3; mi++) members.push(st.type);
+        }
         camps.push({
           id: "road_" + (id++),
           name: dir.label + " Yolu",
@@ -15758,8 +15597,8 @@ function getCampRoleByIndex(idx, count) {
 function spawnMonsterCamp(list, camp) {
   if (!camp || !camp.members || !camp.members.length) return;
   const ring = [
-  { dc: 0, dr: 0 }, { dc: 2, dr: 0 }, { dc: -2, dr: 0 }, { dc: 0, dr: 2 },
-  { dc: 0, dr: -2 }, { dc: 2, dr: 2 }, { dc: -2, dr: 2 }, { dc: 2, dr: -2 }, { dc: -2, dr: -2 },
+  { dc: 0, dr: 0 }, { dc: 3, dr: 1 }, { dc: -3, dr: 1 }, { dc: 1, dr: 3 },
+  { dc: -1, dr: -3 }, { dc: 3, dr: -1 }, { dc: -3, dr: -1 }, { dc: 1, dr: -3 }, { dc: -1, dr: 3 },
   ];
   const scale = camp.scale || 1;
   const tier = camp.tier || "normal";
@@ -15872,31 +15711,7 @@ function alertCampAllies(monsters, source, player) {
 }
 
 function processCampSupport(monsters, dt) {
-  for (const h of monsters) {
-  if (!h || !h.alive || h.state === "dying") continue;
-  if (!h.campId || h.campRole !== "healer") continue;
-  h.supportHealCd = (h.supportHealCd || 0) - dt;
-  if (h.supportHealCd > 0) continue;
-  h.supportHealCd = 2.4 + Math.random() * 1.4;
-  let target = null;
-  let bestMissing = 0;
-  for (const m of monsters) {
-  if (!m || !m.alive || m.state === "dying" || m.campId !== h.campId) continue;
-  if (m.hp >= m.maxHp) continue;
-  const missing = m.maxHp - m.hp;
-  const d = Math.hypot(m.cx - h.cx, m.cy - h.cy);
-  if (d > TILE_SIZE * 8) continue;
-  if (!target || missing > bestMissing) {
-  target = m;
-  bestMissing = missing;
-  }
-  }
-  if (target) {
-  const heal = Math.max(4, Math.floor(target.maxHp * 0.06));
-  target.hp = Math.min(target.maxHp, target.hp + heal);
-  spawnDamageFloater(target.cx, target.y - 10, "+" + heal, false, "#72ff88");
-  }
-  }
+  // Canavar iyileştirme kaldırıldı
 }
 
 function updateRangedFocusState(dt) {
@@ -15943,9 +15758,6 @@ function tryActivateRageBurst() {
   player.applyEquipmentBonus(inventory);
   player.hp = Math.max(1, Math.floor(player.maxHp * hr));
   player.mana = Math.min(player.maxMana, Math.floor(player.maxMana * mr));
-  if (activePet && rangedFocusMonster && rangedFocusMonster.alive && rangedFocusMonster.state !== "dying") {
-  activePet.combatTarget = rangedFocusMonster;
-  }
   pickupMsgText = "G\u00dc\u00c7 PATLAMASI! 3x hasar & can (6 sn) [G]";
   pickupMsgTimer = 1.35;
   gameAudio.playSkill();
@@ -15967,9 +15779,11 @@ function buildEquipPoolsByRarity() {
 function dropMonsterLoot(m, worldItems) {
   // Metin Taşı özel drop: 1-3 elmas
   if (m.metinStone) {
-  const tc2 = Math.floor(m.cx / TILE_SIZE), tr2 = Math.floor(m.cy / TILE_SIZE);
   var diamCount = 1 + Math.floor(Math.random() * 3);
-  worldItems.push(new WorldItem(tc2, tr2, "diamond", diamCount, false));
+  var added = diamCount - inventory.addItem("diamond", diamCount);
+  if (added > 0) {
+  lootNotifyItems.push({ text: "+" + added + " Elmas", id: "diamond", color: "#ffc040", timer: 2.5 });
+  }
   return;
   }
 
@@ -16005,13 +15819,19 @@ function dropMonsterLoot(m, worldItems) {
   if (itemId === "boss_chest") return false;
   if (!canDropForMonsterLevel(itemId)) return false;
   const cnt = Math.max(1, count | 0);
-  const wi = new WorldItem(tc, tr, itemId, cnt, false);
+  var left = inventory.addItem(itemId, cnt, upgradeLevel || 0);
+  var added = cnt - left;
+  if (added > 0) {
+  dropped.push({ id: itemId, c: added });
+  var lColor = getItemRarityColor(itemId);
+  lootNotifyItems.push({ text: "+" + added + " " + (ITEMS[itemId] ? ITEMS[itemId].name : itemId), id: itemId, color: lColor, timer: 2.5 });
+  }
+  if (left > 0) {
+  var wi = new WorldItem(tc, tr, itemId, left, false);
   wi.upgrade = upgradeLevel | 0;
-  const reqLv = 1 + Math.floor(Math.random() * Math.min(70, Math.max(1, mLevel)));
-  wi.requiredLevel = reqLv;
   worldItems.push(wi);
-  dropped.push({ id: itemId, c: cnt });
-  return true;
+  }
+  return added > 0;
   };
   if (m.type === "island_treasure_chest") {
   const chestPool = [
@@ -16277,16 +16097,34 @@ function tryReleasePowerShotClick() {
   return true;
 }
 
+function findNearestMonster() {
+  var best = null, bestD = 1e9;
+  for (var mi2 = 0; mi2 < monsters.length; mi2++) {
+  var m2 = monsters[mi2];
+  if (!m2.alive || m2.state === "dying") continue;
+  var d2 = m2.distTo(player.centerX, player.centerY);
+  if (d2 < bestD) { bestD = d2; best = m2; }
+  }
+  return best;
+}
+
 function tryMeleeOrRangedClick() {
   if (player.shootCooldown <= 0 && inventory.countItem("arrow") > 0) {
   if (!playerHasBowEquipped(inventory)) {
   if (pickupMsgTimer <= 0) {
-  pickupMsgText = "Ok atmak i\u00e7in yay ku\u015fan!";
+  pickupMsgText = "Ok atmak i\u00e7in yay ku\u015Fan!";
   pickupMsgTimer = 1.2;
   }
   return false;
   } else if (player.useMana(player.manaCostShoot)) {
   if (!player.adminMode) inventory.removeItem("arrow", 1);
+  var targetMon = findNearestMonster();
+  if (targetMon) {
+  player.angle = Math.atan2(targetMon.cy - player.centerY, targetMon.cx - player.centerX);
+  var aCos2 = Math.cos(player.angle), aSin2 = Math.sin(player.angle);
+  if (Math.abs(aCos2) > Math.abs(aSin2)) player.direction = aCos2 >= 0 ? DIR.RIGHT : DIR.LEFT;
+  else player.direction = aSin2 >= 0 ? DIR.DOWN : DIR.UP;
+  }
   const rapid = player.archerRapidFireTimer > 0;
   player.shootCooldown = (rapid ? 0.45 : 0.7) * player.getAttackSpeedMultiplier();
   player.shootAnim = 0.25;
@@ -16385,7 +16223,7 @@ function tryShootPierceArrow() {
 }
 
 function combatPanelsBlockAutoAttack() {
-  return inventory.open || petPanel.open || dialog.active || shop.open || craftPanel.open || charPanel.open || skillPanel.open || !!worldItemInspect || !!inventorySlotInspect || gatePanel.open;
+  return inventory.open || dialog.active || shop.open || craftPanel.open || charPanel.open || skillPanel.open || !!worldItemInspect || !!inventorySlotInspect || gatePanel.open;
 }
 
 /** Mobil ana sald\u0131r\u0131 d\u00fc\u011fmesinin Etkile\u015fim (E) olarak davranabilece\u011fi durumlar (canavar g\u00f6stergesi hari\u00e7). */
@@ -16395,9 +16233,6 @@ function mobileInteractEligible() {
   if (wi.alive && wi.isNear(player)) return true;
   }
   if (canChopFacingTree(player, map, inventory)) return true;
-  for (const wp of wildPets) {
-  if (wp.alive && wp.isNear(player)) return true;
-  }
   for (const npc of npcs) {
   if (npc.isNearPlayer(player)) return true;
   }
@@ -16820,6 +16655,21 @@ function skillCastDeathMark() {
   return true;
 }
 
+function skillCastVampiricArrow() {
+  const sx = player.centerX + Math.cos(player.angle) * 14;
+  const sy = player.centerY + Math.sin(player.angle) * 14;
+  const aim = arrowAimAssist(sx, sy, player.angle, monsters);
+  const a = new Arrow(sx, sy, aim.angle);
+  a.furyShot = player.rageBurstTimer > 0;
+  a.damage = applyOutgoingPlayerDamage(player.getRangedDamage() * 1.2, player, inventory, {});
+  a.element = "vampiric";
+  a.vampiric = true;
+  arrows.push(a);
+  registerRangedAimTarget(aim.target);
+  player.shootAnim = 0.22;
+  return true;
+}
+
 function tryCastActiveSkill(slotIndex) {
   if (player.inBoat) {
   pickupMsgText = "Teknede beceri kullan\u0131lamaz";
@@ -16855,6 +16705,8 @@ function tryCastActiveSkill(slotIndex) {
   case "chain_shot": ok = skillCastChainShot(); break;
   case "shadow_arrow": ok = skillCastShadowArrow(); break;
   case "death_mark": ok = skillCastDeathMark(); break;
+  case "vampiric_arrow": ok = skillCastVampiricArrow(); break;
+  case "thunder_arrow": ok = spawnSkillBolt("lightning"); break;
   case "poison_arrow": ok = spawnSkillBolt("poison"); break;
   case "ice_arrow": ok = spawnSkillBolt("ice"); break;
   case "fire_arrow": ok = spawnSkillBolt("fire"); break;
@@ -16978,10 +16830,6 @@ canvas.addEventListener("mousedown", (e) => {
   minimap._fullMapZoom = Math.max(0.5, (minimap._fullMapZoom || 1) - 0.25);
   e.preventDefault(); return;
   }
-  if (L.closeBtnX && mx >= L.closeBtnX && mx < L.closeBtnX + L.closeBtnSz && my >= L.closeBtnY && my < L.closeBtnY + L.closeBtnSz) {
-  minimap.toggle();
-  e.preventDefault(); return;
-  }
   }
   e.preventDefault(); return;
   }
@@ -17011,7 +16859,7 @@ canvas.addEventListener("mousedown", (e) => {
   return;
   }
 
-  if (e.button === 0 && !inventory.open && !bankPanel.open && !petPanel.open && !dialog.active && !shop.open && !craftPanel.open && !charPanel.open && !player.inBoat) {
+  if (e.button === 0 && !inventory.open && !bankPanel.open && !dialog.active && !shop.open && !craftPanel.open && !charPanel.open && !player.inBoat) {
   if (tryOpenWorldItemInspect(e.clientX, e.clientY)) {
   canvasMouse0Down = false;
   e.preventDefault();
@@ -17019,7 +16867,7 @@ canvas.addEventListener("mousedown", (e) => {
   }
   }
 
-  if (e.button === 0 && !inventory.open && !bankPanel.open && !petPanel.open && !dialog.active && !shop.open && !craftPanel.open && !charPanel.open) {
+  if (e.button === 0 && !inventory.open && !bankPanel.open && !dialog.active && !shop.open && !craftPanel.open && !charPanel.open) {
   if (tryCombatPotionClick(e.clientX, e.clientY)) {
   e.preventDefault();
   return;
@@ -17030,7 +16878,7 @@ canvas.addEventListener("mousedown", (e) => {
   }
   }
 
-  if (e.button === 0 && !inventory.open && !bankPanel.open && !petPanel.open && !dialog.active && !shop.open && !craftPanel.open && !charPanel.open && !player.inBoat) {
+  if (e.button === 0 && !inventory.open && !bankPanel.open && !dialog.active && !shop.open && !craftPanel.open && !charPanel.open && !player.inBoat) {
   }
 });
 canvas.addEventListener("contextmenu", (e) => { if (inventory.open || shop.open) e.preventDefault(); });
@@ -17099,24 +16947,6 @@ canvas.addEventListener("wheel", (e) => {
   }
 }, { passive: false });
 
-function tryMobileClosePanels(mx, my) {
-  if (!touchState.mobileUI || !hitMobileCloseChip(mx, my, canvasW)) return false;
-  if (dialog.active) { dialog.close(true); return true; }
-  if (shop.open) { shop.close(); return true; }
-  if (craftPanel.open) { craftPanel.close(); return true; }
-  if (bankPanel.open) { bankPanel.close(); return true; }
-  if (inventory.open) {
-  if (inventorySlotInspect) { closeInventorySlotInspect(); return true; }
-  inventory.close();
-  return true;
-  }
-  if (petPanel.open) { petPanel.close(); return true; }
-  if (charPanel.open) { charPanel.close(); return true; }
-  if (worldItemInspect) { closeWorldItemInspect(); return true; }
-  if (inventorySlotInspect) { closeInventorySlotInspect(); return true; }
-  return false;
-}
-
 function handleCanvasTouchStart(e) {
   gameAudio.resume();
   refreshMobileUI();
@@ -17128,10 +16958,14 @@ function handleCanvasTouchStart(e) {
   mouseX = mx;
   mouseY = my;
 
-  if (tryMobileClosePanels(mx, my)) continue;
-
   if (gatePanel.open) {
   gatePanel.handleClick(mx, my, canvasW, canvasH);
+  continue;
+  }
+
+  if (shop.open) {
+  if (shop.tryBeginGridScroll(id, mx, my, canvasW, canvasH, inventory)) continue;
+  shop.handleClick(mx, my, canvasW, canvasH, inventory, false, 0);
   continue;
   }
 
@@ -17171,12 +17005,6 @@ function handleCanvasTouchStart(e) {
   continue;
   }
 
-  if (petPanel.open && activePet) {
-  const { px, py, pw, ph } = petPanel.getPanelBounds(canvasW, canvasH);
-  if (mx < px || mx > px + pw || my < py || my > py + ph) petPanel.close();
-  continue;
-  }
-
   if (dialog.active) {
   dialog.advance();
   continue;
@@ -17187,14 +17015,14 @@ function handleCanvasTouchStart(e) {
   continue;
   }
 
-  if (!inventory.open && !petPanel.open && !dialog.active && !shop.open && !craftPanel.open && !charPanel.open && !player.inBoat) {
+  if (!inventory.open && !dialog.active && !shop.open && !craftPanel.open && !charPanel.open && !player.inBoat) {
   if (tryOpenWorldItemInspect(mx, my)) continue;
   }
 
   if (!touchState.mobileUI) continue;
 
   if (!shop.open && !craftPanel.open && tryCombatPotionClick(mx, my)) continue;
-  if (!shop.open && !craftPanel.open && !inventory.open && !petPanel.open && !dialog.active && !charPanel.open &&
+  if (!shop.open && !craftPanel.open && !inventory.open && !dialog.active && !charPanel.open &&
   !worldItemInspect && !inventorySlotInspect && tryCloseZoomOnBlankTap(mx, my)) continue;
 
   const br = hitMobileButton(mx, my, canvasW, canvasH);
@@ -17246,7 +17074,9 @@ function handleCanvasTouchMove(e) {
   bankPanel.scrollY = Math.max(0, Math.min(bankPanel.scrollMax, bankPanel.scrollY - dy));
   }
   if (shop.open && shop.gridScrollTouchId === id) {
-  shop.gridScrollTouchId = -1;
+  const dy = my - shop.gridScrollLastY;
+  shop.gridScrollLastY = my;
+  shop.handleScroll(dy, mx, my, canvasW, canvasH);
   }
   if (id === bankPanel.scrollTouchId) {
   bankPanel.scrollTouchId = -1;
@@ -17324,7 +17154,7 @@ function pulseMobileButtonKey(key) {
   else if (key === "KeyL") pulseJust("KeyL");
   else if (key === "KeyT") pulseJust("KeyT");
   else if (key === "KeyB") pulseJust("KeyB");
-  else if (key === "KeyJ") pulseJust("KeyJ");
+  // Görev NPC üzerinden açılır, KeyJ kaldırıldı
 }
 
 function handleCanvasTouchEnd(e) {
@@ -17385,23 +17215,7 @@ canvas.addEventListener("touchcancel", handleCanvasTouchCancel, { passive: false
 function renderTouchOverlay(ctx) {
   if (!touchState.mobileUI) return;
   const cw = canvasW, ch = canvasH;
-  const modal = dialog.active || inventory.open || petPanel.open || shop.open || craftPanel.open || charPanel.open || bankPanel.open || !!worldItemInspect || !!inventorySlotInspect;
-  if (modal) {
-  ctx.fillStyle = "rgba(30,30,50,0.85)";
-  roundRect(ctx, cw - 50, 8, 42, 40, 8);
-  ctx.fill();
-  ctx.strokeStyle = "#c08080";
-  ctx.lineWidth = 2;
-  roundRect(ctx, cw - 50, 8, 42, 40, 8);
-  ctx.stroke();
-  ctx.fillStyle = "#f0e0e0";
-  ctx.font = "bold 22px monospace";
-  ctx.fillText("\u00D7", cw - 33, 37);
-  ctx.fillStyle = "rgba(0,0,0,0.45)";
-  ctx.font = "9px monospace";
-  ctx.fillText("Kapat", cw - 44, 52);
-  return;
-  }
+  if (dialog.active || inventory.open || shop.open || craftPanel.open || charPanel.open || bankPanel.open || !!worldItemInspect || !!inventorySlotInspect) return;
 
   if (touchState.joyId >= 0) {
   const J = touchState;
@@ -17510,14 +17324,6 @@ function renderTouchOverlay(ctx) {
   }
   if (b.kind === "questToggle") {
   const visible = questTracker.questHUDVisible;
-  const pulse = 0.85 + Math.sin(performance.now() * 0.004) * 0.15;
-  ctx.fillStyle = visible ? "rgba(40,40,65,0.88)" : "rgba(60,50,50,0.88)";
-  ctx.beginPath();
-  ctx.arc(b.cx, b.cy, b.r, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.strokeStyle = visible ? `rgba(200,210,240,${pulse * 0.6})` : "#ff8080";
-  ctx.lineWidth = 2;
-  ctx.stroke();
   ctx.fillStyle = visible ? "#d0d8f0" : "#ffaaaa";
   ctx.font = "bold 18px monospace";
   const lbl = "G";
@@ -17526,14 +17332,6 @@ function renderTouchOverlay(ctx) {
   }
   if (b.kind === "mapToggle") {
   const isOpen = minimap.fullMap;
-  const pulse = 0.85 + Math.sin(performance.now() * 0.004) * 0.15;
-  ctx.fillStyle = isOpen ? "rgba(50,120,50,0.92)" : "rgba(30,30,50,0.9)";
-  ctx.beginPath();
-  ctx.arc(b.cx, b.cy, b.r, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.strokeStyle = isOpen ? "#80ff80" : `rgba(180,200,220,${pulse * 0.6})`;
-  ctx.lineWidth = 2;
-  ctx.stroke();
   ctx.fillStyle = isOpen ? "#e0ffe0" : "#c0d0e0";
   ctx.font = "bold 15px monospace";
   const lbl = isOpen ? "\u2716" : "\uD83D\uDDFA\uFE0F";
@@ -17542,13 +17340,6 @@ function renderTouchOverlay(ctx) {
   }
   if (b.kind === "zoomToggle") {
   const on = worldZoom > WORLD_ZOOM_STEPS[1] + 0.02;
-  ctx.fillStyle = on ? "rgba(44,22,66,0.94)" : "rgba(30,30,50,0.9)";
-  ctx.beginPath();
-  ctx.arc(b.cx, b.cy, b.r, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.strokeStyle = on ? "#c890ff" : "rgba(180,200,220,0.6)";
-  ctx.lineWidth = 2;
-  ctx.stroke();
   ctx.fillStyle = on ? "#f0d8ff" : "#c0d0e0";
   ctx.font = "bold 16px monospace";
   const lbl = on ? "\u2212" : "+";
@@ -17556,13 +17347,6 @@ function renderTouchOverlay(ctx) {
   continue;
   }
   if (b.kind === "townTeleport") {
-  ctx.fillStyle = "rgba(28,48,28,0.92)";
-  ctx.beginPath();
-  ctx.arc(b.cx, b.cy, b.r, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.strokeStyle = "#80cc80";
-  ctx.lineWidth = 2;
-  ctx.stroke();
   ctx.fillStyle = "#c0ffc0";
   ctx.font = "bold 14px monospace";
   ctx.fillText(b.label, b.cx - ctx.measureText(b.label).width / 2, b.cy + 5);
@@ -17570,15 +17354,7 @@ function renderTouchOverlay(ctx) {
   }
   // Sağ taraftaki simge butonları (çanta, K, Y) - cx,cy,r var ama kind menu
   if (b.r && b.cx && b.cy && b.kind === "menu") {
-  const onBtn = touchState.btnDown.size && [...touchState.btnDown.values()].some((v) => v.key === b.key);
-  ctx.fillStyle = onBtn ? "rgba(70,50,90,0.92)" : "rgba(30,35,50,0.88)";
-  ctx.beginPath();
-  ctx.arc(b.cx, b.cy, b.r, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.strokeStyle = onBtn ? "#c090e0" : "#6070a0";
-  ctx.lineWidth = 2;
-  ctx.stroke();
-  ctx.fillStyle = onBtn ? "#f0e0ff" : "#d0d8f0";
+  ctx.fillStyle = "#d0d8f0";
   ctx.font = "bold 14px monospace";
   ctx.fillText(b.label, b.cx - ctx.measureText(b.label).width / 2, b.cy + 5);
   continue;
@@ -17670,7 +17446,7 @@ const DUNGEON_POOLS = {
   medium: ["skeleton","orc","ancient_root"],
   hard: ["golem","dark_knight","frost_spirit","bog_troll"],
   elite: ["iron_behemoth","storm_wraith","crystalline","void_hound"],
-  boss: ["forest_treant","desert_titan","rock_warden","flower_queen","north_frost","south_shadow","ice_queen"]
+  boss: ["forest_treant","desert_titan","rock_warden","flower_queen","north_frost","south_shadow","ice_queen","slime_boss","wolf_boss"]
 };
 const DUNGEON_WAVE_TABLE = [
   [["easy"], ["easy"], ["easy","medium"]],
@@ -17956,14 +17732,14 @@ function getUsableAxeStack(inv) {
 
 function tryAutoChopNearbyTree(dt) {
   if (actionCooldown > 0 || !dt) return false;
-  if (player.inBoat || inventory.open || petPanel.open || shop.open || craftPanel.open || charPanel.open || dialog.active || !!worldItemInspect || !!inventorySlotInspect) return false;
+  if (player.inBoat || inventory.open || shop.open || craftPanel.open || charPanel.open || dialog.active || !!worldItemInspect || !!inventorySlotInspect) return false;
   return tryChopTree(player, map, inventory);
 }
 
 function handleInteraction() {
   if (actionCooldown > 0) return;
 
-  if (inventory.open || petPanel.open || shop.open || craftPanel.open || charPanel.open || worldItemInspect || !!inventorySlotInspect || gatePanel.open) return;
+  if (inventory.open || shop.open || craftPanel.open || charPanel.open || worldItemInspect || !!inventorySlotInspect || gatePanel.open) return;
 
   if (dialog.active) { dialog.advance(); actionCooldown = 0.2; return; }
 
@@ -17984,30 +17760,6 @@ function handleInteraction() {
 
   if (tryChopTree(player, map, inventory)) return;
 
-  for (const wp of wildPets) {
-  if (wp.alive && wp.isNear(player)) {
-  const result = wp.tryTame(inventory);
-  if (result instanceof Pet) {
-  activePet = result;
-  activePet.x = wp.x; activePet.y = wp.y;
-  pickupMsgText = activePet.name + " evcille\u015ftirildi!";
-  pickupMsgTimer = 2;
-  actionCooldown = 0.3;
-  } else if (result === null) {
-  const pt = PET_TYPES[wp.type];
-  pickupMsgText = pt.name + " g\u00fcvenmeye ba\u015fl\u0131yor...";
-  pickupMsgTimer = 1.5;
-  actionCooldown = 0.3;
-  } else {
-  const pt = PET_TYPES[wp.type];
-  pickupMsgText = pt.cost + " altın gerekli!";
-  pickupMsgTimer = 1.5;
-  actionCooldown = 0.3;
-  }
-  return;
-  }
-  }
-
   for (const npc of npcs) {
   if (npc.isNearPlayer(player)) {
   questTracker.onNpcTalk(npc.name);
@@ -18016,80 +17768,35 @@ function handleInteraction() {
   } else if (npc.banker) {
   bankPanel.open = true;
   inventory.close();
-  petPanel.open = false;
   shop.close();
   craftPanel.close();
   charPanel.close();
   } else if (npc.itemRepairer) {
-  dialog.show(npc.name, npc.dialog, function() {
-  var totalCost = 0;
-  var repairedCount = 0;
-  var containers = [inventory.slots, inventory.hotbar];
-  for (var ci2 = 0; ci2 < containers.length; ci2++) {
-  var container2 = containers[ci2];
-  for (var si2 = 0; si2 < container2.length; si2++) {
-  var st2 = container2[si2];
-  if (!st2 || !st2.id || st2.durability == null) continue;
-  var def3 = ITEMS[st2.id];
-  if (!def3 || !def3.equipSlot) continue;
-  var mx2 = getItemDurabilityMax(def3);
-  if (mx2 <= 0) continue;
-  if (st2.durability >= mx2) continue;
-  var missing = mx2 - st2.durability;
-  var cost = Math.max(1, Math.ceil(missing * 0.5));
-  var gold_ = inventory.countItem("coin");
-  if (gold_ < totalCost + cost) continue;
-  totalCost += cost;
-  st2.durability = mx2;
-  repairedCount++;
-  }
-  }
-  // Also check equipped
-  for (var sk2 in inventory.equipped) {
-  var eq2 = inventory.equipped[sk2];
-  if (!eq2 || !eq2.id || eq2.durability == null) continue;
-  var def4 = ITEMS[eq2.id];
-  if (!def4 || !def4.equipSlot) continue;
-  var mx3 = getItemDurabilityMax(def4);
-  if (mx3 <= 0 || eq2.durability >= mx3) continue;
-  var missing2 = mx3 - eq2.durability;
-  var cost2 = Math.max(1, Math.ceil(missing2 * 0.5));
-  var gold2 = inventory.countItem("coin");
-  if (gold2 < totalCost + cost2) continue;
-  totalCost += cost2;
-  eq2.durability = mx3;
-  repairedCount++;
-  }
-  if (repairedCount <= 0) {
-  pickupMsgText = "Tamir edilecek eÅŸyan yok veya altÄ±nÄ±n yetmiyor!";
-  pickupMsgTimer = 2.5;
-  } else {
-  inventory.removeItem("coin", totalCost);
-  pickupMsgText = repairedCount + " eÅŸya tamir edildi! -" + totalCost + " altÄ±n";
-  pickupMsgTimer = 3;
-  gameAudio.playLevelUp();
-  }
-  });
+  inventory.open = true;
+  inventory.repairMode = true;
   } else if (npc.teleportGate) {
-  dialog.show(npc.name, npc.dialog, function() {
   gatePanel.open = true;
-  });
   } else if (npc.dungeonPortal) {
   dialog.show(npc.name, npc.dialog, function() {
   startDungeon();
   });
-  } else if (npc.itemCrusher) {
+  } else if (npc.questGiver) {
   dialog.show(npc.name, npc.dialog, function() {
+  questTracker.questLogOpen = true;
+  resetDailyQuests();
+  for (var dqj = 0; dqj < dailyQuests.length; dqj++) {
+  if (dailyQuestProgress[dqj] >= dailyQuests[dqj].count) claimDailyReward(dqj);
+  }
+  });
+  } else if (npc.itemCrusher) {
   inventory.crusherMode = true;
   inventory.crushSelected = new Set();
   inventory.open = true;
-  });
   } else {
   const bNpc = npc.buildsBoat;
   dialog.show(npc.name, npc.dialog, () => {
   if (bNpc && !player.hasBoat) {
   if (typeof charPanel !== "undefined") charPanel.close();
-  if (typeof petPanel !== "undefined") petPanel.open = false;
   if (typeof shop !== "undefined") shop.close();
   if (typeof inventory !== "undefined") inventory.close();
   craftPanel.open = true;
@@ -18344,35 +18051,6 @@ function loadMonsterFromSave(o) {
   return m;
 }
 
-function wildPetToSave(wp) {
-  return {
-  type: wp.type, x: wp.x, y: wp.y, alive: wp.alive, direction: wp.direction,
-  animTimer: wp.animTimer, animFrame: wp.animFrame, moving: wp.moving,
-  wanderTimer: wp.wanderTimer, moveDir: { dx: wp.moveDir.dx, dy: wp.moveDir.dy }, moveTime: wp.moveTime,
-  homeX: wp.homeX, homeY: wp.homeY, tameProgress: wp.tameProgress, exclamTimer: wp.exclamTimer};
-}
-
-function loadWildPetFromSave(o) {
-  const col = o.x != null ? Math.floor(o.x / TILE_SIZE) : 0;
-  const row = o.y != null ? Math.floor(o.y / TILE_SIZE) : 0;
-  const wp = new WildPet(col, row, o.type);
-  if (o.x != null) wp.x = o.x;
-  if (o.y != null) wp.y = o.y;
-  wp.alive = o.alive !== false;
-  wp.direction = o.direction != null ? o.direction : wp.direction;
-  wp.animTimer = o.animTimer || 0;
-  wp.animFrame = o.animFrame || 0;
-  wp.moving = !!o.moving;
-  wp.wanderTimer = o.wanderTimer != null ? o.wanderTimer : wp.wanderTimer;
-  wp.moveDir = o.moveDir ? { dx: o.moveDir.dx || 0, dy: o.moveDir.dy || 0 } : wp.moveDir;
-  wp.moveTime = o.moveTime || 0;
-  wp.homeX = o.homeX != null ? o.homeX : wp.homeX;
-  wp.homeY = o.homeY != null ? o.homeY : wp.homeY;
-  wp.tameProgress = o.tameProgress | 0;
-  wp.exclamTimer = o.exclamTimer || 0;
-  return wp;
-}
-
 function npcToSave(n) {
   return {
   x: n.x, y: n.y, direction: n.direction, moving: n.moving,
@@ -18392,33 +18070,6 @@ function applyNpcSave(n, d) {
   n.animFrame = d.animFrame || 0;
 }
 
-function petToSave(pet) {
-  if (!pet) return null;
-  return {
-  type: pet.type, name: pet.name, x: pet.x, y: pet.y,
-  direction: pet.direction, animTimer: pet.animTimer, animFrame: pet.animFrame, moving: pet.moving,
-  happiness: pet.happiness, lastFedTimer: pet.lastFedTimer, heartTimer: pet.heartTimer, followDist: pet.followDist};
-}
-
-function loadActivePetFromSave(o) {
-  if (!o || !o.type) return null;
-  const pet = new Pet(o.type, o.name || PET_TYPES[o.type].name);
-  pet.x = o.x; pet.y = o.y;
-  pet.direction = o.direction != null ? o.direction : pet.direction;
-  pet.animTimer = o.animTimer || 0;
-  pet.animFrame = o.animFrame || 0;
-  pet.moving = !!o.moving;
-  pet.happiness = o.happiness != null ? o.happiness : pet.happiness;
-  pet.lastFedTimer = o.lastFedTimer || 0;
-  pet.heartTimer = o.heartTimer || 0;
-  pet.followDist = o.followDist != null ? o.followDist : pet.followDist;
-  pet.lootTarget = null;
-  pet.combatTarget = null;
-  pet.petAttackCd = 0;
-  pet.posHistory = [];
-  return pet;
-}
-
 function resetWorldToNewGameState() {
   const fresh = new Player(PLAYER_START.col, PLAYER_START.row);
   applyPlayerSave(player, playerToSave(fresh));
@@ -18436,10 +18087,6 @@ function resetWorldToNewGameState() {
   worldItems.length = 0;
   for (const d of WORLD_ITEMS_DATA) {
   if (isSafeSpawn(d.col, d.row)) worldItems.push(new WorldItem(d.col, d.row, d.item, d.count, d.respawnable !== false));
-  }
-  wildPets.length = 0;
-  for (const d of WILD_PETS_DATA) {
-  if (isSafeSpawn(d.col, d.row)) wildPets.push(new WildPet(d.col, d.row, d.type));
   }
   const freshM = spawnMonsters();
   monsters.length = 0;
@@ -18464,7 +18111,6 @@ function resetWorldToNewGameState() {
   b.wanderTimer = a.wanderTimer; b.animTimer = 0; b.animFrame = 0;
   }
 
-  activePet = null;
   bankPanel.close();
   bankPanel.slots = Array(160).fill(null);
   bankPanel.gold = 0;
@@ -18476,7 +18122,6 @@ function resetWorldToNewGameState() {
   dialog.active = false;
   if (shop.close) shop.close();
   if (craftPanel.close) craftPanel.close();
-  petPanel.open = false;
   if (typeof charPanel.close === "function") charPanel.close();
   closeWorldItemInspect();
   closeInventorySlotInspect();
@@ -18495,9 +18140,7 @@ function buildSavePayload(displayName) {
   minimapVisible: minimap.visible,
   worldItems: worldItems.map(worldItemToSave),
   monsters: monsters.map(monsterToSave),
-  wildPets: wildPets.map(wildPetToSave),
   npcs: npcs.map(npcToSave),
-  activePet: petToSave(activePet),
   bank: { slots: bankPanel.slots, gold: bankPanel.gold | 0 },
   quests: questTracker.toSave()};
 }
@@ -18521,18 +18164,9 @@ function applySavePayload(data) {
   const freshM = spawnMonsters();
   for (const m of freshM) monsters.push(m);
   }
-  wildPets.length = 0;
-  if (data.wildPets && data.wildPets.length) {
-  for (const wo of data.wildPets) wildPets.push(loadWildPetFromSave(wo));
-  } else {
-  for (const d of WILD_PETS_DATA) {
-  if (isSafeSpawn(d.col, d.row)) wildPets.push(new WildPet(d.col, d.row, d.type));
-  }
-  }
   if (data.npcs && data.npcs.length === npcs.length) {
   for (let i = 0; i < npcs.length; i++) applyNpcSave(npcs[i], data.npcs[i]);
   }
-  activePet = loadActivePetFromSave(data.activePet);
   if (data.bank) {
   bankPanel.slots = Array.isArray(data.bank.slots) ? data.bank.slots.map((s) => s ? { ...s } : null) : Array(160).fill(null);
   bankPanel.gold = Math.max(0, (data.bank.gold | 0));
@@ -18547,7 +18181,6 @@ function applySavePayload(data) {
   dialog.active = false;
   if (shop.close) shop.close();
   if (craftPanel.close) craftPanel.close();
-  petPanel.open = false;
   if (typeof charPanel.close === "function") charPanel.close();
   closeWorldItemInspect();
   closeInventorySlotInspect();
@@ -18751,7 +18384,6 @@ function gameLoop(now) {
   if (inventorySlotInspect) closeInventorySlotInspect();
   else inventory.close();
   }
-  else if (petPanel.open) petPanel.close();
   else if (charPanel.open) {
   charPanel.close();
   }
@@ -18765,7 +18397,6 @@ function gameLoop(now) {
   if (inventory.open) {
   bankPanel.close();
   charPanel.close();
-  petPanel.open = false;
   shop.close();
   craftPanel.close();
   }
@@ -18799,22 +18430,6 @@ function gameLoop(now) {
   pickupMsgTimer = 1.5;
   }
   }
-  if (wasJustPressed("KeyJ") && !bankPanel.open && !dialog.active && !shop.open && !craftPanel.open) {
-  questTracker.toggle();
-  if (questTracker.questLogOpen) {
-  inventory.close(); petPanel.open = false; charPanel.close();
-  }
-  }
-  if (wasJustPressed("KeyP")) {
-  petPanel.toggle();
-  if (petPanel.open) {
-  bankPanel.close();
-  charPanel.close();
-  inventory.open = false;
-  shop.close();
-  craftPanel.close();
-  }
-  }
   if (wasJustPressed("KeyM")) {
   minimap.toggle();
   if (minimap.fullMap) minimap.visible = true;
@@ -18822,14 +18437,14 @@ function gameLoop(now) {
   if (wasJustPressed("KeyO") && !dialog.active && !shop.open && !craftPanel.open && !charPanel.open && !worldItemInspect && !inventorySlotInspect) {
   inventory.autoEquipBestItems();
   }
-  if (wasJustPressed("KeyT") && !dialog.active && !inventory.open && !petPanel.open && !shop.open && !craftPanel.open && !charPanel.open && !worldItemInspect && !inventorySlotInspect) {
+  if (wasJustPressed("KeyT") && !dialog.active && !inventory.open && !shop.open && !craftPanel.open && !charPanel.open && !worldItemInspect && !inventorySlotInspect) {
   tryTeleportToVillage();
   }
 
   if (wasJustPressed("KeyB")) {
   if (craftPanel.open) {
   craftPanel.close();
-  } else if (!inventory.open && !petPanel.open && !shop.open && !dialog.active && !charPanel.open) {
+  } else if (!inventory.open && !shop.open && !dialog.active && !charPanel.open) {
   if (player.inBoat) {
   if (!playerBoatFullyOnWater(map, player)) {
   player.inBoat = false;
@@ -18859,18 +18474,17 @@ function gameLoop(now) {
   if (wasJustPressed("Digit" + n) && !charPanel.open) inventory.selectedHotbar = n - 1;
   }
 
-  if (wasJustPressed("KeyF") && activePet && !inventory.open && !petPanel.open && !shop.open && !dialog.active && !charPanel.open) {
-  const feedCost = 5;
-  if (inventory.countItem("coin") >= feedCost) {
-  inventory.removeItem("coin", feedCost);
-  const gain = activePet.feed(null);
-  pickupMsgText = activePet.name + " beslendi! +" + gain + " mutluluk";
-  pickupMsgTimer = 1.5;
-  }
-  }
+
 
   if (actionCooldown > 0) actionCooldown -= dt;
   if (pickupMsgTimer > 0) pickupMsgTimer -= dt;
+  if (questNotifyTimer > 0) questNotifyTimer -= dt;
+  if (lootNotifyItems.length > 0) {
+  for (var li = lootNotifyItems.length - 1; li >= 0; li--) {
+  lootNotifyItems[li].timer -= dt;
+  if (lootNotifyItems[li].timer <= 0) lootNotifyItems.splice(li, 1);
+  }
+  }
   if (typeof player !== "undefined" && player && player.levelUpTimer > 0) player.levelUpTimer -= dt;
   updateRangedFocusState(dt);
   updateDamageFloaters(dt);
@@ -18934,7 +18548,7 @@ function gameLoop(now) {
 
   shop.update(dt);
   craftPanel.update(dt);
-  const uiOpen = dialog.active || inventory.open || bankPanel.open || petPanel.open || shop.open || craftPanel.open || charPanel.open || skillPanel.open || !!worldItemInspect || !!inventorySlotInspect || questTracker.questLogOpen || minimap.fullMap || gatePanel.open;
+  const uiOpen = dialog.active || inventory.open || bankPanel.open || shop.open || craftPanel.open || charPanel.open || skillPanel.open || !!worldItemInspect || !!inventorySlotInspect || questTracker.questLogOpen || minimap.fullMap || gatePanel.open;
   const gamePaused = false;
 
   if (wasJustPressed("KeyQ") && !uiOpen) tryUseHpPotion();
@@ -19054,12 +18668,10 @@ function gameLoop(now) {
 
   for (const wi of worldItems) wi.update(dt);
   if (!uiOpen && !player.inBoat) tryAutoPickupNearbyWorldItems();
-  for (const wp of wildPets) if (wp.alive) wp.update(dt, map);
-  if (activePet) activePet.update(dt, player, map, worldItems, inventory, monsters);
 
   if (!gamePaused) {
   if (!touchState.mobileUI || (mobilePerfFrame % 2) === 0) {
-  processCampSupport(monsters, touchState.mobileUI ? dt * 2 : dt);
+  // processCampSupport kaldırıldı - canavarlar can basmaz
   }
   const farUpdateDistSq = MOBILE_MONSTER_FAR_UPDATE_DIST * MOBILE_MONSTER_FAR_UPDATE_DIST;
   for (let mi = 0; mi < monsters.length; mi++) {
@@ -19097,6 +18709,8 @@ function gameLoop(now) {
   inventory.addItem("coin", m.goldReward || 0);
   dropMonsterLoot(m, worldItems);
   questTracker.onMonsterKill(m.type);
+  var isBoss = MONSTER_TYPES[m.type] && MONSTER_TYPES[m.type].boss;
+  updateDailyQuestProgress("kill", isBoss ? "boss" : m.type);
   const mt = MONSTER_TYPES[m.type];
   const btag = mt && mt.boss ? "[BOSS] " : "";
   const campTag = m.campId ? " [GRUP]" : "";
@@ -19123,7 +18737,6 @@ function gameLoop(now) {
   hr: player.hp / Math.max(1, player.maxHp),
   mr: player.mana / Math.max(1, player.maxMana)};
   player.rageBurstTimer = 0;
-  if (activePet) activePet.combatTarget = null;
   }
   }
 
@@ -19159,6 +18772,14 @@ function gameLoop(now) {
   m.slowFactor = 0.45;
   } else if (a.element === "poison") {
   m._poisonTimer = (m._poisonTimer || 0) + 4;
+  } else if (a.element === "lightning") {
+  m.slowTimer = 1.5;
+  m.slowFactor = 0.3;
+  }
+  if (a.vampiric) {
+  const healAmt = Math.max(1, Math.floor(a.damage * 0.2));
+  player.hp = Math.min(player.maxHp, player.hp + healAmt);
+  spawnDamageFloater(player.centerX, player.y - 12, healAmt, false, "#60ff80");
   }
   if (a.slowArrow) {
   m.slowTimer = 3;
@@ -19192,7 +18813,7 @@ function gameLoop(now) {
   camera.updateShake(dt);
   if (currentTargetMonsterTimer > 0) currentTargetMonsterTimer -= dt;
 
-  let nearNPC = false, nearItem = false, nearWild = false, nearMonster = false, nearTreeChop = false;
+  let nearNPC = false, nearItem = false, nearMonster = false, nearTreeChop = false;
   if (!uiOpen) {
   for (const wi of worldItems) {
   if (wi.alive && wi.isNear(player)) {
@@ -19206,15 +18827,6 @@ function gameLoop(now) {
   nearTreeChop = true;
   }
   if (!nearItem && !nearTreeChop) {
-  for (const wp of wildPets) {
-  if (wp.alive && wp.isNear(player)) {
-  const pt = PET_TYPES[wp.type];
-  hud.showInteractPrompt(interactPromptActionHint() + " " + pt.name + " evcilleştir (" + pt.cost + " altın)");
-  nearWild = true; break;
-  }
-  }
-  }
-  if (!nearItem && !nearWild && !nearTreeChop) {
   for (const m of monsters) {
   if (!m.alive || m.state === "dying") continue;
   if (m.distTo(player.centerX, player.centerY) < TILE_SIZE * 5) {
@@ -19226,12 +18838,13 @@ function gameLoop(now) {
   }
   }
   }
-  if (!nearItem && !nearWild && !nearMonster && !nearTreeChop) {
+  if (!nearItem && !nearMonster && !nearTreeChop) {
   for (const npc of npcs) {
   if (npc.isNearPlayer(player)) {
   if (npc.merchant) hud.showInteractPrompt(interactPromptActionHint() + " " + npc.name + " - Market");
   else if (npc.banker) hud.showInteractPrompt(interactPromptActionHint() + " " + npc.name + " - Banka");
   else if (npc.dungeonPortal) hud.showInteractPrompt(interactPromptActionHint() + " " + npc.name + " - Zindan");
+  else if (npc.questGiver) hud.showInteractPrompt(interactPromptActionHint() + " " + npc.name + " - Görevler");
   else if (npc.buildsBoat)
   hud.showInteractPrompt(interactPromptActionHint() + " " + npc.name + (player.hasBoat ? " (tekne: k\u0131y\u0131)" : " (tekne in\u015fa\u0131)"));
   else hud.showInteractPrompt(interactPromptActionHint() + " " + npc.name + " ile konu\u015f");
@@ -19240,7 +18853,7 @@ function gameLoop(now) {
   }
   }
   }
-  if (!nearNPC && !nearItem && !nearWild && !nearMonster && !nearTreeChop) {
+  if (!nearNPC && !nearItem && !nearMonster && !nearTreeChop) {
   if (!uiOpen && player.hasBoat && !player.inBoat &&
   map.isNearWater(player.feetX, player.feetY, 2) &&
   !map.canBoardBoatAtPx(player.feetX, player.feetY)) {
@@ -19334,7 +18947,6 @@ function gameLoop(now) {
 
   const renderables = [...npcs];
   if (!player.inBoat) renderables.push(player);
-  for (const wp of wildPets) if (wp.alive) renderables.push(wp);
   const mobRenderDistSq = MOBILE_MONSTER_RENDER_DIST * MOBILE_MONSTER_RENDER_DIST;
   let mobileVisibleMonsterCount = 0;
   for (const m of monsters) {
@@ -19348,7 +18960,6 @@ function gameLoop(now) {
   }
   renderables.push(m);
   }
-  if (activePet && !player.inBoat) renderables.push(activePet);
   renderables.sort((a, b) => (a.y + (a.h || 16)) - (b.y + (b.h || 16)));
   for (const e of renderables) {
   if (e === player) player.render(ctx, inventory, monsters);
@@ -19362,7 +18973,7 @@ function gameLoop(now) {
 
   camera.resetTransform(ctx);
 
-  if (!inventory.open && !petPanel.open && !shop.open && !craftPanel.open) {
+  if (!inventory.open && !shop.open && !craftPanel.open) {
   let questPanelBottom = 14;
   const quest = questTracker.getCurrentQuest();
   if (quest && !questTracker.questLogOpen && questTracker.questHUDVisible) {
@@ -19408,10 +19019,10 @@ function gameLoop(now) {
   const barPad = 4;
   var barY, rightReserve;
   if (touchState.mobileUI) {
-  barY = canvasH - 80;
+  barY = canvasH - 60;
   rightReserve = 170;
   } else {
-  barY = canvasH - (barH + barPad) * 3 - barPad;
+  barY = canvasH - 30;
   rightReserve = 64;
   }
   const barW = canvasW - barPad - rightReserve;
@@ -19438,26 +19049,12 @@ function gameLoop(now) {
   drawFullBar("MP", player.mana, player.maxMana, "#3060d0", "#60a0ff", barY + barH + barPad);
   drawFullBar("XP", player.xp, player.xpToNext, "#d0a020", "#f0d060", barY + (barH + barPad) * 2);
 
-  if (activePet) {
-  const pt = PET_TYPES[activePet.type];
-  const petY = hy + panelH + 8;
-  ctx.fillStyle = "rgba(10,10,30,0.7)";
-  roundRect(ctx, hx, petY, 130, 34, 6); ctx.fill();
-  drawPetSprite(ctx, activePet.type, hx + 6, petY + 8, DIR.DOWN, 0, false);
-  ctx.fillStyle = "#f0d050"; ctx.font = "bold 11px monospace";
-  ctx.fillText(activePet.name, hx + 28, petY + 14);
-  const bx2 = hx + 28, by2 = petY + 19, bw2 = 90, bh2 = 6;
-  ctx.fillStyle = "rgba(40,40,60,0.8)"; ctx.fillRect(bx2, by2, bw2, bh2);
-  const hc2 = activePet.happiness > 60 ? "#50c060" : activePet.happiness > 30 ? "#d0a030" : "#d04040";
-  ctx.fillStyle = hc2; ctx.fillRect(bx2, by2, bw2 * activePet.happiness / 100, bh2);
-  }
-
   if (player.inBoat) {
-  const boatY = hy + panelH + (activePet ? 44 : 8);
+  const boatY = questPanelBottom + 8;
   ctx.fillStyle = "rgba(10,10,30,0.7)";
-  roundRect(ctx, hx, boatY, 100, 28, 6); ctx.fill();
+  roundRect(ctx, 8, boatY, 100, 28, 6); ctx.fill();
   ctx.fillStyle = "#80c0ff"; ctx.font = "bold 12px monospace";
-  ctx.fillText("\u2693 Teknede", hx + 14, boatY + 18);
+  ctx.fillText("\u2693 Teknede", 8 + 14, boatY + 18);
   }
   }
 
@@ -19466,20 +19063,18 @@ function gameLoop(now) {
   inventory.render(ctx, canvasW, canvasH, mouseX, mouseY);
   if (inventory.open && inventory.crusherMode) renderCrusherUI(ctx, canvasW, canvasH);
   bankPanel.render(ctx, canvasW, canvasH, inventory);
-  petPanel.render(ctx, canvasW, canvasH, activePet);
   shop.render(ctx, canvasW, canvasH, inventory);
   craftPanel.render(ctx, canvasW, canvasH, inventory, player);
   gatePanel.render(ctx, canvasW, canvasH);
 
-  if (!inventory.open && !bankPanel.open && !petPanel.open && !shop.open && !craftPanel.open && !gatePanel.open) {
+  if (!inventory.open && !bankPanel.open && !shop.open && !craftPanel.open && !gatePanel.open) {
   hud.render(ctx, canvasW, canvasH);
   dialog.render(ctx, canvasW, canvasH);
   if (!questTracker.questLogOpen && questTracker.questHUDVisible) questTracker.renderHUD(ctx, canvasW, canvasH);
   if (minimap.fullMap) {
-  minimap._renderFullMap(ctx, canvasW, canvasH, camera, player, npcs, wildPets, activePet);
+  minimap._renderFullMap(ctx, canvasW, canvasH, camera, player, npcs);
   }
   }
-  questTracker.renderNotifications(ctx, canvasW, canvasH);
   questTracker.renderQuestLog(ctx, canvasW, canvasH);
 
   // Desktop toggle buttons
@@ -19590,98 +19185,89 @@ function gameLoop(now) {
   if (worldItemInspect) renderWorldItemInspect(ctx, canvasW, canvasH);
   if (inventorySlotInspect) renderInventorySlotInspect(ctx, canvasW, canvasH);
 
-  if (!inventory.open && !bankPanel.open && !petPanel.open && !shop.open && !craftPanel.open) {
+  if (!inventory.open && !bankPanel.open && !shop.open && !craftPanel.open) {
   drawCombatPotions(ctx, canvasW, canvasH, inventory);
   }
 
-  if (player.levelUpTimer > 0) {
-  var t = player.levelUpTimer;
-  var alpha = Math.min(1, t / 0.5);
-  var cx = canvasW / 2;
-  var cy = Math.floor(canvasH * 0.35);
-  ctx.save();
-  ctx.globalAlpha = alpha;
-  ctx.fillStyle = "rgba(10,10,20,0.75)";
-  roundRect(ctx, cx - 90, cy - 18, 180, 44, 10);
-  ctx.fill();
-  ctx.strokeStyle = "rgba(240,200,80,0.6)";
-  ctx.lineWidth = 2;
-  roundRect(ctx, cx - 90, cy - 18, 180, 44, 10);
-  ctx.stroke();
-  ctx.fillStyle = "#f0d050";
-  ctx.font = "bold 13px monospace";
-  ctx.fillText("SEV\u0130YE ATLADI!", cx - ctx.measureText("SEV\u0130YE ATLADI!").width / 2, cy + 2);
-  ctx.fillStyle = "#ffd700";
-  ctx.font = "bold 14px monospace";
-  var lvT = "\u2605 Lv." + player.level + " \u2605";
-  ctx.fillText(lvT, cx - ctx.measureText(lvT).width / 2, cy + 20);
-  ctx.restore();
-  }
-
-  if (player.dmgFlashTimer > 0) {
-  ctx.globalAlpha = player.dmgFlashTimer / 0.3 * 0.25;
-  ctx.fillStyle = "#ff0000";
-  ctx.fillRect(0, 0, canvasW, canvasH);
-  ctx.globalAlpha = 1;
-  }
-
-  if (player.equipPowerToastTimer > 0 && player.equipPowerToastText) {
-  const tAlpha = Math.min(1, player.equipPowerToastTimer / 0.22);
-  const yOff = (1.35 - player.equipPowerToastTimer) * 24;
-  ctx.globalAlpha = tAlpha;
-  ctx.fillStyle = player.equipPowerToastColor || "#ffffff";
-  ctx.font = "bold 15px monospace";
-  const yy = canvasH * 0.34 - yOff;
-  ctx.fillText(player.equipPowerToastText, canvasW / 2 - ctx.measureText(player.equipPowerToastText).width / 2, yy);
-  ctx.globalAlpha = 1;
-  }
-
-  // Sağ üst bilgi paneli (koordinat + ok + altın)
+  // Sağ üst bilgi paneli (koordinat + ok + altın + ekipman gücü)
   if (typeof player !== "undefined" && player && typeof inventory !== "undefined") {
   var tileX = Math.floor(player.centerX / TILE_SIZE);
   var tileY = Math.floor(player.centerY / TILE_SIZE);
   var coordStr = "X:" + tileX + " Y:" + tileY;
   var arrowCnt = inventory.countItem("arrow");
   var goldCnt = inventory.countItem("coin");
-  var line1 = coordStr;
-  var line2 = "Ok:" + arrowCnt;
-  var line3 = "\u26C1:" + goldCnt;
-  var maxW = Math.max(ctx.measureText(line1).width, ctx.measureText(line2).width, ctx.measureText(line3).width);
-  var infoH = 48;
-  ctx.fillStyle = "rgba(10,10,30,0.5)";
-  roundRect(ctx, canvasW - maxW - 20, 4, maxW + 14, infoH, 4);
-  ctx.fill();
-  ctx.fillStyle = "#b0b8d0";
+  var infoLines = [coordStr, "Ok:" + arrowCnt, "\u26C1:" + goldCnt];
+  if (player.equipPowerToastTimer > 0 && player.equipPowerToastText) {
+  infoLines.push(player.equipPowerToastText);
+  }
+  var maxW = 0;
+  for (var ii = 0; ii < infoLines.length; ii++) {
+  var iw2 = ctx.measureText(infoLines[ii]).width;
+  if (iw2 > maxW) maxW = iw2;
+  }
+  var infoH = infoLines.length * 13 + 4;
+  for (var ii = 0; ii < infoLines.length; ii++) {
+  var cols = ["#b0b8d0", "#c0d8f0", "#f0d050"];
+  ctx.fillStyle = ii < 3 ? cols[ii] : (player.equipPowerToastColor || "#ffffff");
   ctx.font = "9px monospace";
-  ctx.fillText(line1, canvasW - maxW - 13, 15);
-  ctx.fillStyle = "#c0d8f0";
-  ctx.fillText(line2, canvasW - maxW - 13, 28);
-  ctx.fillStyle = "#f0d050";
-  ctx.fillText(line3, canvasW - maxW - 13, 41);
+  ctx.fillText(infoLines[ii], canvasW - maxW - 13, 15 + ii * 13);
+  }
   }
 
   // Metin Taşı bildirimi
   if (metinStoneState.active && metinStoneState.notifText) {
-  var mtY = touchState.mobileUI && canvasW > canvasH * 1.05 ? 50 : 8;
-  var pulsMet = 0.85 + 0.15 * Math.sin(performance.now() * 0.005);
-  ctx.globalAlpha = pulsMet;
-  ctx.fillStyle = "rgba(10,10,30,0.7)";
-  roundRect(ctx, 8, mtY, 320, 48, 8);
-  ctx.fill();
-  ctx.strokeStyle = "#c08040";
-  ctx.lineWidth = 1.5;
-  roundRect(ctx, 8, mtY, 320, 48, 8);
-  ctx.stroke();
-  ctx.fillStyle = "#ffd060";
-  ctx.font = "bold 13px monospace";
-  ctx.fillText(metinStoneState.notifText, 18, mtY + 20);
+  const mtX = canvasW - 240;
+  const mtY2 = 54;
+  ctx.fillStyle = "#ffd060"; ctx.font = "9px monospace";
+  ctx.fillText(metinStoneState.notifText, mtX + 6, mtY2 + 14);
   var remM = Math.floor(metinStoneState.despawnTimer / 60);
   var remS = Math.floor(metinStoneState.despawnTimer % 60);
-  var remStr = "Kalan s\u00FCre: " + remM + ":" + (remS < 10 ? "0" : "") + remS;
-  ctx.fillStyle = "#f0a060";
-  ctx.font = "bold 11px monospace";
-  ctx.fillText(remStr, 18, mtY + 38);
-  ctx.globalAlpha = 1;
+  var remStr = "Kalan: " + remM + ":" + (remS < 10 ? "0" : "") + remS;
+  ctx.fillStyle = "#f0a060"; ctx.font = "8px monospace";
+  }
+
+  // Görev tamamlandı bildirimi
+  if (questNotifyTimer > 0) {
+  var qAlpha = Math.min(1, questNotifyTimer / 0.4);
+  ctx.save();
+  ctx.globalAlpha = qAlpha;
+  ctx.fillStyle = "rgba(20,50,20,0.85)";
+  var qtw = Math.min(380, canvasW - 40);
+  var qtx = (canvasW - qtw) / 2;
+  var qty = Math.floor(canvasH * 0.28);
+  roundRect(ctx, qtx, qty, qtw, 36, 8);
+  ctx.fill();
+  ctx.strokeStyle = "#60ff80";
+  ctx.lineWidth = 2;
+  roundRect(ctx, qtx, qty, qtw, 36, 8);
+  ctx.stroke();
+  ctx.fillStyle = "#80ffa0";
+  ctx.font = "bold 13px monospace";
+  ctx.textAlign = "center";
+  ctx.fillText("\u2605 " + questNotifyText, canvasW / 2, qty + 23);
+  ctx.textAlign = "start";
+  ctx.restore();
+  }
+
+  // Düşen eşya bildirimi (sol alt, can barının üstünde)
+  if (lootNotifyItems.length > 0) {
+  var ly2 = canvasH - 100;
+  ctx.save();
+  for (var li2 = 0; li2 < lootNotifyItems.length; li2++) {
+  var ln = lootNotifyItems[li2];
+  var la = Math.min(1, ln.timer / 0.3);
+  ctx.globalAlpha = la;
+  var iconSize = 14;
+  ctx.fillStyle = "rgba(10,16,10,0.7)";
+  roundRect(ctx, 8, ly2 - iconSize - 2, 240, iconSize + 4, 4);
+  ctx.fill();
+  drawItemIcon(ctx, ln.id, 11, ly2 - iconSize, iconSize);
+  ctx.fillStyle = ln.color || "#b0e0b0";
+  ctx.font = "10px monospace";
+  ctx.fillText(ln.text, 11 + iconSize + 4, ly2 - 2);
+  ly2 -= iconSize + 8;
+  }
+  ctx.restore();
   }
 
   // Zindan bilgi paneli
