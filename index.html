@@ -14386,9 +14386,6 @@ const VILLAGE_NPCS = [
   dialog: ["Zindana girmek ister misin? 5 kat + boss. Her kat zorla\u015F\u0131r, \u00F6d\u00Fcller b\u00FCy\u00FCr.",
   "Haz\u0131rsan konu\u015F, sava\u015F ba\u015Flas\u0131n!"], wanderRadius: 0,
   dungeonPortal: true },
-  { col: VOX+29, row: VOY+3, name: "Görev Reisi", color: "#f0a030",
-  dialog: ["Görevlerini kontrol etmek ister misin?", "Hangi görevde olduğunu gör, günlük görevlerini teslim al."], wanderRadius: 0,
-  questGiver: true },
 ];
 
 const PLAYER_START = { col: Math.floor(WORLD_COLS / 2), row: Math.floor(WORLD_ROWS / 2) };
@@ -14402,6 +14399,11 @@ const GATE_LOCATIONS = [
   { id: "south", name: "G\u00fcney Yolu", col: VILLAGE_CENTER_COL, row: VILLAGE_CENTER_ROW + 70, color: "#ffb060" },
   { id: "east", name: "Do\u011fu Yolu", col: VILLAGE_CENTER_COL + 70, row: VILLAGE_CENTER_ROW, color: "#60ff80" },
   { id: "west", name: "Bat\u0131 Yolu", col: VILLAGE_CENTER_COL - 70, row: VILLAGE_CENTER_ROW, color: "#c080ff" },
+  { id: "west_far", name: "Bat\u0131 Ucu", col: VILLAGE_CENTER_COL - 170, row: VILLAGE_CENTER_ROW, color: "#9060c0" },
+  { id: "north_far", name: "Kuzey Ucu", col: VILLAGE_CENTER_COL, row: VILLAGE_CENTER_ROW - 170, color: "#80b0ff" },
+  { id: "south_far", name: "G\u00fcney Ucu", col: VILLAGE_CENTER_COL, row: VILLAGE_CENTER_ROW + 170, color: "#ff9060" },
+  { id: "east_far", name: "Do\u011fu Ucu", col: VILLAGE_CENTER_COL + 170, row: VILLAGE_CENTER_ROW, color: "#60ffa0" },
+];
 const gatePanel = {
   open: false,
   gates: GATE_LOCATIONS,
