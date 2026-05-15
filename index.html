@@ -5871,7 +5871,7 @@ class Player {
   if (this.moving) {
   this.animTimer += dt;
   if (this.animTimer >= 0.15) { this.animTimer = 0; this.animFrame = (this.animFrame + 1) % 4; }
-  this.walkPhase += dt * 9.2;
+  this.walkPhase += dt * 10.5;
 
   const adminMult = this.adminMode ? 3 : 1;
   const newX = this.x + dx * spd * adminMult * dt;
@@ -5886,7 +5886,7 @@ class Player {
   }
   } else {
   this.animFrame = 0; this.animTimer = 0;
-  this.walkPhase += dt * 1.35;
+  this.walkPhase += dt * 1.8;
   }
 
   // Hareket yönüne göre sprite direction belirle (4 yön)
@@ -5931,7 +5931,7 @@ class Player {
   }
 
   _appearanceFromEquipment(inv) {
-  const shirt = { main: "#ebe4dc", dark: "#d4c8bc", trim: "#c8b8a8", pants: "#b0a090", skin: "#e8d0a8" };
+  const shirt = { main: "#6a8a48", dark: "#4a6a30", trim: "#8aaa60", pants: "#5a4028", skin: "#e8d0a8" };
   let mx = 0;
   let armorMx = 0;
   let powerSum = 0;
@@ -6192,20 +6192,44 @@ class Player {
   }
 
   _drawBareHair(ctx, d, bounce) {
-  ctx.fillStyle = "#4a3220";
-  if (d === DIR.DOWN || d === DIR.UP) {
+  // Legolas tarzı uzun sarı saç
+  ctx.fillStyle = "#d4b84a";
+  if (d === DIR.DOWN) {
+  // Önden: üst saç + yanlardan sarkan uzun teller
   ctx.beginPath();
   ctx.arc(0, -11 - bounce, 8, Math.PI * 1.08, Math.PI * 1.92);
   ctx.fill();
-  ctx.fillRect(-7, -14 - bounce, 14, 4);
+  ctx.fillRect(-7, -14 - bounce, 14, 3.5);
+  // Yan teller (uzun)
+  ctx.fillRect(-7, -12 - bounce, 2, 9);
+  ctx.fillRect(5, -12 - bounce, 2, 9);
+  // Arka uzun saç (arkada dalgalanır)
+  ctx.fillStyle = "#c4a838";
+  ctx.fillRect(-5, -8 - bounce, 10, 8);
+  } else if (d === DIR.UP) {
+  // Arkadan: saç tepede toplanmış
+  ctx.beginPath();
+  ctx.arc(0, -11 - bounce, 8, Math.PI * 1.08, Math.PI * 1.92);
+  ctx.fill();
+  ctx.fillRect(-6, -14 - bounce, 12, 3);
+  ctx.fillStyle = "#c4a838";
+  ctx.fillRect(-5, -6 - bounce, 10, 6);
   } else if (d === DIR.LEFT) {
+  // Soldan: uzun saç yana dökülür
   ctx.beginPath();
-  ctx.ellipse(-5, -10 - bounce, 6, 8, -0.2, 0, Math.PI * 2);
+  ctx.ellipse(-5, -10 - bounce, 6, 9, -0.2, 0, Math.PI * 2);
   ctx.fill();
+  ctx.fillStyle = "#c4a838";
+  ctx.fillRect(-8, -6 - bounce, 4, 8);
+  ctx.fillRect(-5, -5 - bounce, 3, 7);
   } else {
+  // Sağdan
   ctx.beginPath();
-  ctx.ellipse(5, -10 - bounce, 6, 8, 0.2, 0, Math.PI * 2);
+  ctx.ellipse(5, -10 - bounce, 6, 9, 0.2, 0, Math.PI * 2);
   ctx.fill();
+  ctx.fillStyle = "#c4a838";
+  ctx.fillRect(4, -6 - bounce, 4, 8);
+  ctx.fillRect(2, -5 - bounce, 3, 7);
   }
   }
 
@@ -6356,14 +6380,29 @@ class Player {
 
   const cx = Math.round(this.x + this.w / 2);
   const cy = Math.round(this.y + this.h / 2);
-  const bounce = this.moving ? Math.sin(this.animFrame * Math.PI / 2) * 2.2 : 0;
-  const legDrive = this.moving ? 1 : 0;
-  const walkCycle = this.walkPhase * 2;
-  const lStride = Math.sin(walkCycle) * 3.4 * legDrive;
-  const rStride = Math.sin(walkCycle + Math.PI) * 3.4 * legDrive;
-  const armBob = Math.sin(walkCycle + Math.PI / 2) * 1.5 * legDrive;
-  const shootT = this.shootAnim > 0 ? Math.min(1, this.shootAnim / 0.3) : 0;
-  const pull = shootT > 0 ? Math.sin(shootT * Math.PI / 2) * 7.5 : 0;
+  // Gelişmiş animasyon — sürekli walkPhase kullanır
+  var moving = this.moving;
+  var wP = this.walkPhase;
+  var legStr = moving ? 1 : 0.2;
+  // Vücut zıplaması (yürürken yukarı-aşağı, dururken nefes)
+  var bounce = Math.sin(wP * 3.2) * (moving ? 2.8 : 0.6);
+  // Gövde sallanması (adımlarla birlikte yalpalama)
+  var sway = Math.sin(wP * 1.6) * (moving ? 0.9 : 0.2);
+  // Baş sallaması
+  var headNod = Math.sin(wP * 3.2 + 1.2) * (moving ? 1.2 : 0.3);
+  // Omuz rotasyonu
+  var shoulderRoll = Math.sin(wP * 1.6 + 0.8) * (moving ? 1.1 : 0.15);
+  // Kalça yalpalama
+  var hipSway = Math.sin(wP * 1.6 + 0.4) * (moving ? 1.4 : 0.2);
+  // Adım mesafesi
+  var lStride = Math.sin(wP * 3.2) * (moving ? 4.2 : 0.5);
+  var rStride = Math.sin(wP * 3.2 + Math.PI) * (moving ? 4.2 : 0.5);
+  // Kol sallaması (bacaklara zıt fazda)
+  var armBob = Math.sin(wP * 3.2 + Math.PI / 2) * (moving ? 2.5 : 0.4);
+  var shootT = this.shootAnim > 0 ? Math.min(1, this.shootAnim / 0.3) : 0;
+  var pull = shootT > 0 ? Math.sin(shootT * Math.PI / 2) * 7.5 : 0;
+  var recoil = shootT > 0.5 ? Math.sin((shootT - 0.5) * Math.PI * 2) * 1.8 : 0;
+
   const d = this.direction;
   const a = this.angle;
   const bowInFront = this._isBowInFront(d, a);
@@ -6456,10 +6495,10 @@ class Player {
   if (showBow && !bowInFront) this._drawBowAndArms(ctx, cx, cy, bounce, pull, bowId, armBob, shootT);
 
   // Oyuncu gölgesi (dinamik)
-  const shAlpha = 0.16 + Math.sin(performance.now() * 0.003 + this.x * 0.05) * 0.04;
+  const shAlpha = 0.16 + 0.06 * Math.sin(performance.now() * 0.003 + this.x * 0.05);
   ctx.fillStyle = "rgba(0,0,0," + shAlpha + ")";
   ctx.beginPath();
-  ctx.ellipse(cx, cy + 10, 7 + Math.abs(lStride) * 0.3, 2.8 + Math.abs(rStride) * 0.15, 0, 0, Math.PI * 2);
+  ctx.ellipse(cx, cy + 10 + sway * 0.3, 7 + Math.abs(lStride) * 0.35, 2.8 + Math.abs(rStride) * 0.18, sway * 0.02, 0, Math.PI * 2);
   ctx.fill();
 
   ctx.save();
@@ -6583,18 +6622,34 @@ class Player {
   }
   }
 
-  ctx.fillStyle = S.skin;
+  ctx.fillStyle = "#f0e8d8"; // açık elf teni
   ctx.beginPath(); ctx.arc(0, -8 - bounce, 6, 0, Math.PI * 2); ctx.fill();
+  // Elf kulakları (sivri uçlar)
+  ctx.fillStyle = "#f0e8d8";
   if (d === DIR.DOWN) {
-  ctx.fillStyle = "#222";
-  ctx.fillRect(-2, -9 - bounce, 2, 2);
-  ctx.fillRect(1, -9 - bounce, 2, 2);
+  ctx.beginPath(); ctx.moveTo(-6, -6 - bounce); ctx.lineTo(-8, -4 - bounce); ctx.lineTo(-5.5, -4.5 - bounce); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(6, -6 - bounce); ctx.lineTo(8, -4 - bounce); ctx.lineTo(5.5, -4.5 - bounce); ctx.fill();
   } else if (d === DIR.LEFT) {
-  ctx.fillStyle = "#222";
-  ctx.fillRect(-3, -9 - bounce, 2, 2);
+  ctx.beginPath(); ctx.moveTo(-5, -7 - bounce); ctx.lineTo(-7, -5 - bounce); ctx.lineTo(-4.5, -5 - bounce); ctx.fill();
   } else if (d === DIR.RIGHT) {
-  ctx.fillStyle = "#222";
+  ctx.beginPath(); ctx.moveTo(5, -7 - bounce); ctx.lineTo(7, -5 - bounce); ctx.lineTo(4.5, -5 - bounce); ctx.fill();
+  }
+  // Elf gözleri (mavi/parlak)
+  ctx.fillStyle = "#5ab0e8";
+  if (d === DIR.DOWN) {
+  ctx.fillRect(-2.2, -9 - bounce, 1.8, 1.8);
+  ctx.fillRect(0.8, -9 - bounce, 1.8, 1.8);
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(-1.8, -9.3 - bounce, 0.8, 0.8);
+  ctx.fillRect(1.2, -9.3 - bounce, 0.8, 0.8);
+  } else if (d === DIR.LEFT) {
+  ctx.fillRect(-3, -9 - bounce, 2, 2);
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(-2.5, -9.3 - bounce, 0.8, 0.8);
+  } else if (d === DIR.RIGHT) {
   ctx.fillRect(1, -9 - bounce, 2, 2);
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(1.5, -9.3 - bounce, 0.8, 0.8);
   }
   if (vis.helmId) {
   this._drawHelmDecoration(ctx, vis.helmId, d, bounce);
@@ -13700,12 +13755,23 @@ class CraftPanel {
   const panH = Math.min(220, b.maxH);
   const px = Math.floor((cw - panW) / 2);
   const py = Math.max(b.top, Math.min(ch - panH - b.bottom, Math.floor((ch - panH) / 2)));
-  return { panW, panH, px, py };
+  const closeR = { x: px + panW - 28, y: py + 6, w: 22, h: 22 };
+  return { panW, panH, px, py, closeR };
   }
 
   handleClick(mx, my, canvasW, canvasH, inv, player) {
   if (!this.open) return;
-  const { panW, panH, px, py } = this._panelLayout(canvasW, canvasH);
+  const L = this._panelLayout(canvasW, canvasH);
+  const { panW, panH, px, py } = L;
+
+  // Dışarı tıkla kapat
+  if (mx < px || mx >= px + panW || my < py || my >= py + panH) { this.close(); return; }
+
+  // Kapatma butonu
+  if (mx >= L.closeR.x && mx < L.closeR.x + L.closeR.w && my >= L.closeR.y && my < L.closeR.y + L.closeR.h) {
+  this.close();
+  return;
+  }
 
   const btnW = 120, btnH = 30;
   const btnX = px + (panW - btnW) / 2, btnY = py + panH - 50;
@@ -13716,12 +13782,21 @@ class CraftPanel {
 
   render(ctx, canvasW, canvasH, inv, player) {
   if (!this.open) return;
-  const { panW, panH, px, py } = this._panelLayout(canvasW, canvasH);
+  const L = this._panelLayout(canvasW, canvasH);
+  const { panW, panH, px, py } = L;
 
   ctx.fillStyle = "rgba(10,10,30,0.92)";
   ctx.strokeStyle = "#6080c0"; ctx.lineWidth = 2;
   roundRect(ctx, px, py, panW, panH, 10);
   ctx.fill(); ctx.stroke();
+
+  // Kapatma butonu
+  ctx.fillStyle = "rgba(70,30,30,0.7)";
+  roundRect(ctx, L.closeR.x, L.closeR.y, L.closeR.w, L.closeR.h, 5); ctx.fill();
+  ctx.strokeStyle = "#a06050"; ctx.lineWidth = 1;
+  roundRect(ctx, L.closeR.x, L.closeR.y, L.closeR.w, L.closeR.h, 5); ctx.stroke();
+  ctx.fillStyle = "#e0a0a0"; ctx.font = "bold 12px monospace";
+  ctx.fillText("\u2715", L.closeR.x + 6, L.closeR.y + 15);
 
   ctx.fillStyle = "#80c0ff"; ctx.font = "bold 16px monospace";
   const title = "\u2693 Tekne Yap\u0131m\u0131";
@@ -14327,12 +14402,6 @@ const GATE_LOCATIONS = [
   { id: "south", name: "G\u00fcney Yolu", col: VILLAGE_CENTER_COL, row: VILLAGE_CENTER_ROW + 70, color: "#ffb060" },
   { id: "east", name: "Do\u011fu Yolu", col: VILLAGE_CENTER_COL + 70, row: VILLAGE_CENTER_ROW, color: "#60ff80" },
   { id: "west", name: "Bat\u0131 Yolu", col: VILLAGE_CENTER_COL - 70, row: VILLAGE_CENTER_ROW, color: "#c080ff" },
-  { id: "north_far", name: "Kuzey Ucu", col: VILLAGE_CENTER_COL, row: VILLAGE_CENTER_ROW - 170, color: "#4080c0" },
-  { id: "south_far", name: "G\u00fcney Ucu", col: VILLAGE_CENTER_COL, row: VILLAGE_CENTER_ROW + 170, color: "#c08040" },
-  { id: "east_far", name: "Do\u011fu Ucu", col: VILLAGE_CENTER_COL + 170, row: VILLAGE_CENTER_ROW, color: "#40a060" },
-  { id: "west_far", name: "Bat\u0131 Ucu", col: VILLAGE_CENTER_COL - 170, row: VILLAGE_CENTER_ROW, color: "#9060c0" },
-];
-
 const gatePanel = {
   open: false,
   gates: GATE_LOCATIONS,
@@ -15550,6 +15619,14 @@ const questTracker = {
   roundRect(ctx, px, py, pw, ph, 12); ctx.fill(); ctx.stroke();
   ctx.fillStyle = "#f0d050"; ctx.font = "bold 16px monospace";
   ctx.fillText("Ana Hikaye G\u00f6revleri", px + 16, py + 28);
+  // Kapatma butonu
+  var qCloseR = { x: px + pw - 28, y: py + 6, w: 22, h: 22 };
+  ctx.fillStyle = "rgba(70,30,30,0.7)";
+  roundRect(ctx, qCloseR.x, qCloseR.y, qCloseR.w, qCloseR.h, 5); ctx.fill();
+  ctx.strokeStyle = "#a06050"; ctx.lineWidth = 1;
+  roundRect(ctx, qCloseR.x, qCloseR.y, qCloseR.w, qCloseR.h, 5); ctx.stroke();
+  ctx.fillStyle = "#e0a0a0"; ctx.font = "bold 12px monospace";
+  ctx.fillText("\u2715", qCloseR.x + 6, qCloseR.y + 15);
   ctx.fillStyle = "#888"; ctx.font = "10px monospace";
   ctx.fillText("[J] veya [Esc] Kapat", px + pw - 140, py + 28);
   let ly = py + 50, lastCh = -1;
@@ -17276,6 +17353,18 @@ canvas.addEventListener("mousedown", (e) => {
   }
   if (inventory.open && e.button === 0) {
   if (inventory.tryBeginEquipLongPress(e.clientX, e.clientY, canvasW, canvasH)) {
+  e.preventDefault(); return;
+  }
+  }
+  if (questTracker.questLogOpen) {
+  // Sadece panel dışına veya kapatma butonuna tıklanırsa kapat
+  var pw2 = Math.min(480, canvasW - 32), ph2 = Math.min(520, canvasH - 32);
+  var px2 = (canvasW - pw2) / 2, py2 = (canvasH - ph2) / 2;
+  var qCloseR2 = { x: px2 + pw2 - 28, y: py2 + 6, w: 22, h: 22 };
+  var inPanel = mx >= px2 && mx < px2 + pw2 && my >= py2 && my < py2 + ph2;
+  var onClose = mx >= qCloseR2.x && mx < qCloseR2.x + qCloseR2.w && my >= qCloseR2.y && my < qCloseR2.y + qCloseR2.h;
+  if (!inPanel || onClose) {
+  questTracker.questLogOpen = false;
   e.preventDefault(); return;
   }
   }
