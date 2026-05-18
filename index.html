@@ -153,6 +153,9 @@ let mouseX = 0, mouseY = 0;
 let canvasMouse0Down = false;
 let justPressed = {};
 let keys = {};
+let monsterDetailOpen = false;
+let monsterDetailData = null;
+let slimeTrails = [];
 
 var gameAudio = (function() {
   var ctx = null;
@@ -348,7 +351,7 @@ const STRONG_BOSS_TYPES = new Set([
   "ice_queen", "dune_king", "jungle_behemoth", "thunder_lord", "abyss_crab", "volcanic_titan",
   "godzilla", "scorpion_king", "giant_bee_queen", "skywing_dragon",
   "ancient_flame_dragon", "frost_ancient_wyrm", "storm_sovereign_dragon", "void_ancient_dragon",
-  "slime_boss", "wolf_boss", "skeleton_boss", "orc_boss", "golem_boss", "dark_knight_boss",
+  "slime_boss", "wolf_boss", "skeleton_boss", "orc_boss", "golem_boss", "dark_knight_boss", "worm_boss",
 ]);
 function loadLootPresetSettings() {
   try {
@@ -681,7 +684,7 @@ const ITEMS = {
   stats: { str: 1, agi: 4, wis: 0, maxHp: 0, maxMana: 5, meleeDmg: 0, rangedDmg: 12 },
   advanced: { attackPower: 12, defArrow: 4 },
   desc: "G\u00fc\u00e7l\u00fc gerilim.", buyPrice: 0, sellPrice: 35 },
-  bow_long: { id: "bow_long", name: "Uzun Yay", stackable: true, maxStack: 32, rarity: "epic", equipSlot: "bow", weight: 4,
+  bow_hunter: { id: "bow_hunter", name: "Uzun Yay", stackable: true, maxStack: 32, rarity: "epic", equipSlot: "bow", weight: 4,
   stats: { str: 0, agi: 3, wis: 2, maxHp: 0, maxMana: 10, meleeDmg: 0, rangedDmg: 65 },
   advanced: { attackPower: 65, elemFlame: 15, defense: 5 },
   extras: {
@@ -690,56 +693,49 @@ const ITEMS = {
   critChance: 8,
   passives: [{ text: "Yava\u015f at\u0131\u015f; y\u00fcksek menzil (rol)." }]},
   desc: "Menzil ve isabet.", buyPrice: 0, sellPrice: 85 },
-  bow_storm_legendary: { id: "bow_storm_legendary", name: "Firtina Efsane Yayi", stackable: true, maxStack: 32, rarity: "legendary", equipSlot: "bow", minLevel: 70, weight: 4.4,
-  stats: { str: 2, agi: 9, wis: 4, maxHp: 12, maxMana: 20, meleeDmg: 0, rangedDmg: 100 },
-  advanced: { attackPower: 100, elemLightning: 25, elemFlame: 5, critRate: 8 },
+  bow_composite: { id: "bow_composite", name: "Kompozit Yay", stackable: true, maxStack: 32, rarity: "epic", equipSlot: "bow", minLevel: 30, weight: 3.8,
+  stats: { str: 2, agi: 6, wis: 3, maxHp: 10, maxMana: 14, meleeDmg: 0, rangedDmg: 50 },
+  advanced: { attackPower: 50, elemLightning: 12, critRate: 6 },
   extras: {
   itemLevel: { cur: 1, max: 40 },
-  displayBaseDmg: 186,
-  critChance: 16,
-  critDamagePct: 26,
-  bonusPctDmg: [14, 10],
-  firePct: 8,
-  passives: [{ text: "Tam cekiste yildirim izi birakir; yuksek kritik patlamasi." }],
-  special: { text: "Hedef uzaksa +%25 hasar.", dmgBonus: 0.25 }},
-  desc: "Gokten muhurlenmis yay; guclu tekli vuruslar icin.", buyPrice: 0, sellPrice: 620 },
-  bow_dragon_legendary: { id: "bow_dragon_legendary", name: "Ejder Nefesi Yayi", stackable: true, maxStack: 32, rarity: "legendary", equipSlot: "bow", minLevel: 70, weight: 4.8,
-  stats: { str: 4, agi: 8, wis: 6, maxHp: 20, maxMana: 28, meleeDmg: 0, rangedDmg: 125 },
-  advanced: { attackPower: 125, elemFlame: 30, elemLightning: 10, defense: 10, critRate: 10 },
+  displayBaseDmg: 110,
+  critChance: 12,
+  critDamagePct: 18,
+  bonusPctDmg: [10, 6],
+  passives: [{ text: "Kompozit yapi dengeli guc ve hiz verir." }],
+  special: { text: "Menzilli atislarda +%15 hasar.", dmgBonus: 0.15 }},
+  desc: "Modern teknikle islenmis ustun bir yay.", buyPrice: 0, sellPrice: 280 },
+  bow_composite: { id: "bow_composite", name: "Kristal Yay", stackable: true, maxStack: 32, rarity: "epic", equipSlot: "bow", minLevel: 40, weight: 4.0,
+  stats: { str: 3, agi: 7, wis: 4, maxHp: 15, maxMana: 18, meleeDmg: 0, rangedDmg: 65 },
+  advanced: { attackPower: 65, elemGlacier: 15, critRate: 8 },
   extras: {
   itemLevel: { cur: 1, max: 40 },
-  displayBaseDmg: 214,
-  critChance: 20,
-  critDamagePct: 35,
-  bonusPctDmg: [18, 12, 8],
-  firePct: 18,
-  passives: [{ text: "Alevli oklar zirhi deler; bosslara karsi cok etkilidir." }],
-  special: { text: "Can %60 ustundeyken +%30 ilave hasar.", dmgBonus: 0.3 }},
-  desc: "Kadim ejderha kalbinden guc alir; en yuksek yay hasarlarindan biri.", buyPrice: 0, sellPrice: 880 },
-  bow_short: { id: "bow_short", name: "Kisa Av Yayi", stackable: true, maxStack: 32, rarity: "common", equipSlot: "bow", weight: 2.9,
+  displayBaseDmg: 135,
+  critChance: 14,
+  critDamagePct: 22,
+  bonusPctDmg: [12],
+  passives: [{ text: "Kristal parcalari dusmana saplanir, ek buz hasari." }]},
+  desc: "Saf kristalden dovulmus yay, buz gibi soguk oklar atar.", buyPrice: 0, sellPrice: 350 },
+  bow: { id: "bow", name: "Kisa Av Yayi", stackable: true, maxStack: 32, rarity: "common", equipSlot: "bow", weight: 2.9,
   stats: { str: 0, agi: 2, wis: 0, maxHp: 0, maxMana: 0, meleeDmg: 0, rangedDmg: 3 },
   advanced: { attackPower: 3, defArrow: 1 }, desc: "Baslangic ustu bir av yayi.", buyPrice: 0, sellPrice: 14 },
-  bow_recurve: { id: "bow_recurve", name: "Kivrimli Yay", stackable: true, maxStack: 32, rarity: "common", equipSlot: "bow", weight: 3.0,
+  bow: { id: "bow", name: "Kivrimli Yay", stackable: true, maxStack: 32, rarity: "common", equipSlot: "bow", weight: 3.0,
   stats: { str: 0, agi: 2, wis: 1, maxHp: 0, maxMana: 2, meleeDmg: 0, rangedDmg: 5 },
   advanced: { attackPower: 5, defArrow: 1 }, desc: "Daha duzgun cekis verir.", buyPrice: 0, sellPrice: 20 },
-  bow_composite: { id: "bow_composite", name: "Kompozit Yay", stackable: true, maxStack: 32, rarity: "rare", equipSlot: "bow", weight: 3.5,
+  bow_hunter: { id: "bow_hunter", name: "Kemik Yay", stackable: true, maxStack: 32, rarity: "rare", equipSlot: "bow", weight: 3.5,
   stats: { str: 1, agi: 5, wis: 1, maxHp: 0, maxMana: 6, meleeDmg: 0, rangedDmg: 18 },
   advanced: { attackPower: 18, defArrow: 5, critRate: 2 }, desc: "Kemik ve ahsap katmanli yay.", buyPrice: 0, sellPrice: 60 },
-  bow_war: { id: "bow_war", name: "Savas Yayi", stackable: true, maxStack: 32, rarity: "rare", equipSlot: "bow", weight: 3.8,
+  bow_hunter: { id: "bow_hunter", name: "Savas Yayi", stackable: true, maxStack: 32, rarity: "rare", equipSlot: "bow", weight: 3.8,
   stats: { str: 2, agi: 6, wis: 1, maxHp: 4, maxMana: 8, meleeDmg: 0, rangedDmg: 25 },
   advanced: { attackPower: 25, defArrow: 6, critRate: 3 }, desc: "On cephe okcularinin favorisi.", buyPrice: 0, sellPrice: 90 },
-  bow_moon_epic: { id: "bow_moon_epic", name: "Ay Isigi Yayi", stackable: true, maxStack: 32, rarity: "epic", equipSlot: "bow", weight: 4.1,
+  bow_hunter: { id: "bow_hunter", name: "Ay Isigi Yayi", stackable: true, maxStack: 32, rarity: "epic", equipSlot: "bow", weight: 4.1,
   stats: { str: 1, agi: 6, wis: 3, maxHp: 8, maxMana: 14, meleeDmg: 0, rangedDmg: 45 },
   advanced: { attackPower: 45, elemMagic: 10, critRate: 5 },
   desc: "Gece avlarinda oldurucu isabet saglar.", buyPrice: 0, sellPrice: 180 },
-  bow_sun_epic: { id: "bow_sun_epic", name: "Gunes Kiri Yayi", stackable: true, maxStack: 32, rarity: "epic", equipSlot: "bow", weight: 4.2,
+  bow_hunter: { id: "bow_hunter", name: "Gunes Kiri Yayi", stackable: true, maxStack: 32, rarity: "epic", equipSlot: "bow", weight: 4.2,
   stats: { str: 2, agi: 7, wis: 2, maxHp: 10, maxMana: 12, meleeDmg: 0, rangedDmg: 55 },
   advanced: { attackPower: 55, elemFlame: 15, critRate: 6 },
   desc: "Yuksek gerilimli sicak cekis.", buyPrice: 0, sellPrice: 220 },
-  bow_void_legendary: { id: "bow_void_legendary", name: "Bosluk Ucu Yayi", stackable: true, maxStack: 32, rarity: "legendary", equipSlot: "bow", minLevel: 70, weight: 4.7,
-  stats: { str: 3, agi: 10, wis: 6, maxHp: 18, maxMana: 26, meleeDmg: 0, rangedDmg: 115 },
-  advanced: { attackPower: 115, elemMagic: 25, critRate: 9, critDamage: 18 },
-  desc: "Oklar hedefte bosluk izi birakir.", buyPrice: 0, sellPrice: 760 },
   rope:  { id: "rope",  name: "Halat",  stackable: true, maxStack: 150, desc: "Sa\u011flam kenevir halat.",  buyPrice: 6,  sellPrice: 2  },
   helm_leather:  { id: "helm_leather",  name: "Deri Mi\u011fer",  stackable: true, maxStack: 32, rarity: "common",  equipSlot: "head",  stats: { str: 1, agi: 0, wis: 0, maxHp: 8, maxMana: 0 }, advanced: { defense: 2 },
   extras: { weakTo: [{ kind: "fire", label: "Ate\u015f" }], passives: [{ text: "Deri: a\u015f\u0131r\u0131 \u0131s\u0131da dayan\u0131kl\u0131l\u0131k d\u00fc\u015fer (bilgi)." }] },
@@ -828,26 +824,16 @@ const ITEMS = {
   extras: { itemLevel: { cur: 25, max: 40 }, passives: [{ text: "Yakın hasar %12 ateş hasarı ekler." }], special: { text: "Can %25 altındayken ateş kalkanı: gelen hasar %20 azalır.", hpBelow: 0.25 } },
   desc: "Kadim ateş ejderhasının göğsünden sökülmüş pul. Aşırı sıcaklık yayar.", buyPrice: 0, sellPrice: 1200 },
 
-  storm_dragon_claw: { id: "storm_dragon_claw", name: "Fırtına Ejderhası Pençesi", stackable: true, maxStack: 32, rarity: "legendary", equipSlot: "bow", minLevel: 70,
-  stats: { str: 5, agi: 12, wis: 6, maxHp: 25, maxMana: 30 },
-  advanced: { attackPower: 320, elemLightning: 150, critRate: 14, critDamage: 28 },
-  extras: { itemLevel: { cur: 25, max: 40 }, displayBaseDmg: 245, critChance: 20, critDamagePct: 32, bonusPctDmg: [16, 12], passives: [{ text: "Atışlar zincir yıldırımı sıçratır (3 hedef)." }], special: { text: "Hedef hareket halindeyken +%30 isabet ve hasar.", dmgBonus: 0.3 } },
-  desc: "Gök gürültüsünü avucunda tutan bir yay. Atışları yıldırım gibi düşer.", buyPrice: 0, sellPrice: 1500 },
   // === YENİ EŞYALAR ===
-  bow_swift: { id: "bow_swift", name: "Hızlı Yay", stackable: true, maxStack: 32, rarity: "rare", equipSlot: "bow", minLevel: 5,
+  bow_hunter: { id: "bow_hunter", name: "Hızlı Yay", stackable: true, maxStack: 32, rarity: "rare", equipSlot: "bow", minLevel: 5,
   stats: { str: 0, agi: 3, wis: 0, maxHp: 0, maxMana: 4, meleeDmg: 0, rangedDmg: 8 },
   advanced: { attackPower: 8, critRate: 2 },
   desc: "Hafif ve hızlı atış yapar.", buyPrice: 0, sellPrice: 28 },
-  bow_shadow_epic: { id: "bow_shadow_epic", name: "Gölge Yayı", stackable: true, maxStack: 32, rarity: "epic", equipSlot: "bow", minLevel: 25,
+  bow_hunter: { id: "bow_hunter", name: "Gölge Yayı", stackable: true, maxStack: 32, rarity: "epic", equipSlot: "bow", minLevel: 25,
   stats: { str: 1, agi: 5, wis: 2, maxHp: 6, maxMana: 10, meleeDmg: 0, rangedDmg: 35 },
   advanced: { attackPower: 35, elemMagic: 10, critRate: 5 },
   extras: { critChance: 10, passives: [{ text: "Gölge okları hedefi yavaşlatır." }] },
   desc: "Karanlıktan sıyrılıp gelen ok, iz bırakmaz.", buyPrice: 0, sellPrice: 145 },
-  bow_crystal_legendary: { id: "bow_crystal_legendary", name: "Kristal Yay", stackable: true, maxStack: 32, rarity: "legendary", equipSlot: "bow", minLevel: 50,
-  stats: { str: 2, agi: 7, wis: 5, maxHp: 15, maxMana: 22, meleeDmg: 0, rangedDmg: 80 },
-  advanced: { attackPower: 80, elemGlacier: 20, defense: 8, critRate: 8 },
-  extras: { critChance: 14, critDamagePct: 22, bonusPctDmg: [12], passives: [{ text: "Kristal parçaları düşmana saplanır, ek buz hasarı." }] },
-  desc: "Saf kristalden dövülmüş yay, buz gibi soğuk oklar atar.", buyPrice: 0, sellPrice: 420 },
   helm_bone: { id: "helm_bone", name: "Kemik Miğfer", stackable: true, maxStack: 32, rarity: "rare", equipSlot: "head",
   stats: { str: 3, agi: 0, wis: 0, maxHp: 18, maxMana: 0 },
   advanced: { defense: 5 },
@@ -1056,17 +1042,39 @@ function aggregateEquipmentExtras(inv) {
 function getSetBonuses(inv) {
   const out = { rareCount: 0, epicCount: 0, legendaryCount: 0, bonusDmgPct: 0, bonusCrit: 0, bonusMaxHp: 0 };
   if (!inv || !inv.equipped) return out;
+  // Named set sistemi
+  var setCounts = {};
+  var SET_MAP = {
+  "bow":"tahta","bow_hunter":"demir","bow_composite":"kompozit",
+  "helm_leather":"tahta","helm_iron":"demir","helm_bone":"demir","helm_epic":"kompozit",
+  "chest_leather":"tahta","chest_steel":"demir","chest_epic":"kompozit",
+  "waist_cloth":"tahta","waist_chain":"demir","waist_epic":"kompozit",
+  "arms_cloth":"tahta","arms_iron":"demir","arms_epic":"kompozit",
+  "boots_swift":"demir","boots_epic":"kompozit","boots_leather":"tahta",
+  "cloak_common":"tahta","cloak_shadow":"demir","cloak_epic":"kompozit",
+  "gloves_archer":"demir","shoulder_guard":"demir","explorer_band":"demir",
+  "ring_copper":"tahta","ring_silver":"demir","ring_power":"kompozit",
+  "lucky_charm":"demir","merchants_ring":"kompozit",
+  "wings_cloth":"tahta","wings_azure":"demir","wings_epic":"kompozit"
+  };
   for (const sk of EQ_SLOTS) {
   const es = inv.equipped[sk];
   if (!es || !ITEMS[es.id]) continue;
+  var setId = SET_MAP[es.id];
+  if (setId) setCounts[setId] = (setCounts[setId] || 0) + 1;
   const r = ITEMS[es.id].rarity;
   if (r === "rare") out.rareCount++;
   else if (r === "epic") out.epicCount++;
   else if (r === "legendary") out.legendaryCount++;
   }
+  // Eski rarity bazlı bonuslar (geride kalan uyumluluk)
   if (out.rareCount >= 3) out.bonusDmgPct += 5;
   if (out.epicCount >= 3) { out.bonusDmgPct += 8; out.bonusCrit += 3; }
   if (out.legendaryCount >= 3) { out.bonusDmgPct += 12; out.bonusCrit += 5; out.bonusMaxHp += 50; }
+  // Named set bonusları
+  if (setCounts["tahta"] >= 3) { out.bonusMaxHp += 300; }
+  if (setCounts["demir"] >= 3) { out.bonusMaxHp += 500; out.bonusDmgPct += 5; out.bonusCrit += 2; }
+  if (setCounts["kompozit"] >= 3) { out.bonusMaxHp += 800; out.bonusDmgPct += 8; out.bonusCrit += 3; }
   return out;
 }
 
@@ -1176,9 +1184,8 @@ function decreaseItemDurability(stack) {
   stack.durability = Math.max(0, stack.durability - 1);
   if (stack.durability <= 0) {
   var def = ITEMS[stack.id];
-  pickupMsgText = (def ? def.name : stack.id) + " kırıldı!";
+  pickupMsgText = (def ? def.name : stack.id) + " kırıldı! Tamirci'ye götür!";
   pickupMsgTimer = 2.5;
-  stack.count = 0;
   // Equipped slot item kırılınca kuşanmayı kaldır
   if (typeof inventory !== "undefined" && inventory && inventory.equipped) {
   for (var sk3 in inventory.equipped) {
@@ -1188,6 +1195,7 @@ function decreaseItemDurability(stack) {
   }
   }
   }
+  // count sıfırlanmaz — eşya envanterde kalır, tamir edilebilir
   }
 }
 
@@ -1329,14 +1337,42 @@ function getEffectiveItemStatsMerged(def, upgradeLv) {
   if (def.stats) {
   for (const k of Object.keys(def.stats)) stats[k] = def.stats[k];
   }
+  // Seviye ve nadirliğe göre stat hesapla
+  if (def.equipSlot && def.rarity) {
+  var itemLv = Math.max(1, Math.min(60, estimateEquipRequiredLevel(def)));
+  var rr2 = rarityRank(def.rarity || "common");
+  var rarityMul2 = rr2 >= 4 ? 5 : rr2 >= 3 ? 3 : rr2 >= 2 ? 2 : 1;
+  var baseStat = Math.max(1, Math.round(itemLv * 0.5 + (def.minLevel || 1) * 0.5));
+  // Yay: rangedDmg
+  if (def.equipSlot === "bow") {
+  stats.rangedDmg = baseStat * rarityMul2;
+  stats.meleeDmg = 0;
+  if (!def.advanced) def.advanced = {};
+  }
+  // Zırh: defense
+  if (["head","chest","feet","waist","arms","wings","cloak"].indexOf(def.equipSlot) >= 0) {
+  if (!def.stats || (!def.stats.str && !def.stats.agi && !def.stats.wis)) {
+  stats.str = Math.max(0, Math.round(baseStat * rarityMul2 * 0.15));
+  stats.agi = Math.max(0, Math.round(baseStat * rarityMul2 * 0.1));
+  }
+  var defVal = Math.round(baseStat * rarityMul2 * 0.4);
+  var hpVal = Math.round(baseStat * rarityMul2 * (def.equipSlot === "chest" ? 4 : def.equipSlot === "head" ? 2.5 : 2));
+  if (!stats.maxHp || stats.maxHp < hpVal) stats.maxHp = hpVal;
+  }
+  // Takı: ring/amulet
+  if (def.equipSlot === "ring" || def.equipSlot === "amulet") {
+  stats.str = Math.max(0, Math.round(baseStat * rarityMul2 * 0.12));
+  stats.wis = Math.max(0, Math.round(baseStat * rarityMul2 * 0.18));
+  }
+  }
   if (def.equipSlot) {
   const rr = rarityRank(def.rarity || "common");
-  const dmgMul = rr >= 4 ? 1.15 : rr >= 3 ? 1.08 : rr >= 2 ? 1.04 : 1;
-  const hpMul = rr >= 4 ? 1.08 : rr >= 3 ? 1.04 : rr >= 2 ? 1.02 : 1;
+  const dmgMul = 1;
+  const hpMul = 1;
   if (typeof stats.meleeDmg === "number" && stats.meleeDmg > 0) stats.meleeDmg = Math.max(1, Math.round(stats.meleeDmg * dmgMul));
   if (typeof stats.rangedDmg === "number" && stats.rangedDmg > 0) stats.rangedDmg = Math.max(1, Math.round(stats.rangedDmg * dmgMul));
   if (typeof stats.maxHp === "number" && stats.maxHp > 0) stats.maxHp = Math.max(1, Math.round(stats.maxHp * hpMul));
-  if (def.equipSlot === "bow" && typeof stats.rangedDmg === "number") stats.rangedDmg = Math.min(500, stats.rangedDmg);
+  if (def.equipSlot === "bow" && typeof stats.rangedDmg === "number") stats.rangedDmg = Math.min(800, stats.rangedDmg);
   }
   const advanced = {};
   if (def.advanced) {
@@ -1345,6 +1381,15 @@ function getEffectiveItemStatsMerged(def, upgradeLv) {
   const autoPct = deriveDefaultPercentBonuses();
   for (const k of Object.keys(autoPct)) {
   if (advanced[k] == null) advanced[k] = autoPct[k];
+  }
+  // Yeni sistem: seviye/nadirlik bazlı savunma hesapla
+  if (def.equipSlot && def.rarity) {
+  var lv2 = Math.max(1, Math.min(60, estimateEquipRequiredLevel(def)));
+  var rr3 = rarityRank(def.rarity || "common");
+  var rMul3 = rr3 >= 4 ? 5 : rr3 >= 3 ? 3 : rr3 >= 2 ? 2 : 1;
+  if (["head","chest","feet","waist","arms","wings","cloak"].indexOf(def.equipSlot) >= 0) {
+  advanced.defense = Math.max(1, Math.round(lv2 * rMul3 * 0.35));
+  }
   }
   const u = upgradeLv | 0;
   if (u > 0) {
@@ -2448,43 +2493,39 @@ function drawItemIcon(ctx, itemId, x, y, size) {
   ctx.restore();
   break;
   case "bow":
-  case "bow_short":
-  case "bow_recurve":
-  case "bow_composite":
-  case "bow_war":
+  case "bow":
+  case "bow":
   case "bow_hunter":
-  case "bow_long":
-  case "bow_storm_legendary":
-  case "bow_dragon_legendary":
-  case "bow_moon_epic":
-  case "bow_sun_epic":
-  case "bow_void_legendary":
-  case "bow_swift":
-  case "bow_shadow_epic":
-  case "bow_crystal_legendary": {
+  case "bow_hunter":
+  case "bow_hunter":
+  case "bow_hunter":
+  case "bow_composite":
+  case "bow_composite":
+  case "bow_hunter":
+  case "bow_hunter":
+  case "bow_composite":
+  case "bow_hunter":
+  case "bow_hunter":
+  case "bow_composite": {
   ctx.save();
   ctx.translate(cx, cy);
   ctx.rotate(-0.3);
 
-  const isShort = itemId === "bow_short";
-  const isRecurve = itemId === "bow_recurve";
-  const isComposite = itemId === "bow_composite";
-  const isWar = itemId === "bow_war";
+  const isShort = itemId === "bow";
+  const isRecurve = itemId === "bow";
+  const isComposite = itemId === "bow_hunter";
+  const isWar = itemId === "bow_hunter";
   const isHunter = itemId === "bow_hunter";
-  const isLong = itemId === "bow_long";
-  const isStorm = itemId === "bow_storm_legendary";
-  const isDragon = itemId === "bow_dragon_legendary";
-  const isMoon = itemId === "bow_moon_epic";
-  const isSun = itemId === "bow_sun_epic";
-  const isVoid = itemId === "bow_void_legendary";
+  const isLong = itemId === "bow_hunter";
+  const isStorm = itemId === "bow_composite";
 
-  const tier = isStorm || isDragon || isVoid ? 3 : isMoon || isSun ? 2 : isLong || isHunter ? 1 : 0;
+  const tier = isStorm ? 3 : isLong || isHunter ? 1 : 0;
   const limbR = s * (isShort ? 0.26 : isWar ? 0.35 : 0.32);
   const halfAngle = isShort ? Math.PI * 0.6 : (isWar ? Math.PI * 0.78 : Math.PI * 0.7);
 
   // Aura for high tier
   if (tier >= 1) {
-  const aCol = isStorm ? "rgba(100,180,255," : isDragon ? "rgba(255,120,50," : isMoon ? "rgba(200,210,255," : isSun ? "rgba(255,220,120," : isVoid ? "rgba(140,80,220," : "rgba(200,200,200,";
+  const aCol = isStorm ? "rgba(100,180,255," : "rgba(200,200,200,";
   ctx.fillStyle = aCol + (0.15 + tier * 0.05) + ")";
   ctx.beginPath();
   ctx.arc(s * 0.05, 0, limbR + s * 0.1, 0, Math.PI * 2);
@@ -2500,10 +2541,6 @@ function drawItemIcon(ctx, itemId, x, y, size) {
   if (isHunter)  { limbCol = "#3d5030"; rimCol = "#5a7048"; stringCol = "#98e878"; }
   if (isLong)  { limbCol = "#504070"; rimCol = "#8060b0"; stringCol = "#f0c8ff"; energyCol = "rgba(220,180,255,0.5)"; }
   if (isStorm)  { limbCol = "#2e4f88"; rimCol = "#80b6ff"; stringCol = "#9ee9ff"; energyCol = "rgba(160,220,255,0.7)"; }
-  if (isDragon)  { limbCol = "#7e2a1e"; rimCol = "#ff9d52"; stringCol = "#ffd6b0"; energyCol = "rgba(255,178,118,0.7)"; }
-  if (isMoon)  { limbCol = "#505878"; rimCol = "#8890b8"; stringCol = "#d0d8f0"; energyCol = "rgba(200,210,255,0.7)"; }
-  if (isSun)  { limbCol = "#8a6030"; rimCol = "#c09040"; stringCol = "#ffe8a0"; energyCol = "rgba(255,220,120,0.7)"; }
-  if (isVoid)  { limbCol = "#3a2850"; rimCol = "#7048a0"; stringCol = "#c8a0e8"; energyCol = "rgba(200,160,255,0.8)"; }
 
   // Limb gradient
   const lGrad = ctx.createLinearGradient(-limbR, -s * 0.05, limbR, s * 0.05);
@@ -2866,7 +2903,7 @@ function drawItemIcon(ctx, itemId, x, y, size) {
   ctx.fillStyle = "#ff7040"; ctx.beginPath(); ctx.arc(cx, cy + s*0.05, s*0.08, 0, Math.PI*2); ctx.fill();
   break;
   }
-  case "storm_dragon_claw": {
+  case "bow_composite": {
   ctx.save(); ctx.translate(cx, cy); ctx.rotate(-0.3);
   ctx.strokeStyle = "#6a4090"; ctx.lineWidth = s * 0.095;
   ctx.beginPath(); ctx.arc(s*0.05, 0, s*0.32, -Math.PI*0.7, Math.PI*0.7); ctx.stroke();
@@ -2945,8 +2982,8 @@ const SHOP_UNLIMITED_IDS = new Set([
 
 const SHOP_SPECIAL_POOLS = {
   village_weapon: [
-  "bow_hunter", "bow_composite", "bow_war", "bow_swift",
-  "bow_moon_epic", "bow_shadow_epic", "ring_power", "earring_focus",
+  "bow_hunter", "bow_hunter", "bow_hunter", "bow_hunter",
+  "bow_hunter", "bow_hunter", "ring_power", "earring_focus",
   "gloves_archer", "bracelet_titan", "shoulder_guard",
   ],
   village_armor: [
@@ -2960,7 +2997,7 @@ const SHOP_SPECIAL_POOLS = {
   "merchants_ring", "lucky_charm", "ring_power", "gloves_archer",
   ],
   island: [
-  "bow_long", "helm_epic", "chest_epic", "gloves_archer", "explorer_band",
+  "bow_hunter", "helm_epic", "chest_epic", "gloves_archer", "explorer_band",
   "boots_epic", "lucky_charm", "merchants_ring",
   ]};
 
@@ -3253,9 +3290,30 @@ const charPanel = {
   // Set bonus g\u00F6sterimi
   const sb3 = getSetBonuses(inventory);
   var setParts = [];
-  if (sb3.rareCount >= 3) setParts.push("Nadir(" + sb3.rareCount + ")");
-  if (sb3.epicCount >= 3) setParts.push("Epik(" + sb3.epicCount + ")");
-  if (sb3.legendaryCount >= 3) setParts.push("Efsanevi(" + sb3.legendaryCount + ")");
+  // Named set g\u00F6sterimi
+  var setNameMap = { tahta: "Tahta", demir: "Demir", kompozit: "Kompozit" };
+  var setCountMap = {};
+  for (var ssk in setNameMap) {
+  var cnt = 0;
+  for (var sk2 of EQ_SLOTS) {
+  var e2 = inventory.equipped[sk2];
+  if (e2 && e2.id) {
+  var sid = { "bow":"tahta","bow_hunter":"demir","bow_composite":"kompozit",
+  "helm_leather":"tahta","helm_iron":"demir","helm_bone":"demir","helm_epic":"kompozit",
+  "chest_leather":"tahta","chest_steel":"demir","chest_epic":"kompozit",
+  "waist_cloth":"tahta","waist_chain":"demir","waist_epic":"kompozit",
+  "arms_cloth":"tahta","arms_iron":"demir","arms_epic":"kompozit",
+  "boots_swift":"demir","boots_epic":"kompozit","boots_leather":"tahta",
+  "cloak_common":"tahta","cloak_shadow":"demir","cloak_epic":"kompozit",
+  "gloves_archer":"demir","shoulder_guard":"demir","explorer_band":"demir",
+  "ring_copper":"tahta","ring_silver":"demir","ring_power":"kompozit",
+  "lucky_charm":"demir","merchants_ring":"kompozit",
+  "wings_cloth":"tahta","wings_azure":"demir","wings_epic":"kompozit" }[e2.id];
+  if (sid === ssk) cnt++;
+  }
+  }
+  if (cnt >= 3) setParts.push(setNameMap[ssk] + " Set(" + cnt + ")");
+  }
   if (setParts.length > 0) {
   ctx.fillStyle = "#c09050";
   ctx.font = land ? "bold 8px monospace" : "bold 9px monospace";
@@ -4094,6 +4152,7 @@ class Inventory {
   if (!def || !def.equipSlot) return "Giyilebilir bir e\u015fya de\u011fil.";
   const gate = canPlayerEquipItem(def, player);
   if (!gate.ok) return "Bu esya icin Seviye " + gate.needLevel + "+ gerekli.";
+  if (slot.durability != null && slot.durability <= 0) return "Bu eşya kırık! Önce Tamirci'de tamir ettir.";
   const sk = firstEquipSlotForItem(this, def);
   if (!sk) return "Bu e\u015fya i\u00e7in uygun slot yok.";
   const id = slot.id;
@@ -4920,10 +4979,15 @@ class Inventory {
   const col = i % INV_COLS, row = Math.floor(i / INV_COLS);
   const sx = layout.slotsX + col * (ss + sg);
   const sy = layout.slotsY + row * (ss + sg);
-  ctx.fillStyle = "rgba(40,40,60,0.6)"; ctx.strokeStyle = "#505070"; ctx.lineWidth = 1;
-  roundRect(ctx, sx, sy, ss, ss, 4); ctx.fill(); ctx.stroke();
   const absIdx = layout.invPageStart + i;
-  if (this.slots[absIdx]) this._renderSlotContent(ctx, this.slots[absIdx], sx, sy, ss);
+  const slot = this.slots[absIdx];
+  const broken = slot && slot.durability != null && slot.durability <= 0;
+  const lowDur = slot && slot.durability != null && slot.durability > 0 && slot.durability <= getItemDurabilityMax(ITEMS[slot.id]) * 0.25;
+  ctx.fillStyle = "rgba(40,40,60,0.6)";
+  ctx.strokeStyle = broken ? "#d03030" : lowDur ? "#d08030" : "#505070";
+  ctx.lineWidth = broken ? 2 : 1;
+  roundRect(ctx, sx, sy, ss, ss, 4); ctx.fill(); ctx.stroke();
+  if (slot) this._renderSlotContent(ctx, slot, sx, sy, ss);
   }
 
   ctx.font = "10px monospace";
@@ -4972,7 +5036,21 @@ class Inventory {
   }
 
   _renderSlotContent(ctx, slot, sx, sy, slotSz = SLOT_SIZE) {
+  const broken = slot.durability != null && slot.durability <= 0;
+  if (broken) {
+  ctx.globalAlpha = 0.5;
+  }
   drawItemIconFancy(ctx, slot.id, sx, sy, slotSz, {});
+  if (broken) {
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = "rgba(200,30,30,0.25)";
+  ctx.fillRect(sx, sy, slotSz, slotSz);
+  ctx.strokeStyle = "#d03030"; ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(sx + 4, sy + 4); ctx.lineTo(sx + slotSz - 4, sy + slotSz - 4);
+  ctx.moveTo(sx + slotSz - 4, sy + 4); ctx.lineTo(sx + 4, sy + slotSz - 4);
+  ctx.stroke();
+  }
   const ul = getStackUpgradeLv(slot);
   if (ul > 0) {
   ctx.font = "bold " + Math.max(9, Math.floor(slotSz * 0.2)) + "px monospace";
@@ -5607,6 +5685,7 @@ class Player {
   this.skills = Object.create(null);
   this.activeSkillSlots = [null, null, null];
   this.poisonTimer = 0;
+  this._trailPoison = 0;
   this.activeSkillCd = [0, 0, 0, 0, 0, 0, 0, 0];
   this.skillAuraT = 0;
   this.archerRapidFireTimer = 0;
@@ -6788,9 +6867,7 @@ class Player {
   const shoulderY = cy - 2 - bounce + bob;
   let wood = "#8a7028", stringCol = "#e8e8e8", limb = "#8B6B3D";
   if (bowId === "bow_hunter") { wood = "#5a6048"; stringCol = "#a0c890"; limb = "#4a5038"; }
-  if (bowId === "bow_long") { wood = "#504060"; stringCol = "#d0b0ff"; limb = "#403050"; }
-  if (bowId === "bow_storm_legendary") { wood = "#2b5d90"; stringCol = "#95f0ff"; limb = "#224978"; }
-  if (bowId === "bow_dragon_legendary") { wood = "#8a3a24"; stringCol = "#ffd2aa"; limb = "#6e2416"; }
+  if (bowId === "bow_composite") { wood = "#2b5d90"; stringCol = "#95f0ff"; limb = "#224978"; }
 
   ctx.save();
   ctx.translate(shoulderX, shoulderY);
@@ -7422,48 +7499,48 @@ class MonSpell {
 const MONSTER_TYPES = {
   island_treasure_chest: { name: "Hazine Sandigi", hp: 160, dmg: 0, speed: 0, xp: 32, aggroRange: 0, atkRange: 0, atkCd: 99,
   loot: [{id:"boss_chest",c:1,ch:0.2}] },
-  slime:  { name: "Balçık",  hp: 30,  dmg: 5,  speed: 35,  xp: 8,  aggroRange: TILE_SIZE*5,  atkRange: TILE_SIZE*0.8, atkCd: 1.2,
-  loot: [{id:"seed",c:2,ch:0.3}] },
-  wolf:  { name: "Kurt",  hp: 55,  dmg: 10, speed: 70,  xp: 15, aggroRange: TILE_SIZE*6,  atkRange: TILE_SIZE*0.9, atkCd: 0.8,
+  slime:  { name: "Balçık",  hp: 30,  dmg: 5,  speed: 35,  xp: 8,  aggroRange: TILE_SIZE*4,  atkRange: TILE_SIZE*0.8, atkCd: 1.2,
+  loot: [] },
+  wolf:  { name: "Kurt",  hp: 55,  dmg: 10, speed: 75,  xp: 15, aggroRange: TILE_SIZE*7,  atkRange: TILE_SIZE*0.9, atkCd: 0.7,
   loot: [{id:"potion",c:1,ch:0.2},{id:"potion_mana",c:1,ch:0.12},{id:"bow",c:1,ch:0.06}] },
   wolf_boss: { name: "Kurt Kral\u0131", hp: 1500, dmg: 28, speed: 55, xp: 280, aggroRange: TILE_SIZE*12, atkRange: TILE_SIZE*1.0, atkCd: 0.6,
   boss: true, loot: [{id:"potion",c:4,ch:0.8},{id:"chest_steel",c:1,ch:0.18},{id:"boots_swift",c:1,ch:0.2},{id:"bow_hunter",c:1,ch:0.12}] },
   slime_boss: { name: "Dev Bal\u00E7\u0131k Kral\u0131", hp: 1200, dmg: 18, speed: 25, xp: 220, aggroRange: TILE_SIZE*10, atkRange: TILE_SIZE*1.1, atkCd: 1.5,
-  boss: true, rangedKind: "poison", rangedMax: TILE_SIZE*7, loot: [{id:"potion",c:3,ch:0.7},{id:"chest_epic",c:1,ch:0.14},{id:"helm_iron",c:1,ch:0.2},{id:"bow_hunter",c:1,ch:0.1}] },
+  boss: true, loot: [{id:"potion",c:3,ch:0.7},{id:"chest_epic",c:1,ch:0.14},{id:"helm_iron",c:1,ch:0.2},{id:"bow_hunter",c:1,ch:0.1}] },
   skeleton: { name: "\u0130skelet",  hp: 80,  dmg: 14, speed: 50,  xp: 22, aggroRange: TILE_SIZE*7,  atkRange: TILE_SIZE*0.9, atkCd: 1.0,
   loot: [{id:"arrow",c:5,ch:0.4},{id:"bow",c:1,ch:0.08},{id:"potion",c:1,ch:0.05}] },
   skeleton_boss: { name: "\u0130skelet Kral", hp: 1800, dmg: 32, speed: 45, xp: 340, aggroRange: TILE_SIZE*12, atkRange: TILE_SIZE*1.0, atkCd: 0.7,
-  boss: true, rangedKind: "lightning", rangedMax: TILE_SIZE*7, loot: [{id:"potion",c:4,ch:0.8},{id:"helm_epic",c:1,ch:0.18},{id:"chest_epic",c:1,ch:0.14},{id:"bow_recurve",c:1,ch:0.1}] },
+  boss: true, rangedKind: "lightning", rangedMax: TILE_SIZE*7, loot: [{id:"potion",c:4,ch:0.8},{id:"bow",c:1,ch:0.1}] },
   orc:  { name: "Ork",  hp: 120, dmg: 20, speed: 55,  xp: 35, aggroRange: TILE_SIZE*7,  atkRange: TILE_SIZE,  atkCd: 1.3,
   loot: [{id:"potion",c:1,ch:0.35},{id:"potion_mana",c:1,ch:0.14},{id:"bow_hunter",c:1,ch:0.05}] },
   orc_boss: { name: "Ork \u015eefi", hp: 2200, dmg: 38, speed: 50, xp: 400, aggroRange: TILE_SIZE*12, atkRange: TILE_SIZE*1.1, atkCd: 0.65,
-  boss: true, loot: [{id:"potion",c:5,ch:0.9},{id:"chest_steel",c:1,ch:0.2},{id:"boots_epic",c:1,ch:0.16},{id:"bow_war",c:1,ch:0.12}] },
-  golem:  { name: "Golem",  hp: 200, dmg: 30, speed: 30,  xp: 60, aggroRange: TILE_SIZE*8,  atkRange: TILE_SIZE*1.1, atkCd: 2.0,
-  rangedKind: "meteor", rangedMax: TILE_SIZE*5, loot: [{id:"potion",c:2,ch:0.4},{id:"potion_mana",c:1,ch:0.2},{id:"bow_long",c:1,ch:0.04}] },
+  boss: true, loot: [{id:"potion",c:5,ch:0.9},{id:"chest_steel",c:1,ch:0.2},{id:"boots_epic",c:1,ch:0.16},{id:"bow_hunter",c:1,ch:0.12}] },
+  golem:  { name: "Golem",  hp: 200, dmg: 30, speed: 25, xp: 60, aggroRange: TILE_SIZE*6,  atkRange: TILE_SIZE*1.2, atkCd: 2.5,
+  loot: [{id:"potion",c:2,ch:0.4},{id:"potion_mana",c:1,ch:0.2},{id:"bow_hunter",c:1,ch:0.04}] },
   golem_boss: { name: "Golem \u0130mparatoru", hp: 3000, dmg: 52, speed: 22, xp: 500, aggroRange: TILE_SIZE*12, atkRange: TILE_SIZE*1.3, atkCd: 1.2,
-  boss: true, rangedKind: "meteor", rangedMax: TILE_SIZE*9, loot: [{id:"stone",c:30,ch:1},{id:"chest_epic",c:1,ch:0.2},{id:"ring_power",c:1,ch:0.1},{id:"bow_long",c:1,ch:0.1}] },
+  boss: true, rangedKind: "meteor", rangedMax: TILE_SIZE*9, loot: [{id:"stone",c:30,ch:1},{id:"chest_epic",c:1,ch:0.2},{id:"ring_power",c:1,ch:0.1},{id:"bow_hunter",c:1,ch:0.1}] },
   forest_treant: { name: "Kadim K\u00f6k", hp: 900, dmg: 38, speed: 22, xp: 280, aggroRange: TILE_SIZE*10, atkRange: TILE_SIZE*1.3, atkCd: 1.5,
-  boss: true, rangedKind: "poison", rangedMax: TILE_SIZE*8, loot: [{id:"wood",c:25,ch:0.7},{id:"helm_epic",c:1,ch:0.15},{id:"bow_long",c:1,ch:0.1}] },
+  boss: true, rangedKind: "poison", rangedMax: TILE_SIZE*8, loot: [{id:"wood",c:25,ch:0.7},{id:"helm_epic",c:1,ch:0.15},{id:"bow_hunter",c:1,ch:0.1}] },
   desert_titan: { name: "Kum Titan\u0131", hp: 1100, dmg: 42, speed: 28, xp: 320, aggroRange: TILE_SIZE*10, atkRange: TILE_SIZE*1.2, atkCd: 1.4,
   boss: true, rangedKind: "fire", rangedMax: TILE_SIZE*10, loot: [{id:"chest_epic",c:1,ch:0.12},{id:"bow_hunter",c:1,ch:0.1}] },
   rock_warden: { name: "Kayal\u0131k Bek\u00e7isi", hp: 850, dmg: 44, speed: 18, xp: 300, aggroRange: TILE_SIZE*9, atkRange: TILE_SIZE*1.25, atkCd: 1.8,
   boss: true, rangedKind: "meteor", rangedMax: TILE_SIZE*8, loot: [{id:"gloves_archer",c:1,ch:0.2},{id:"bow_hunter",c:1,ch:0.14}] },
   flower_queen: { name: "\u00c7i\u00e7ek Krali\u00e7esi", hp: 650, dmg: 32, speed: 40, xp: 260, aggroRange: TILE_SIZE*10, atkRange: TILE_SIZE*1.0, atkCd: 1.2,
-  boss: true, rangedKind: "poison", rangedMax: TILE_SIZE*7, loot: [{id:"coin",c:20,ch:1},{id:"boots_epic",c:1,ch:0.18},{id:"bow_long",c:1,ch:0.12}] },
+  boss: true, rangedKind: "poison", rangedMax: TILE_SIZE*7, loot: [{id:"coin",c:20,ch:1},{id:"boots_epic",c:1,ch:0.18},{id:"bow_hunter",c:1,ch:0.12}] },
   north_frost: { name: "Buz Trol\u00fc", hp: 1000, dmg: 40, speed: 25, xp: 310, aggroRange: TILE_SIZE*10, atkRange: TILE_SIZE*1.2, atkCd: 1.5,
-  boss: true, rangedKind: "ice", rangedMax: TILE_SIZE*9, loot: [{id:"potion",c:5,ch:0.9},{id:"helm_epic",c:1,ch:0.12},{id:"bow_long",c:1,ch:0.1}] },
+  boss: true, rangedKind: "ice", rangedMax: TILE_SIZE*9, loot: [{id:"potion",c:5,ch:0.9},{id:"helm_epic",c:1,ch:0.12},{id:"bow_hunter",c:1,ch:0.1}] },
   south_shadow: { name: "G\u00f6lge Lord", hp: 950, dmg: 41, speed: 55, xp: 300, aggroRange: TILE_SIZE*11, atkRange: TILE_SIZE*1.0, atkCd: 1.1,
-  boss: true, rangedKind: "lightning", rangedMax: TILE_SIZE*10, loot: [{id:"chest_epic",c:1,ch:0.14},{id:"merchants_ring",c:1,ch:0.1},{id:"bow_long",c:1,ch:0.09}] },
+  boss: true, rangedKind: "lightning", rangedMax: TILE_SIZE*10, loot: [{id:"chest_epic",c:1,ch:0.14},{id:"merchants_ring",c:1,ch:0.1},{id:"bow_hunter",c:1,ch:0.09}] },
   dark_knight: { name: "Karanl\u0131k \u015e\u00f6valye", hp: 520, dmg: 44, speed: 48, xp: 95, aggroRange: TILE_SIZE*8, atkRange: TILE_SIZE, atkCd: 1.0,
   loot: [{id:"potion",c:2,ch:0.5},{id:"helm_iron",c:1,ch:0.08},{id:"bow_hunter",c:1,ch:0.12}] },
   dark_knight_boss: { name: "Kara Komutan", hp: 2600, dmg: 48, speed: 52, xp: 450, aggroRange: TILE_SIZE*12, atkRange: TILE_SIZE*1.1, atkCd: 0.6,
-  boss: true, loot: [{id:"potion",c:5,ch:0.9},{id:"helm_epic",c:1,ch:0.18},{id:"chest_epic",c:1,ch:0.16},{id:"bow_war",c:1,ch:0.12}] },
+  boss: true, loot: [{id:"potion",c:5,ch:0.9},{id:"helm_epic",c:1,ch:0.18},{id:"chest_epic",c:1,ch:0.16},{id:"bow_hunter",c:1,ch:0.12}] },
   frost_spirit: { name: "Buz Ruhu", hp: 260, dmg: 26, speed: 62, xp: 55, aggroRange: TILE_SIZE*7, atkRange: TILE_SIZE*0.85, atkCd: 0.9,
   rangedKind: "ice", rangedMax: TILE_SIZE*6, loot: [{id:"potion",c:1,ch:0.35},{id:"arrow",c:8,ch:0.4}] },
   dune_raider: { name: "Kum Ak\u0131nc\u0131s\u0131", hp: 300, dmg: 30, speed: 75, xp: 62, aggroRange: TILE_SIZE*8, atkRange: TILE_SIZE*0.9, atkCd: 0.85,
   loot: [{id:"bow_hunter",c:1,ch:0.05}] },
   vine_horror: { name: "Asma Dehset", hp: 340, dmg: 28, speed: 40, xp: 70, aggroRange: TILE_SIZE*7, atkRange: TILE_SIZE*1.1, atkCd: 1.15,
-  rangedKind: "poison", rangedMax: TILE_SIZE*6, loot: [{id:"seed",c:8,ch:0.6},{id:"potion",c:2,ch:0.4}] },
+  rangedKind: "poison", rangedMax: TILE_SIZE*6, loot: [{id:"potion",c:2,ch:0.4}] },
   crystalline: { name: "Kristal Canavar", hp: 420, dmg: 34, speed: 38, xp: 88, aggroRange: TILE_SIZE*8, atkRange: TILE_SIZE, atkCd: 1.25,
   rangedKind: "ice", rangedMax: TILE_SIZE*6, loot: [{id:"potion",c:2,ch:0.1}] },
   void_hound: { name: "Bo\u015fluk Taz\u0131s\u0131", hp: 380, dmg: 36, speed: 88, xp: 80, aggroRange: TILE_SIZE*9, atkRange: TILE_SIZE*0.95, atkCd: 0.75,
@@ -7475,43 +7552,43 @@ const MONSTER_TYPES = {
   ice_queen: { name: "Buz Krali\u00e7e", hp: 2400, dmg: 58, speed: 42, xp: 520, aggroRange: TILE_SIZE*12, atkRange: TILE_SIZE*1.25, atkCd: 1.2,
   boss: true, rangedKind: "ice", rangedMax: TILE_SIZE*12, loot: [{id:"potion",c:6,ch:0.95},{id:"helm_epic",c:1,ch:0.14},{id:"boots_epic",c:1,ch:0.1}] },
   dune_king: { name: "Kum Kral\u0131", hp: 2800, dmg: 62, speed: 36, xp: 600, aggroRange: TILE_SIZE*12, atkRange: TILE_SIZE*1.3, atkCd: 1.15,
-  boss: true, rangedKind: "fire", rangedMax: TILE_SIZE*11, loot: [{id:"chest_epic",c:1,ch:0.16},{id:"bow_long",c:1,ch:0.1},{id:"ring_power",c:1,ch:0.06}] },
+  boss: true, rangedKind: "fire", rangedMax: TILE_SIZE*11, loot: [{id:"chest_epic",c:1,ch:0.16},{id:"bow_hunter",c:1,ch:0.1},{id:"ring_power",c:1,ch:0.06}] },
   jungle_behemoth: { name: "Muson Dev", hp: 2200, dmg: 54, speed: 48, xp: 560, aggroRange: TILE_SIZE*11, atkRange: TILE_SIZE*1.2, atkCd: 1.05,
   boss: true, rangedKind: "poison", rangedMax: TILE_SIZE*10, loot: [{id:"wood",c:40,ch:0.9},{id:"chest_epic",c:1,ch:0.14},{id:"boots_epic",c:1,ch:0.1},{id:"gloves_archer",c:1,ch:0.1}] },
   thunder_lord: { name: "G\u00f6k G\u00fcc\u00fc", hp: 3200, dmg: 68, speed: 52, xp: 720, aggroRange: TILE_SIZE*13, atkRange: TILE_SIZE*1.15, atkCd: 0.95,
   boss: true, rangedKind: "lightning", rangedMax: TILE_SIZE*12, loot: [{id:"potion",c:8,ch:1},{id:"helm_epic",c:1,ch:0.14},{id:"gloves_archer",c:1,ch:0.1}] },
   abyss_crab: { name: "U\u00e7urum Yengeci", hp: 3600, dmg: 56, speed: 28, xp: 680, aggroRange: TILE_SIZE*10, atkRange: TILE_SIZE*1.35, atkCd: 1.4,
-  boss: true, rangedKind: "ice", rangedMax: TILE_SIZE*9, loot: [{id:"potion",c:30,ch:0.8},{id:"chest_epic",c:1,ch:0.12},{id:"ring_power",c:1,ch:0.08},{id:"bow_long",c:1,ch:0.1}] },
+  boss: true, rangedKind: "ice", rangedMax: TILE_SIZE*9, loot: [{id:"potion",c:30,ch:0.8},{id:"chest_epic",c:1,ch:0.12},{id:"ring_power",c:1,ch:0.08},{id:"bow_hunter",c:1,ch:0.1}] },
   volcanic_titan: { name: "Lav Titan\u0131", hp: 4000, dmg: 72, speed: 30, xp: 800, aggroRange: TILE_SIZE*12, atkRange: TILE_SIZE*1.4, atkCd: 1.35,
-  boss: true, rangedKind: "meteor", rangedMax: TILE_SIZE*12, loot: [{id:"helm_epic",c:1,ch:0.12},{id:"chest_epic",c:1,ch:0.12},{id:"bow_long",c:1,ch:0.1}] },
+  boss: true, rangedKind: "meteor", rangedMax: TILE_SIZE*12, loot: [{id:"helm_epic",c:1,ch:0.12},{id:"chest_epic",c:1,ch:0.12},{id:"bow_hunter",c:1,ch:0.1}] },
   godzilla: { name: "Kaiju Titan (Godzilla)", hp: 5200, dmg: 78, speed: 20, xp: 960, aggroRange: TILE_SIZE*14, atkRange: TILE_SIZE*1.35, atkCd: 1.2,
   boss: true, rangedKind: "meteor", rangedMax: TILE_SIZE*13, loot: [{id:"chest_epic",c:1,ch:0.16},{id:"helm_epic",c:1,ch:0.12},{id:"ring_power",c:1,ch:0.07}] },
   scorpion_king: { name: "Akrep Kral", hp: 4000, dmg: 66, speed: 36, xp: 820, aggroRange: TILE_SIZE*13, atkRange: TILE_SIZE*1.15, atkCd: 0.88,
   boss: true, rangedKind: "poison", rangedMax: TILE_SIZE*11, loot: [{id:"chest_epic",c:1,ch:0.2},{id:"gloves_archer",c:1,ch:0.12}] },
   giant_bee_queen: { name: "Dev E\u015fek Ar\u0131s\u0131", hp: 3600, dmg: 55, speed: 68, xp: 720, aggroRange: TILE_SIZE*13, atkRange: TILE_SIZE*0.95, atkCd: 0.62,
-  boss: true, rangedKind: "poison", rangedMax: TILE_SIZE*12, loot: [{id:"seed",c:50,ch:0.7},{id:"chest_epic",c:1,ch:0.14},{id:"potion",c:8,ch:0.6},{id:"ring_power",c:1,ch:0.08}] },
+  boss: true, rangedKind: "poison", rangedMax: TILE_SIZE*12, loot: [{id:"chest_epic",c:1,ch:0.14},{id:"potion",c:8,ch:0.6},{id:"ring_power",c:1,ch:0.08}] },
   ancient_root: { name: "A\u011fa\u00e7 Adam", hp: 220, dmg: 26, speed: 19, xp: 58, aggroRange: TILE_SIZE*7, atkRange: TILE_SIZE*1.05, atkCd: 1.35,
   loot: [{id:"wood",c:8,ch:0.75},{id:"potion",c:1,ch:0.28},{id:"helm_leather",c:1,ch:0.06}] },
   bog_troll: { name: "Batakl\u0131k Trol\u00fc", hp: 320, dmg: 32, speed: 30, xp: 78, aggroRange: TILE_SIZE*7, atkRange: TILE_SIZE*1.15, atkCd: 1.25,
   loot: [{id:"wood",c:6,ch:0.5},{id:"potion",c:2,ch:0.35},{id:"bow_hunter",c:1,ch:0.07}] },
   spore_creeper: { name: "Spor Bitkisi", hp: 240, dmg: 22, speed: 26, xp: 52, aggroRange: TILE_SIZE*6, atkRange: TILE_SIZE*0.95, atkCd: 1.1,
-  rangedKind: "poison", rangedMax: TILE_SIZE*5.5, loot: [{id:"potion",c:10,ch:0.65},{id:"potion_mana",c:1,ch:0.22},{id:"seed",c:4,ch:0.4}] },
+  rangedKind: "poison", rangedMax: TILE_SIZE*5.5, loot: [{id:"potion",c:10,ch:0.65},{id:"potion_mana",c:1,ch:0.22}] },
   skywing_dragon: { name: "G\u00f6k Kanatl\u0131 Ejderha", hp: 16500, dmg: 92, speed: 42, xp: 3200, aggroRange: TILE_SIZE*18, atkRange: TILE_SIZE*2.0, atkCd: 0.78,
   boss: true, rangedKind: "fire", rangedMax: TILE_SIZE*15, rangedMin: TILE_SIZE*1.4,
-  loot: [{id:"helm_legendary",c:1,ch:0.52},{id:"chest_legendary",c:1,ch:0.52},{id:"amulet_wisdom",c:1,ch:0.48},{id:"boss_chest",c:1,ch:0.4},{id:"bow_long",c:1,ch:0.22},{id:"bow_storm_legendary",c:1,ch:0.18},{id:"bow_dragon_legendary",c:1,ch:0.14}] },
+  loot: [{id:"helm_legendary",c:1,ch:0.52},{id:"chest_legendary",c:1,ch:0.52},{id:"amulet_wisdom",c:1,ch:0.48},{id:"boss_chest",c:1,ch:0.4},{id:"bow_hunter",c:1,ch:0.22},{id:"bow_composite",c:1,ch:0.18},{id:"bow_composite",c:1,ch:0.14}] },
   // Antik Ejderhalar â€” haritanın en uç köşelerinde, tüm canavarlardan güçlü
   ancient_flame_dragon: { name: "Kadim Ateş Ejderhası", hp: 28000, dmg: 145, speed: 38, xp: 5200, aggroRange: TILE_SIZE*20, atkRange: TILE_SIZE*2.2, atkCd: 0.72,
   boss: true, rangedKind: "fire", rangedMax: TILE_SIZE*16, rangedMin: TILE_SIZE*1.6,
-  loot: [{id:"flame_dragon_scale",c:1,ch:1},{id:"boss_chest",c:2,ch:0.65},{id:"helm_legendary",c:1,ch:0.45},{id:"chest_legendary",c:1,ch:0.45},{id:"bow_dragon_legendary",c:1,ch:0.35}] },
+  loot: [{id:"flame_dragon_scale",c:1,ch:1},{id:"boss_chest",c:2,ch:0.65},{id:"helm_legendary",c:1,ch:0.45},{id:"chest_legendary",c:1,ch:0.45},{id:"bow_composite",c:1,ch:0.35}] },
   frost_ancient_wyrm: { name: "Kadim Buz Wyrm", hp: 26000, dmg: 135, speed: 34, xp: 4800, aggroRange: TILE_SIZE*20, atkRange: TILE_SIZE*2.1, atkCd: 0.75,
   boss: true, rangedKind: "ice", rangedMax: TILE_SIZE*16, rangedMin: TILE_SIZE*1.5,
-  loot: [{id:"boss_chest",c:2,ch:0.6},{id:"helm_legendary",c:1,ch:0.45},{id:"chest_legendary",c:1,ch:0.45},{id:"bow_long",c:1,ch:0.35}] },
+  loot: [{id:"boss_chest",c:2,ch:0.6},{id:"helm_legendary",c:1,ch:0.45},{id:"chest_legendary",c:1,ch:0.45},{id:"bow_hunter",c:1,ch:0.35}] },
   storm_sovereign_dragon: { name: "Fırtına Egemen Ejderhası", hp: 30000, dmg: 155, speed: 40, xp: 5500, aggroRange: TILE_SIZE*21, atkRange: TILE_SIZE*2.3, atkCd: 0.68,
   boss: true, rangedKind: "lightning", rangedMax: TILE_SIZE*17, rangedMin: TILE_SIZE*1.7,
-  loot: [{id:"storm_dragon_claw",c:1,ch:1},{id:"boss_chest",c:2,ch:0.7},{id:"helm_legendary",c:1,ch:0.5},{id:"chest_legendary",c:1,ch:0.5},{id:"bow_storm_legendary",c:1,ch:0.4}] },
+  loot: [{id:"bow_composite",c:1,ch:1},{id:"boss_chest",c:2,ch:0.7},{id:"helm_legendary",c:1,ch:0.5},{id:"chest_legendary",c:1,ch:0.5},{id:"bow_composite",c:1,ch:0.4}] },
   void_ancient_dragon: { name: "Kadim Boşluk Ejderhası", hp: 32000, dmg: 165, speed: 36, xp: 6000, aggroRange: TILE_SIZE*22, atkRange: TILE_SIZE*2.4, atkCd: 0.65,
   boss: true, rangedKind: "poison", rangedMax: TILE_SIZE*17, rangedMin: TILE_SIZE*1.8,
-  loot: [{id:"boss_chest",c:3,ch:0.75},{id:"helm_legendary",c:1,ch:0.55},{id:"chest_legendary",c:1,ch:0.55},{id:"bow_void_legendary",c:1,ch:0.42}] },
+  loot: [{id:"boss_chest",c:3,ch:0.75},{id:"helm_legendary",c:1,ch:0.55},{id:"chest_legendary",c:1,ch:0.55},{id:"bow_composite",c:1,ch:0.42}] },
   metin_stone: { name: "Metin Taşı", hp: 3500, dmg: 0, speed: 0, xp: 0, aggroRange: 0, atkRange: 0, atkCd: 99,
   boss: false, loot: [] },
   centipede: { name: "Kırkayak", hp: 40, dmg: 8, speed: 55, xp: 12, aggroRange: TILE_SIZE*5, atkRange: TILE_SIZE*0.8, atkCd: 0.9,
@@ -7520,7 +7597,26 @@ const MONSTER_TYPES = {
   loot: [{id:"arrow",c:3,ch:0.25},{id:"potion",c:1,ch:0.1}] },
   ghost: { name: "Hayalet", hp: 80, dmg: 15, speed: 60, xp: 25, aggroRange: TILE_SIZE*8, atkRange: TILE_SIZE*0.85, atkCd: 0.8,
   rangedKind: "ice", rangedMax: TILE_SIZE*5,
-  loot: [{id:"potion",c:1,ch:0.3},{id:"potion_mana",c:1,ch:0.2},{id:"bow_recurve",c:1,ch:0.05}] }};
+  loot: [{id:"potion",c:1,ch:0.3},{id:"potion_mana",c:1,ch:0.2},{id:"bow",c:1,ch:0.05}] },
+  worm: { name: "Solucan", hp: 18, dmg: 3, speed: 40, xp: 5, aggroRange: TILE_SIZE*4, atkRange: TILE_SIZE*0.7, atkCd: 1.5,
+  loot: [] },
+  worm_boss: { name: "Ana Solucan", hp: 400, dmg: 10, speed: 30, xp: 80, aggroRange: TILE_SIZE*8, atkRange: TILE_SIZE*0.9, atkCd: 1.2,
+  boss: true, loot: [{id:"potion",c:2,ch:0.5},{id:"potion_mana",c:1,ch:0.3},{id:"bow_hunter",c:1,ch:0.04}] },
+};
+// Canavar loot slot tablosu — her canavar tipi hangi ekipman slotundan eşya düşürür
+var MONSTER_LOOT_SLOT = {
+  worm: "waist", slime: "head", wolf: "feet", skeleton: "bow", orc: "chest",
+  golem: "chest", dark_knight: "arms", frost_spirit: "waist", dune_raider: "feet",
+  vine_horror: "waist", crystalline: "head", void_hound: "feet", iron_behemoth: "chest",
+  storm_wraith: "waist", ancient_root: "arms", bog_troll: "chest", spore_creeper: "head",
+  ghost: "waist", centipede: "feet", spider: "head",
+};
+function getMonsterLootDesc(type) {
+  var eqSlot = MONSTER_LOOT_SLOT[type] || MONSTER_LOOT_SLOT[type.replace("_boss","")] || "misc";
+  var slotLabel = EQ_LABELS[eqSlot] || (eqSlot.charAt(0).toUpperCase() + eqSlot.slice(1));
+  return " Drop:" + slotLabel + " (Efs:%1 Ep:%5 Mv:%10 C:%25)";
+}
+
 function drawMonsterSprite(ctx, type, x, y, dir, frame, hitFlash, atkAnim, bw, bh, mstate) {
   const bww = bw != null ? bw : 20, bhh = bh != null ? bh : 20;
   const cx = x + bww / 2, cy = y + bhh / 2;
@@ -7554,69 +7650,74 @@ function drawMonsterSprite(ctx, type, x, y, dir, frame, hitFlash, atkAnim, bw, b
   break;
   }
   case "slime_boss": {
-  const sqB = 1 + Math.sin(frame * Math.PI) * 0.15;
+  const mstB = mstate || "idle";
+  const strdB = mstB === "chase" || mstB === "attack" ? 1 : 0.5;
+  const hopB = strdB ? Math.abs(Math.sin(frame * Math.PI * 0.55)) * 9 : 0;
+  const sqB = 1 + Math.sin(frame * Math.PI) * 0.15 + (Math.sin(frame * Math.PI * 0.55) * 0.1 * strdB);
   const hB = (bhh * 0.7) * sqB, wB = (bww * 0.85) / sqB;
   const strideB = mstate === "chase" || mstate === "attack" ? 1 : 0.5;
   const blobB = Math.sin(frame * Math.PI * 1.3) * 2 * strideB;
   ctx.fillStyle = "rgba(0,0,0,0.25)";
-  ctx.beginPath(); ctx.ellipse(cx, cy + bhh * 0.45, wB * 0.5, 4, 0, 0, Math.PI * 2); ctx.fill();
-  const gB2 = ctx.createRadialGradient(cx - 4, cy - 3, 0, cx, cy + 6, Math.max(wB, hB) * 0.75);
+  ctx.beginPath(); ctx.ellipse(cx, cy + bhh * 0.45 + hopB * 0.3, wB * 0.5, 4 - hopB * 0.05, 0, 0, Math.PI * 2); ctx.fill();
+  const gB2 = ctx.createRadialGradient(cx - 4, cy - 3 - hopB, 0, cx, cy + 6 - hopB, Math.max(wB, hB) * 0.75);
   gB2.addColorStop(0, hitFlash > 0 ? "#ffaaaa" : "#c060e0");
   gB2.addColorStop(0.5, hitFlash > 0 ? "#ff6666" : "#8030a0");
   gB2.addColorStop(1, hitFlash > 0 ? "#9a2424" : "#501870");
   ctx.fillStyle = gB2;
-  ctx.beginPath(); ctx.ellipse(cx, cy + 5, wB * 0.55, hB * 0.55, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(cx, cy + 5 - hopB, wB * 0.55, hB * 0.55, 0, 0, Math.PI * 2); ctx.fill();
   ctx.fillStyle = "rgba(255,200,255,0.25)";
-  ctx.beginPath(); ctx.ellipse(cx - 3, cy + 2, wB * 0.25, hB * 0.12, -0.2, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(cx - 3, cy + 2 - hopB, wB * 0.25, hB * 0.12, -0.2, 0, Math.PI * 2); ctx.fill();
   ctx.fillStyle = hitFlash > 0 ? "rgba(255,120,120,0.3)" : "rgba(220,180,255,0.2)";
-  ctx.beginPath(); ctx.ellipse(cx - 5, cy - 1, wB * 0.3, hB * 0.12, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(cx - 5, cy - 1 - hopB, wB * 0.3, hB * 0.12, 0, 0, Math.PI * 2); ctx.fill();
   // Taç
   ctx.fillStyle = "#ffd700";
-  ctx.fillRect(cx - 6, cy - hB * 0.5 - 5, 12, 4);
-  ctx.fillRect(cx - 5, cy - hB * 0.5 - 9, 2, 6);
-  ctx.fillRect(cx - 2, cy - hB * 0.5 - 11, 2, 8);
-  ctx.fillRect(cx + 1, cy - hB * 0.5 - 10, 2, 7);
-  ctx.fillRect(cx + 4, cy - hB * 0.5 - 7, 2, 5);
+  ctx.fillRect(cx - 6, cy - hB * 0.5 - 5 - hopB, 12, 4);
+  ctx.fillRect(cx - 5, cy - hB * 0.5 - 9 - hopB, 2, 6);
+  ctx.fillRect(cx - 2, cy - hB * 0.5 - 11 - hopB, 2, 8);
+  ctx.fillRect(cx + 1, cy - hB * 0.5 - 10 - hopB, 2, 7);
+  ctx.fillRect(cx + 4, cy - hB * 0.5 - 7 - hopB, 2, 5);
   break;
   }
   case "slime": {
-  const sq = 1 + Math.sin(frame * Math.PI) * 0.18;
-  const h = (bhh * 0.6) * sq, w = (bww * 0.78) / sq;
   const mst = mstate || "idle";
-  const stride = mst === "chase" || mst === "attack" ? 1 : 0.5;
-  const blob = Math.sin(frame * Math.PI * 1.3) * 1.5 * stride;
+  const strd = mst === "chase" || mst === "attack" ? 1 : 0.5;
+  const hop = mst === "chase" || mst === "attack" ? Math.abs(Math.sin(frame * Math.PI * 0.6)) * 6 : 0;
+  const hopPhase = Math.sin(frame * Math.PI * 0.6);
+  const sq = 1 + Math.sin(frame * Math.PI) * 0.18 + (hopPhase * 0.12 * strd);
+  const h = (bhh * 0.6) * sq, w = (bww * 0.78) / sq;
+  const blob = Math.sin(frame * Math.PI * 1.3) * 1.5 * strd;
   const bubble = 0.7 + Math.sin(frame * 2.2) * 0.3;
   ctx.fillStyle = "rgba(0,0,0,0.18)";
-  ctx.beginPath(); ctx.ellipse(cx, cy + bhh * 0.43, w * 0.42, 3.2, 0, 0, Math.PI * 2); ctx.fill();
-  const g = ctx.createRadialGradient(cx - 3, cy - 2, 0, cx, cy + 5, Math.max(w, h) * 0.7);
+  ctx.beginPath(); ctx.ellipse(cx, cy + bhh * 0.43 + hop * 0.3, w * 0.42, 3.2 - hop * 0.04, 0, 0, Math.PI * 2); ctx.fill();
+  const g = ctx.createRadialGradient(cx - 3, cy - 2 - hop, 0, cx, cy + 5 - hop, Math.max(w, h) * 0.7);
   g.addColorStop(0, hitFlash > 0 ? "#ffaaaa" : "#b7ffc1");
   g.addColorStop(0.52, hitFlash > 0 ? "#ff6666" : "#53bc63");
   g.addColorStop(1, hitFlash > 0 ? "#9a2424" : "#246938");
   ctx.fillStyle = g;
-  ctx.beginPath(); ctx.ellipse(cx, cy + 4, w * 0.5, h * 0.5, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(cx, cy + 4 - hop, w * 0.5, h * 0.5, 0, 0, Math.PI * 2); ctx.fill();
   ctx.fillStyle = hitFlash > 0 ? "rgba(255,160,160,0.35)" : "rgba(255,255,255,0.35)";
-  ctx.beginPath(); ctx.ellipse(cx - 2, cy + 1, w * 0.24, h * 0.15, -0.2, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(cx - 2, cy + 1 - hop, w * 0.24, h * 0.15, -0.2, 0, Math.PI * 2); ctx.fill();
   ctx.fillStyle = hitFlash > 0 ? "rgba(255,120,120,0.25)" : "rgba(200,255,210,0.3)";
-  ctx.beginPath(); ctx.ellipse(cx + 3, cy + 5, w * 0.12, h * 0.08, 0.3, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(cx + 3, cy + 5 - hop, w * 0.12, h * 0.08, 0.3, 0, Math.PI * 2); ctx.fill();
   for (let i = 0; i < 3; i++) {
   const bx = cx + Math.sin(frame * 0.7 + i * 2.1) * (w * 0.28);
-  const by = cy + 3 + Math.cos(frame * 0.5 + i * 1.4) * (h * 0.2);
+  const by = cy + 3 - hop + Math.cos(frame * 0.5 + i * 1.4) * (h * 0.2);
   ctx.fillStyle = hitFlash > 0 ? `rgba(255,100,100,${0.2 * bubble})` : `rgba(255,255,255,${0.25 * bubble})`;
   ctx.beginPath(); ctx.arc(bx, by, 1.2 + i * 0.3, 0, Math.PI * 2); ctx.fill();
   }
   ctx.fillStyle = hitFlash > 0 ? "#ffe0e0" : "#f2fff2";
-  ctx.beginPath(); ctx.arc(cx - 3, cy - 1, 1.8, 0, Math.PI * 2); ctx.arc(cx + 2, cy - 1, 1.6, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(cx - 3, cy - 1 - hop, 1.8, 0, Math.PI * 2); ctx.arc(cx + 2, cy - 1 - hop, 1.6, 0, Math.PI * 2); ctx.fill();
   ctx.fillStyle = hitFlash > 0 ? "#600" : "#122018";
-  ctx.beginPath(); ctx.arc(cx - 3, cy - 0.5, 1.1, 0, Math.PI * 2); ctx.arc(cx + 2, cy - 0.5, 1, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(cx - 3, cy - 0.5 - hop, 1.1, 0, Math.PI * 2); ctx.arc(cx + 2, cy - 0.5 - hop, 1, 0, Math.PI * 2); ctx.fill();
   ctx.fillStyle = hitFlash > 0 ? "#ff8080" : "#e8ffe8";
-  ctx.beginPath(); ctx.arc(cx - 3.2, cy - 0.7, 0.45, 0, Math.PI * 2); ctx.arc(cx + 1.8, cy - 0.7, 0.4, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(cx - 3.2, cy - 0.7 - hop, 0.45, 0, Math.PI * 2); ctx.arc(cx + 1.8, cy - 0.7 - hop, 0.4, 0, Math.PI * 2); ctx.fill();
   ctx.fillStyle = hitFlash > 0 ? "rgba(120,20,20,0.45)" : "rgba(18,40,24,0.4)";
-  ctx.beginPath(); ctx.arc(cx, cy + 3.5, 2.5 + blob * 0.3, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(cx, cy + 3.5 - hop, 2.5 + blob * 0.3, 0, Math.PI * 2); ctx.fill();
   ctx.fillStyle = hitFlash > 0 ? "rgba(255,100,100,0.15)" : "rgba(100,255,140,0.15)";
-  ctx.beginPath(); ctx.arc(cx, cy + 2, w * 0.55, h * 0.55, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(cx, cy + 2 - hop, w * 0.55, h * 0.55, 0, Math.PI * 2); ctx.fill();
   if (atkAnim > 0) {
   ctx.fillStyle = hitFlash > 0 ? "rgba(255,100,100,0.25)" : "rgba(100,255,140,0.25)";
-  ctx.beginPath(); ctx.arc(cx, cy + 2, w * 0.65, h * 0.65, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(cx, cy + 2 - hop, w * 0.65, h * 0.65, 0, Math.PI * 2); ctx.fill();
   }
   break;
   }
@@ -7691,28 +7792,79 @@ function drawMonsterSprite(ctx, type, x, y, dir, frame, hitFlash, atkAnim, bw, b
   break;
   }
   case "skeleton_boss": {
-  var skBScale = 1.3;
+  var skBScale = 1.4;
   ctx.save();
   ctx.translate(cx, cy);
   ctx.scale(skBScale, skBScale);
   ctx.translate(-cx, -cy);
-  var bSway = Math.sin(frame * Math.PI * 0.5) * 1.8;
-  ctx.fillStyle = "rgba(0,0,0,0.22)";
-  ctx.beginPath(); ctx.ellipse(cx, cy + 12, 12, 4, 0, 0, Math.PI * 2); ctx.fill();
+  var bSway = Math.sin(frame * Math.PI * 0.5) * 2.2;
+  var bowPull = (mstate === "attack") ? Math.abs(Math.sin(frame * 0.6)) * 6 : 0;
+  var bowArmY = Math.sin(frame * 0.6) * 2 * ((mstate === "attack") ? 1 : 0.3);
+  ctx.fillStyle = "rgba(0,0,0,0.25)";
+  ctx.beginPath(); ctx.ellipse(cx, cy + 14, 14, 4.5, 0, 0, Math.PI * 2); ctx.fill();
+  // Bacaklar (uzun iskelet)
+  ctx.fillStyle = hitFlash > 0 ? "#ffaaaa" : "#d8d0c0";
+  ctx.fillRect(cx - 7, cy + 6 + bSway, 4, 10);
+  ctx.fillRect(cx + 3, cy + 6 + bSway, 4, 10);
+  // Gövde (uzun kaburga)
   ctx.fillStyle = hitFlash > 0 ? "#ffaaaa" : "#e8e0d0";
-  ctx.fillRect(cx - 10, cy - 4 + bSway, 20, 16);
-  ctx.fillRect(cx - 6, cy - 12 + bSway, 12, 8);
-  ctx.fillStyle = hitFlash > 0 ? "#ff6666" : "#c8c0b0";
-  ctx.fillRect(cx - 8, cy + 12 + bSway, 16, 2);
-  ctx.fillRect(cx - 8, cy - 8 + bSway, 4, 8);
-  ctx.fillRect(cx + 4, cy - 8 + bSway, 4, 8);
-  ctx.fillRect(cx - 4, cy - 4 + bSway, 8, 4);
-  ctx.fillStyle = hitFlash > 0 ? "#ff4444" : "#a08080";
-  ctx.fillRect(cx - 5, cy - 1 + bSway, 3, 2);
-  ctx.fillRect(cx + 2, cy - 1 + bSway, 3, 2);
-  ctx.fillStyle = "#ff0000";
-  ctx.fillRect(cx - 3, cy - 16 + bSway, 6, 3);
-  ctx.fillRect(cx - 1, cy - 18 + bSway, 2, 3);
+  ctx.fillRect(cx - 10, cy - 6 + bSway, 20, 18);
+  ctx.fillRect(cx - 8, cy - 14 + bSway, 16, 10);
+  // Kaburga çizgileri
+  ctx.strokeStyle = hitFlash > 0 ? "#ff6666" : "#b0a898";
+  ctx.lineWidth = 1;
+  for (var ri = 0; ri < 4; ri++) {
+  ctx.beginPath(); ctx.moveTo(cx - 7, cy - 2 + ri * 4 + bSway); ctx.lineTo(cx + 7, cy - 2 + ri * 4 + bSway); ctx.stroke();
+  }
+  // Yay (sol kol)
+  ctx.strokeStyle = hitFlash > 0 ? "#ff8888" : "#8a7038";
+  ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(cx - 10, cy - 8 + bSway + bowArmY); ctx.lineTo(cx - 18 + bowPull, cy - 4 + bSway + bowArmY); ctx.lineTo(cx - 10, cy + 4 + bSway + bowArmY); ctx.stroke();
+  // Kiriş
+  ctx.strokeStyle = "#e0e0d0";
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(cx - 10, cy - 8 + bSway + bowArmY); ctx.lineTo(cx - 10 + bowPull * 0.5, cy + 4 + bSway + bowArmY); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(cx - 10, cy - 8 + bSway + bowArmY); ctx.lineTo(cx - 10 + bowPull * 0.5, cy - 8 + bSway + bowArmY); ctx.stroke();
+  // Ok (çekili halde)
+  if (bowPull > 1) {
+  ctx.strokeStyle = "#6a4a28";
+  ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(cx - 10 + bowPull, cy - 2 + bSway + bowArmY); ctx.lineTo(cx + 10, cy + 4 + bSway + bowArmY); ctx.stroke();
+  ctx.fillStyle = "#c0c0c0";
+  ctx.beginPath(); ctx.moveTo(cx + 8, cy + 3 + bSway + bowArmY); ctx.lineTo(cx + 11, cy + 5 + bSway + bowArmY); ctx.lineTo(cx + 10, cy + 3 + bSway + bowArmY); ctx.fill();
+  }
+  // Sağ kol
+  ctx.fillStyle = hitFlash > 0 ? "#ffaaaa" : "#d8d0c0";
+  ctx.fillRect(cx + 6, cy - 8 + bSway + bowArmY, 4, 10);
+  // Baş (büyük kafatası)
+  ctx.fillStyle = hitFlash > 0 ? "#ffaaaa" : "#e8e0d0";
+  ctx.beginPath(); ctx.arc(cx, cy - 18 + bSway, 10, 0, Math.PI * 2); ctx.fill();
+  // Göz çukurları (kırmızı)
+  ctx.fillStyle = "#ff2020";
+  ctx.beginPath(); ctx.arc(cx - 3.5, cy - 19 + bSway, 2.5 + 0.3 * Math.sin(frame * 2), 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(cx + 3.5, cy - 19 + bSway, 2.5 + 0.3 * Math.sin(frame * 2), 0, Math.PI * 2); ctx.fill();
+  // Ağız
+  ctx.fillStyle = "#222";
+  ctx.fillRect(cx - 4, cy - 14 + bSway, 8, 2);
+  ctx.fillRect(cx - 3, cy - 12 + bSway, 6, 1);
+  // Taç (kemikten)
+  ctx.fillStyle = "#d0c090";
+  ctx.fillRect(cx - 6, cy - 28 + bSway, 12, 3);
+  ctx.fillRect(cx - 5, cy - 31 + bSway, 2, 4);
+  ctx.fillRect(cx - 2, cy - 33 + bSway, 2, 6);
+  ctx.fillRect(cx + 1, cy - 32 + bSway, 2, 5);
+  ctx.fillRect(cx + 4, cy - 30 + bSway, 2, 3);
+  // Sırtında ok kılıfı
+  ctx.fillStyle = "#5a3a1a";
+  ctx.fillRect(cx + 10, cy - 12 + bSway, 3, 14);
+  ctx.fillStyle = "#7a5a3a";
+  ctx.fillRect(cx + 12, cy - 14 + bSway, 2, 16);
+  // Oklar (kılıftan çıkan)
+  ctx.strokeStyle = "#6a4a28";
+  ctx.lineWidth = 1;
+  for (var oi = 0; oi < 3; oi++) {
+  ctx.beginPath(); ctx.moveTo(cx + 13, cy - 12 + bSway + oi * 5); ctx.lineTo(cx + 16 + oi * 2, cy - 18 + bSway + oi * 3); ctx.stroke();
+  }
   ctx.restore();
   break;
   }
@@ -9861,6 +10013,70 @@ function drawMonsterSprite(ctx, type, x, y, dir, frame, hitFlash, atkAnim, bw, b
   ctx.restore();
   break;
   }
+  case "worm": {
+  const mstW = mstate || "idle";
+  const strdW = mstW === "chase" || mstW === "attack" ? 1 : 0.35;
+  ctx.fillStyle = "rgba(0,0,0,0.15)";
+  ctx.beginPath(); ctx.ellipse(cx, cy + 14, 12, 3, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.save();
+  ctx.translate(cx, cy);
+  var wPhase = frame * 0.9 * strdW;
+  var segs = 6;
+  var segLen = 4.5;
+  var bodyW = 5.5;
+  var totalLen = segs * segLen;
+  var headX = -totalLen / 2;
+  for (var ws = 0; ws < segs; ws++) {
+  var t = ws / segs;
+  var sx = headX + ws * segLen;
+  var sy = Math.sin(wPhase + t * 2.5) * 3.5 * strdW;
+  var sw = bodyW * (1 - t * 0.2);
+  var sh = bodyW * 0.7 * (1 - t * 0.2);
+  ctx.fillStyle = hitFlash > 0 ? "#ff8888" : ("#c08860");
+  if (ws % 2 === 1) ctx.fillStyle = hitFlash > 0 ? "#ff6666" : "#a06848";
+  ctx.beginPath(); ctx.ellipse(sx, sy, sw, sh, Math.sin(wPhase + t * 3) * 0.15, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.fillStyle = "#222";
+  ctx.beginPath(); ctx.arc(headX + 1, Math.sin(wPhase) * 3.5 * strdW - 1.5, 1.2, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(headX + 1, Math.sin(wPhase) * 3.5 * strdW - 1.5, 0.4, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(headX + 4, Math.sin(wPhase + 0.5) * 3.5 * strdW - 1.5, 1, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = "#ffd0a0";
+  ctx.beginPath(); ctx.arc(headX + 1, Math.sin(wPhase) * 3.5 * strdW - 1.5, 0.5, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(headX + 4, Math.sin(wPhase + 0.5) * 3.5 * strdW - 1.5, 0.4, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+  break;
+  }
+  case "worm_boss": {
+  const mstWb = mstate || "idle";
+  const strdWb = mstWb === "chase" || mstWb === "attack" ? 1 : 0.35;
+  ctx.fillStyle = "rgba(0,0,0,0.2)";
+  ctx.beginPath(); ctx.ellipse(cx, cy + 18, 18, 4.5, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.save();
+  ctx.translate(cx, cy);
+  var wPhaseB = frame * 0.75 * strdWb;
+  var segsB = 8;
+  var segLenB = 5.5;
+  var bodyWB = 7;
+  var totalLenB = segsB * segLenB;
+  var headXB = -totalLenB / 2;
+  for (var wsB = 0; wsB < segsB; wsB++) {
+  var tB = wsB / segsB;
+  var sxB = headXB + wsB * segLenB;
+  var syB = Math.sin(wPhaseB + tB * 2.5) * 5 * strdWb;
+  var swB = bodyWB * (1 - tB * 0.15);
+  var shB = bodyWB * 0.8 * (1 - tB * 0.15);
+  ctx.fillStyle = hitFlash > 0 ? "#ff8888" : (wsB % 2 === 0 ? "#8a5030" : "#6a3820");
+  ctx.beginPath(); ctx.ellipse(sxB, syB, swB, shB, Math.sin(wPhaseB + tB * 3) * 0.12, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.fillStyle = "#600";
+  ctx.beginPath(); ctx.arc(headXB + 2, Math.sin(wPhaseB) * 5 * strdWb - 2, 1.8, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(headXB + 6, Math.sin(wPhaseB + 0.5) * 5 * strdWb - 2, 1.5, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = "#ff3030";
+  ctx.beginPath(); ctx.arc(headXB + 2, Math.sin(wPhaseB) * 5 * strdWb - 2, 0.8, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(headXB + 6, Math.sin(wPhaseB + 0.5) * 5 * strdWb - 2, 0.7, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+  break;
+  }
   case "centipede": {
   const mst2 = mstate || "idle";
   const strd2 = mst2 === "chase" || mst2 === "attack" ? 1 : 0.5;
@@ -9988,6 +10204,7 @@ class Monster {
   this.type = type;
   const mt = MONSTER_TYPES[type];
   if (type === "godzilla") { this.w = 36; this.h = 32; }
+  else if (type === "worm_boss") { this.w = 28; this.h = 24; }
   else if (type === "scorpion_king") { this.w = 30; this.h = 26; }
   else if (type === "giant_bee_queen") { this.w = 28; this.h = 24; }
   else if (type === "skywing_dragon") { this.w = 96; this.h = 82; }
@@ -10099,7 +10316,7 @@ class Monster {
   this.hp = Math.min(this.hp, this.maxHp);
   this.dmg = Math.floor(this.dmg * 1.08);
   this.speed *= 1.02;
-  if (!this.rangedKind) {
+  if (!this.rangedKind && this.type.indexOf("slime") < 0 && this.type.indexOf("wolf") < 0 && this.type.indexOf("worm") < 0) {
   const rk = ["poison", "ice", "fire"];
   this.rangedKind = rk[(Math.random() * rk.length) | 0];
   }
@@ -10344,6 +10561,25 @@ class Monster {
   ctx.fillRect(this.cx - this.w, this.cy - this.h, this.w * 2, this.h * 2);
   }
 
+  // Hedef göstergesi (beyaz parlama)
+  if (currentTargetMonster === this && currentTargetMonsterTimer > 0) {
+  var targetPulse = 0.65 + 0.35 * Math.sin(performance.now() * 0.005);
+  ctx.shadowColor = "#ffffff";
+  ctx.shadowBlur = 8 * targetPulse;
+  ctx.strokeStyle = "rgba(255,255,255," + targetPulse + ")";
+  ctx.lineWidth = 2;
+  // Canavarın şekline uygun outline — yuvarlak dikdörtgen
+  if (this.type.indexOf("worm") >= 0) {
+  // Solucan: uzun oval
+  ctx.beginPath();
+  ctx.ellipse(this.cx, this.cy, this.w * 0.55, this.h * 0.45, 0, 0, Math.PI * 2);
+  ctx.stroke();
+  } else {
+  ctx.strokeRect(this.x - 1, this.y - 1, this.w + 2, this.h + 2);
+  }
+  ctx.shadowBlur = 0;
+  }
+
   drawMonsterSprite(ctx, this.type, this.x, this.y, this.direction, this.animFrame, this.hitFlash, this.atkAnim, this.w, this.h, this.state);
 
   // Metin Taşı özel çizim
@@ -10422,22 +10658,39 @@ class Monster {
   }
 
   // Saldırı menzili dairesi (kırmızı çizgi)
-  if (living && this.aggroRange > 0) {
+  if (living && this.aggroRange > 0 && !dungeonState.active) {
   var pDist = typeof player !== "undefined" && player ? this.distTo(player.centerX, player.centerY) : 9999;
-  var maxShow = this.aggroRange * 4;
+  var maxShow = this.aggroRange * 3;
   if (pDist < maxShow) {
-  var arAlpha = Math.max(0.35, 0.75 * (1 - pDist / maxShow));
+  var arAlpha = Math.max(0.25, 0.6 * (1 - pDist / maxShow));
   var isTarget = currentTargetMonster === this && currentTargetMonsterTimer > 0;
-  var rCol = isTarget ? "180,20,255" : "255,20,20";
-  ctx.fillStyle = "rgba(" + rCol + "," + (arAlpha * 0.2) + ")";
+  var inAtkRange = pDist <= this.atkRange * 1.5;
+  var rCol = isTarget ? "180,20,255" : (inAtkRange ? "255,80,20" : "255,20,20");
+  // Aggro dairesi (soluk)
+  ctx.fillStyle = "rgba(" + rCol + "," + (arAlpha * 0.12) + ")";
   ctx.beginPath();
   ctx.arc(this.cx, this.cy, this.aggroRange, 0, Math.PI * 2);
   ctx.fill();
-  ctx.strokeStyle = "rgba(" + rCol + "," + arAlpha + ")";
-  ctx.lineWidth = isTarget ? 3 : 2.5;
+  ctx.strokeStyle = "rgba(" + rCol + "," + (arAlpha * 0.5) + ")";
+  ctx.lineWidth = 1.5;
   ctx.beginPath();
   ctx.arc(this.cx, this.cy, this.aggroRange, 0, Math.PI * 2);
   ctx.stroke();
+  // Saldırı menzili (belirgin)
+  if (pDist < this.aggroRange * 2) {
+  var atkPulse = 0.7 + 0.3 * Math.sin(performance.now() * 0.005);
+  ctx.fillStyle = "rgba(255,40,40," + (arAlpha * 0.2 * atkPulse) + ")";
+  ctx.beginPath();
+  ctx.arc(this.cx, this.cy, this.atkRange, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = "rgba(255,60,60," + (arAlpha * atkPulse) + ")";
+  ctx.lineWidth = inAtkRange ? 3 : 2;
+  ctx.setLineDash(inAtkRange ? [] : [3, 4]);
+  ctx.beginPath();
+  ctx.arc(this.cx, this.cy, this.atkRange, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  }
   }
   }
 
@@ -10482,7 +10735,7 @@ class Monster {
 /* â”€â”€ NPC â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 class NPC {
-  constructor({ col, row, name, color, dialog, wanderRadius = 0, merchant = false, stock = null, shopPool = null, buildsBoat = false, banker = false, itemCrusher = false, itemRepairer = false, teleportGate = false, dungeonPortal = false, questGiver = false, enclosure = null }) {
+  constructor({ col, row, name, color, dialog, wanderRadius = 0, merchant = false, stock = null, shopPool = null, buildsBoat = false, banker = false, itemCrusher = false, itemRepairer = false, teleportGate = false, dungeonPortal = false, questGiver = false, bowCombiner = false, enclosure = null }) {
   this.x = col * TILE_SIZE; this.y = row * TILE_SIZE;
   this.w = 20; this.h = 20;
   this.name = name; this.color = color || "#c06030";
@@ -10497,6 +10750,7 @@ class NPC {
   this.teleportGate = !!teleportGate;
   this.dungeonPortal = !!dungeonPortal;
   this.questGiver = !!questGiver;
+  this.bowCombiner = !!bowCombiner;
   this.enclosure = enclosure;
   this.direction = DIR.DOWN;
   this.homeX = this.x; this.homeY = this.y;
@@ -10766,14 +11020,27 @@ class BankPanel {
   }
   _renderSlot(ctx, sx, sy, sz, s, hover) {
   const rarity = s ? this._getItemRarity(s.id) : null;
+  const broken = s && s.durability != null && s.durability <= 0;
+  const lowDur = s && s.durability != null && s.durability > 0 && ITEMS[s.id] && s.durability <= getItemDurabilityMax(ITEMS[s.id]) * 0.25;
   ctx.fillStyle = hover ? "rgba(35,40,65,0.96)" : "rgba(20,24,38,0.96)";
-  ctx.strokeStyle = rarity ? (hover ? rarity : rarity + "80") : (hover ? "#5060a0" : "#3a4558");
-  ctx.lineWidth = hover ? 2 : 1;
+  ctx.strokeStyle = broken ? "#d03030" : lowDur ? "#d08030" : (rarity ? (hover ? rarity : rarity + "80") : (hover ? "#5060a0" : "#3a4558"));
+  ctx.lineWidth = broken || lowDur ? 2 : (hover ? 2 : 1);
   roundRect(ctx, sx, sy, sz, sz, 4);
   ctx.fill(); ctx.stroke();
   if (s) {
   const pad = Math.max(3, Math.floor(sz * 0.1));
+  if (broken) ctx.globalAlpha = 0.5;
   drawItemIconFancy(ctx, s.id, sx + pad, sy + pad, sz - pad * 2, {});
+  if (broken) {
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = "rgba(200,30,30,0.25)";
+  ctx.fillRect(sx, sy, sz, sz);
+  ctx.strokeStyle = "#d03030"; ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(sx + 4, sy + 4); ctx.lineTo(sx + sz - 4, sy + sz - 4);
+  ctx.moveTo(sx + sz - 4, sy + 4); ctx.lineTo(sx + 4, sy + sz - 4);
+  ctx.stroke();
+  }
   const ul = getStackUpgradeLv(s);
   if (ul > 0) {
   ctx.font = "bold " + Math.max(8, Math.floor(sz * 0.2)) + "px monospace";
@@ -11605,7 +11872,7 @@ class Shop {
   return true;
   });
   if (eligible.length === 0) eligible = pool;
-  var chosen = eligible.length > 0 ? eligible[Math.floor(Math.random() * eligible.length)] : Object.keys(ITEMS).filter(function(id) { var d = ITEMS[id]; return d && d.equipSlot; })[0] || "bow_short";
+  var chosen = eligible.length > 0 ? eligible[Math.floor(Math.random() * eligible.length)] : Object.keys(ITEMS).filter(function(id) { var d = ITEMS[id]; return d && d.equipSlot; })[0] || "bow";
   var ulv = targetRarity === "legendary" ? 2 : targetRarity === "epic" ? 1 : 0;
   var left = inventory.addItem(chosen, 1, ulv);
   if (left > 0) {
@@ -14333,15 +14600,9 @@ const VILLAGE_NPCS = [
   { col: VOX+11, row: VOY+3, name: "T\u00fcccar Elif", color: "#c05050",
   dialog: ["Ho\u015F geldin! En iyi silahlar bende, sava\u015Fa haz\u0131rlan!"], wanderRadius: 0,
   merchant: true, shopPool: "village_weapon", stock: [
-  { id: "arrow" }, { id: "potion" }, { id: "potion_mana" },
-  { id: "bow_short", qty: 3 }, { id: "bow_recurve", qty: 2 },
-  { id: "bow_swift", qty: 2 }, { id: "bow_composite", qty: 2 },
-  { id: "bow_hunter", qty: 2 }, { id: "bow_war", qty: 2 },
-   { id: "bow_moon_epic", qty: 1 }, { id: "bow_sun_epic", qty: 1 },
-   { id: "bow_long", qty: 1 },
-   { id: "bow_shadow_epic", qty: 1 },
-  { id: "axe", qty: 3 },
-  { id: "exp_scroll_small", qty: 5 }, { id: "exp_scroll_medium", qty: 3 }, { id: "exp_scroll_large", qty: 1 },
+  { id: "bow", qty: 5 },
+  { id: "bow", qty: 5 },
+  { id: "bow", qty: 5 },
   ] },
   { col: VOX+14, row: VOY+3, name: "Terzi Zeynep", color: "#a060c0",
   dialog: ["Ho\u015F geldin! En sa\u011Flam z\u0131rhlar ve giysiler bende!"], wanderRadius: 0,
@@ -14386,6 +14647,11 @@ const VILLAGE_NPCS = [
   dialog: ["Zindana girmek ister misin? 5 kat + boss. Her kat zorla\u015F\u0131r, \u00F6d\u00Fcller b\u00FCy\u00FCr.",
   "Haz\u0131rsan konu\u015F, sava\u015F ba\u015Flas\u0131n!"], wanderRadius: 0,
   dungeonPortal: true },
+  { col: VOX+32, row: VOY+3, name: "Yay Ustasi", color: "#c0a060",
+  dialog: ["3 tane ayn\u0131 yay\u0131 getir, sana bir \u00FCst model yapay\u0131m!",
+  "Tahta Yay x3 = Avc\u0131 Yay\u0131 | Avc\u0131 Yay\u0131 x3 = Kompozit Yay",
+  "Yaylar\u0131 envanterine koy ve konu\u015f, birle\u015Ftirme paneli a\u00E7\u0131lacak."], wanderRadius: 0,
+  bowCombiner: true },
 ];
 
 const PLAYER_START = { col: Math.floor(WORLD_COLS / 2), row: Math.floor(WORLD_ROWS / 2) };
@@ -14773,7 +15039,7 @@ function tryOpenBossChestInContainer(inv, container, idx) {
   "helm_epic", "chest_epic", "boots_epic", "waist_epic", "arms_epic", "wings_epic",
   "helm_legendary", "chest_legendary", "waist_legendary", "arms_legendary", "wings_legendary",
   "ring_power", "merchants_ring", "amulet_wisdom", "gloves_archer", "explorer_band", "cloak_shadow", "shoulder_guard", "earring_focus", "bracelet_titan",
-  "bow_long", "bow_storm_legendary", "bow_dragon_legendary", "bow_hunter", "potion_mana", "potion"
+  "bow_hunter", "bow_composite", "bow_composite", "bow_hunter", "potion_mana", "potion"
   ];
   inv.addItem(pool[Math.floor(Math.random() * pool.length)], 1);
   pickupMsgText = "Boss Sandigi acildi!";
@@ -15148,6 +15414,236 @@ function renderInventorySlotInspect(ctx, cw, ch) {
   : (fromEquip ? "Takili esya: ozellik gor, cikar veya yere at." : "Sol t\u0131k: panel; ba\u015far\u0131s\u0131z y\u00fckseltmelerde alt\u0131n harcan\u0131r."));
   ctx.fillText(hintText, L.px + 16, L.py + L.ph - 6);
 }
+
+/* ── Yay Birleştirme Paneli ────────────────────────────────── */
+class BowCombinePanel {
+  constructor() {
+  this.open = false;
+  this.slots = [null, null, null];
+  this.result = null;
+  this.feedbackText = "";
+  this.feedbackTimer = 0;
+  this.selectForSlot = -1;
+  this.chance = 0;
+  }
+  close() {
+  for (var sbi = 0; sbi < this.slots.length; sbi++) {
+  if (this.slots[sbi]) {
+  inventory.addItem(this.slots[sbi].id, 1);
+  this.slots[sbi] = null;
+  }
+  }
+  this.result = null;
+  this.selectForSlot = -1;
+  this.chance = 0;
+  this.open = false;
+  }
+  updateResult() {
+  this.result = null;
+  this.chance = 0;
+  if (this.slots[0] && this.slots[1] && this.slots[2] &&
+  this.slots[0].id === this.slots[1].id &&
+  this.slots[1].id === this.slots[2].id) {
+  var id = this.slots[0].id;
+  var recipe = { bow: "bow_hunter", bow_hunter: "bow_composite" };
+  var chanceMap = { bow: 0.9, bow_hunter: 0.7 };
+  if (recipe[id]) this.result = recipe[id];
+  if (chanceMap[id]) this.chance = chanceMap[id];
+  }
+  }
+  _panelLayout(cw, ch) {
+  var b = uiModalBounds(cw, ch);
+  var panW = Math.min(320, b.maxW);
+  var panH = Math.min(290, b.maxH);
+  var px = Math.floor((cw - panW) / 2);
+  var py = Math.max(b.top, Math.min(ch - panH - b.bottom, Math.floor((ch - panH) / 2)));
+  return { panW, panH, px, py };
+  }
+  handleClick(mx, my, cw, ch, inv) {
+  if (!this.open) return;
+  var L = this._panelLayout(cw, ch);
+  var { panW, panH, px, py } = L;
+  if (mx < px || mx >= px + panW || my < py || my >= py + panH) { this.close(); return; }
+  var cx = px + panW - 28, cy = py + 6;
+  if (mx >= cx && mx < cx + 22 && my >= cy && my < cy + 22) { this.close(); return; }
+  var slotY = py + 45, slotS = 48, gap = 12;
+  var startX = px + (panW - (slotS * 3 + gap * 2)) / 2;
+  for (var sbi = 0; sbi < 3; sbi++) {
+  var sx = startX + sbi * (slotS + gap);
+  if (mx >= sx && mx < sx + slotS && my >= slotY && my < slotY + slotS) {
+  if (this.slots[sbi]) {
+  inv.addItem(this.slots[sbi].id, 1);
+  this.slots[sbi] = null;
+  this.updateResult();
+  return;
+  }
+  var avail = [];
+  if (inv.countItem("bow") > 0 && this._countInSlots("bow") < 3) avail.push("bow");
+  if (inv.countItem("bow_hunter") > 0 && this._countInSlots("bow_hunter") < 3) avail.push("bow_hunter");
+  if (avail.length === 0) return;
+  if (avail.length === 1) {
+  inv.removeItem(avail[0], 1);
+  this.slots[sbi] = { id: avail[0] };
+  this.updateResult();
+  return;
+  }
+  this.selectForSlot = sbi;
+  return;
+  }
+  }
+  if (this.selectForSlot >= 0) {
+  var popX = px + 20, popY = py + panH - 80, popW = panW - 40, popH = 36;
+  var btnW = (popW - 12) / 2;
+  var avail = [];
+  if (inv.countItem("bow") > 0 && this._countInSlots("bow") < 3) avail.push("bow");
+  if (inv.countItem("bow_hunter") > 0 && this._countInSlots("bow_hunter") < 3) avail.push("bow_hunter");
+  for (var bi = 0; bi < avail.length; bi++) {
+  var bx = popX + bi * (btnW + 6);
+  if (mx >= bx && mx < bx + btnW && my >= popY && my < popY + popH) {
+  inv.removeItem(avail[bi], 1);
+  this.slots[this.selectForSlot] = { id: avail[bi] };
+  this.selectForSlot = -1;
+  this.updateResult();
+  return;
+  }
+  }
+  }
+  if (this.result) {
+  var btnX = px + (panW - 140) / 2, btnY = py + panH - 50, btnW2 = 140, btnH2 = 34;
+  if (mx >= btnX && mx < btnX + btnW2 && my >= btnY && my < btnY + btnH2) {
+  var recipe = { bow: "bow_hunter", bow_hunter: "bow_composite" };
+  var chanceMap = { bow: 0.9, bow_hunter: 0.7 };
+  var toId = recipe[this.slots[0].id];
+  if (toId) {
+  var ids = [this.slots[0].id, this.slots[1].id, this.slots[2].id];
+  for (var ci = 0; ci < 3; ci++) this.slots[ci] = null;
+  var success = Math.random() < (chanceMap[ids[0]] || 0.5);
+  if (success) {
+  var left = inv.addItem(toId, 1);
+  if (left === 0) {
+  this.feedbackText = "Başarılı! " + ITEMS[toId].name + " kazandın!";
+  this.feedbackTimer = 2;
+  } else {
+  for (var ci2 = 0; ci2 < 3; ci2++) this.slots[ci2] = { id: ids[ci2] };
+  this.feedbackText = "Envanter dolu!";
+  this.feedbackTimer = 2;
+  }
+  } else {
+  this.feedbackText = "Başarısız! Yaylar yok oldu!";
+  this.feedbackTimer = 2;
+  }
+  this.result = null;
+  this.selectForSlot = -1;
+  }
+  return;
+  }
+  }
+  }
+  _countInSlots(id) {
+  var n = 0;
+  for (var sbi = 0; sbi < 3; sbi++) if (this.slots[sbi] && this.slots[sbi].id === id) n++;
+  return n;
+  }
+  render(ctx, cw, ch, inv) {
+  if (!this.open) return;
+  var L = this._panelLayout(cw, ch);
+  var { panW, panH, px, py } = L;
+  ctx.fillStyle = "rgba(10,10,30,0.94)";
+  ctx.strokeStyle = "#c0a060"; ctx.lineWidth = 2;
+  roundRect(ctx, px, py, panW, panH, 10);
+  ctx.fill(); ctx.stroke();
+  ctx.fillStyle = "rgba(70,30,30,0.7)";
+  roundRect(ctx, px + panW - 28, py + 6, 22, 22, 5); ctx.fill();
+  ctx.strokeStyle = "#a06050"; ctx.lineWidth = 1;
+  roundRect(ctx, px + panW - 28, py + 6, 22, 22, 5); ctx.stroke();
+  ctx.fillStyle = "#e0a0a0"; ctx.font = "bold 12px monospace";
+  ctx.fillText("\u2715", px + panW - 22, py + 21);
+  ctx.fillStyle = "#c0a060"; ctx.font = "bold 15px monospace";
+  var title = "\u2694 Yay Birle\u015Ftirme";
+  ctx.fillText(title, px + (panW - ctx.measureText(title).width) / 2, py + 28);
+  // 3 giriş slotu
+  var slotY = py + 45, slotS = 48, gap = 12;
+  var startX = px + (panW - (slotS * 3 + gap * 2)) / 2;
+  for (var sbi = 0; sbi < 3; sbi++) {
+  var sx = startX + sbi * (slotS + gap);
+  ctx.strokeStyle = this.slots[sbi] ? "#c0a060" : "#605040";
+  ctx.fillStyle = this.slots[sbi] ? "rgba(40,30,10,0.5)" : "rgba(20,15,10,0.3)";
+  ctx.lineWidth = 2;
+  roundRect(ctx, sx, slotY, slotS, slotS, 6); ctx.fill(); ctx.stroke();
+  if (this.slots[sbi]) {
+  ctx.fillStyle = "#c0a060"; ctx.font = "bold 11px monospace";
+  var nm = (ITEMS[this.slots[sbi].id] || {}).name || this.slots[sbi].id;
+  ctx.fillText(nm, sx + (slotS - ctx.measureText(nm).width) / 2, slotY + slotS / 2 + 4);
+  } else {
+  ctx.fillStyle = "#605040"; ctx.font = "10px monospace";
+  ctx.fillText("bo\u015F", sx + (slotS - ctx.measureText("bo\u015F").width) / 2, slotY + slotS / 2 + 4);
+  }
+  }
+  // Ok işareti
+  ctx.fillStyle = "#c0a060"; ctx.font = "18px monospace";
+  ctx.fillText("\u2193", px + panW / 2 - 9, slotY + slotS + 22);
+  // Sonuç slotu (her zaman görünür)
+  var resSlotY = slotY + slotS + 30, resSlotS = 44, resSlotW = 80;
+  var resX = px + (panW - resSlotW) / 2;
+  var hasResult = this.slots[0] && this.slots[1] && this.slots[2] &&
+  this.slots[0].id === this.slots[1].id &&
+  this.slots[1].id === this.slots[2].id && this.result;
+  ctx.strokeStyle = hasResult ? "#50e050" : "#504030";
+  ctx.fillStyle = hasResult ? "rgba(20,50,20,0.5)" : "rgba(20,15,10,0.3)";
+  ctx.lineWidth = 2;
+  roundRect(ctx, resX, resSlotY, resSlotW, resSlotS, 6); ctx.fill(); ctx.stroke();
+  if (hasResult) {
+  ctx.fillStyle = "#80ff80"; ctx.font = "bold 11px monospace";
+  var rn = (ITEMS[this.result] || {}).name || this.result;
+  ctx.fillText(rn, resX + (resSlotW - ctx.measureText(rn).width) / 2, resSlotY + resSlotS / 2 + 4);
+  } else {
+  ctx.fillStyle = "#605040"; ctx.font = "10px monospace";
+  ctx.fillText("sonu\u00E7", resX + (resSlotW - ctx.measureText("sonu\u00E7").width) / 2, resSlotY + resSlotS / 2 + 4);
+  }
+  // Başarı oranı
+  if (hasResult && this.chance > 0) {
+  var pct = Math.round(this.chance * 100);
+  ctx.fillStyle = this.chance >= 0.8 ? "#60c060" : this.chance >= 0.5 ? "#d0a030" : "#d06040";
+  ctx.font = "bold 11px monospace";
+  var pctTxt = "%" + pct + " ba\u015Far\u0131";
+  ctx.fillText(pctTxt, px + (panW - ctx.measureText(pctTxt).width) / 2, resSlotY + resSlotS + 16);
+  }
+  // Seçim popup (varsa seçim popup göster, diğer her şeyi gizle)
+  if (this.selectForSlot >= 0) {
+  var popX = px + 20, popY = py + panH - 80, popW2 = panW - 40, popH2 = 36;
+  ctx.fillStyle = "rgba(20,15,10,0.95)";
+  ctx.strokeStyle = "#c0a060";
+  ctx.lineWidth = 1.5;
+  roundRect(ctx, popX, popY, popW2, popH2, 6); ctx.fill(); ctx.stroke();
+  var avail = [];
+  if (inv.countItem("bow") > 0 && this._countInSlots("bow") < 3) avail.push("bow");
+  if (inv.countItem("bow_hunter") > 0 && this._countInSlots("bow_hunter") < 3) avail.push("bow_hunter");
+  var btnWid = (popW2 - 12) / 2;
+  for (var bi = 0; bi < avail.length; bi++) {
+  var bx = popX + 6 + bi * (btnWid + 6);
+  ctx.fillStyle = "#403020";
+  ctx.strokeStyle = "#c0a060"; ctx.lineWidth = 1;
+  roundRect(ctx, bx, popY + 4, btnWid, popH2 - 8, 4); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = "#e0c080"; ctx.font = "bold 11px monospace";
+  var nm2 = (ITEMS[avail[bi]] || {}).name || avail[bi];
+  ctx.fillText(nm2, bx + (btnWid - ctx.measureText(nm2).width) / 2, popY + popH2 / 2 + 4);
+  }
+  return;
+  }
+  // Birleştir butonu
+  var btnX = px + (panW - 140) / 2, btnY2 = py + panH - 50, btnW2 = 140, btnH2 = 34;
+  ctx.fillStyle = hasResult ? (this.feedbackTimer > 0 ? "rgba(40,60,40,0.8)" : "rgba(60,40,20,0.8)") : "rgba(30,30,30,0.5)";
+  ctx.strokeStyle = hasResult ? "#50e050" : "#403020";
+  ctx.lineWidth = 2;
+  roundRect(ctx, btnX, btnY2, btnW2, btnH2, 6); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = hasResult ? (this.feedbackTimer > 0 ? "#80ff80" : "#e0c080") : "#504030";
+  ctx.font = "bold 13px monospace";
+  var bt = this.feedbackTimer > 0 ? this.feedbackText : "B\u0130RLE\u015ET\u0130R";
+  ctx.fillText(bt, btnX + (btnW2 - ctx.measureText(bt).width) / 2, btnY2 + 22);
+  }
+}
+const bowCombinePanel = new BowCombinePanel();
+
 const bankPanel = new BankPanel();
 const shop = new Shop();
 const craftPanel = new CraftPanel();
@@ -15179,13 +15675,13 @@ const QUEST_DEFS = [
   id: "q04_wolf_hunt", title: "Kurt Avı", giver: "Muhtar", chapter: 2, chapterTitle: "Bölüm 2: Karanlık İzler",
   desc: "Kurtlar köylülerin hayvanlarına saldırıyor. 4 kurt öldür.",
   objectives: [{ type: "kill", monsterType: "wolf", count: 4, label: "Kurt öldür" }],
-  rewards: { xp: 480, gold: 35, items: [{ id: "bow_short", count: 1 }, { id: "waist_cloth", count: 1 }] },
+  rewards: { xp: 480, gold: 35, items: [{ id: "bow", count: 1 }, { id: "waist_cloth", count: 1 }] },
   nextQuest: "q05_skeleton_threat"},
   {
   id: "q05_skeleton_threat", title: "İskelet Tehdidi", giver: "Yaşlı Bilge", chapter: 2,
   desc: "İskeletler gizemli bir güç tarafından uyandırıldı. 4 iskelet yok et.",
   objectives: [{ type: "kill", monsterType: "skeleton", count: 4, label: "İskelet yok et" }],
-  rewards: { xp: 640, gold: 50, items: [{ id: "bow_recurve", count: 1 }, { id: "helm_iron", count: 1 }] },
+  rewards: { xp: 640, gold: 50, items: [{ id: "bow", count: 1 }, { id: "helm_iron", count: 1 }] },
   nextQuest: "q06_forester_plea"},
   {
   id: "q06_forester_plea", title: "Ormancının Ricası", giver: "Ormancı", chapter: 2,
@@ -15203,13 +15699,13 @@ const QUEST_DEFS = [
   { type: "kill", monsterType: "dune_raider", count: 3, label: "Kum Akıncısı öldür" },
   { type: "kill", monsterType: "golem", count: 2, label: "Golem öldür" },
   ],
-  rewards: { xp: 1200, gold: 90, items: [{ id: "bow_composite", count: 1 }, { id: "boots_swift", count: 1 }] },
+  rewards: { xp: 1200, gold: 90, items: [{ id: "bow_hunter", count: 1 }, { id: "boots_swift", count: 1 }] },
   nextQuest: "q08_first_boss"},
   {
   id: "q08_first_boss", title: "Kadim Kökün Öfkesi", giver: "Yaşlı Bilge", chapter: 3,
   desc: "Ormanın derinliklerinde kadim bir ağaç canavar uyanmış! Kadim Kök boss'unu yen.",
   objectives: [{ type: "kill", monsterType: "forest_treant", count: 1, label: "Kadim Kök'ü yen" }],
-  rewards: { xp: 2000, gold: 150, items: [{ id: "bow_war", count: 1 }, { id: "gloves_archer", count: 1 }, { id: "waist_chain", count: 1 }] },
+  rewards: { xp: 2000, gold: 150, items: [{ id: "bow_hunter", count: 1 }, { id: "gloves_archer", count: 1 }, { id: "waist_chain", count: 1 }] },
   nextQuest: "q09_boat_builder"},
   {
   id: "q09_boat_builder", title: "Denize Açılış", giver: "Liman Reisi", chapter: 4, chapterTitle: "Bölüm 4: Adalar ve Titanlar",
@@ -15225,7 +15721,7 @@ const QUEST_DEFS = [
   id: "q10_desert_titan", title: "Kum Titanı", giver: "Çöl Bilgini", chapter: 4,
   desc: "Çöl Adası'nda devasa bir titan uyandı. Kum Titanı'nı yen!",
   objectives: [{ type: "kill", monsterType: "desert_titan", count: 1, label: "Kum Titanı'nı yen" }],
-  rewards: { xp: 2400, gold: 200, items: [{ id: "bow_moon_epic", count: 1 }, { id: "chest_chain", count: 1 }] },
+  rewards: { xp: 2400, gold: 200, items: [{ id: "bow_hunter", count: 1 }, { id: "chest_chain", count: 1 }] },
   nextQuest: "q11_ice_queen"},
   {
   id: "q11_ice_queen", title: "Buzun Kraliçesi", giver: "Kuzey Kaşifi", chapter: 4,
@@ -15237,7 +15733,7 @@ const QUEST_DEFS = [
   id: "q12_thunder_lord", title: "Gök Gücü", giver: "Yaşlı Bilge", chapter: 5, chapterTitle: "Bölüm 5: Karanlığın Yükselişi",
   desc: "Fırtına bölgesinde Gök Gücü adında korkunç bir varlık uyandı. Onu yen!",
   objectives: [{ type: "kill", monsterType: "thunder_lord", count: 1, label: "Gök Gücü'nü yen" }],
-  rewards: { xp: 4000, gold: 350, items: [{ id: "bow_sun_epic", count: 1 }, { id: "ring_power", count: 1 }, { id: "helm_epic", count: 1 }] },
+  rewards: { xp: 4000, gold: 350, items: [{ id: "bow_hunter", count: 1 }, { id: "ring_power", count: 1 }, { id: "helm_epic", count: 1 }] },
   nextQuest: "q13_volcanic_fury"},
   {
   id: "q13_volcanic_fury", title: "Volkanın Öfkesi", giver: "Güney Muhafızı", chapter: 5,
@@ -15255,7 +15751,7 @@ const QUEST_DEFS = [
   id: "q15_kaiju_awakening", title: "Kaiju Uyanışı", giver: "Yaşlı Bilge", chapter: 6, chapterTitle: "Bölüm 6: Son Savaş",
   desc: "Tüm kaos tek bir kaynaktan geliyor: Kaiju Titan! Dünyanın kaderi senin ellerinde!",
   objectives: [{ type: "kill", monsterType: "godzilla", count: 1, label: "Kaiju Titan'ı yen" }],
-  rewards: { xp: 10000, gold: 1000, items: [{ id: "bow_storm_legendary", count: 1 }, { id: "chest_legendary", count: 1 }, { id: "wings_legendary", count: 1 }] },
+  rewards: { xp: 10000, gold: 1000, items: [{ id: "bow_composite", count: 1 }, { id: "chest_legendary", count: 1 }, { id: "wings_legendary", count: 1 }] },
   nextQuest: null, finalQuest: true},
   // Tekrarlanabilir av görevleri (sonsuz, giderek zorlaşır)
   { id: "rep_slime_1", title: "Balçık Avı I", giver: "Muhtar", chapter: 7, chapterTitle: "Sonsuz Görevler",
@@ -15281,7 +15777,7 @@ const QUEST_DEFS = [
   { id: "rep_wolf_2", title: "Kurt Avı II", giver: "Muhtar", chapter: 7,
   desc: "Kurtlar saldırganlaştı! 40 kurt öldür.",
   objectives: [{ type: "kill", monsterType: "wolf", count: 40, label: "Kurt öldür" }],
-  rewards: { xp: 2500, gold: 300, items: [{ id: "bow_swift", count: 1 }] },
+  rewards: { xp: 2500, gold: 300, items: [{ id: "bow_hunter", count: 1 }] },
   repeatGroup: "wolf", repeatNext: "rep_wolf_3"},
   { id: "rep_wolf_3", title: "Kurt Avı III", giver: "Muhtar", chapter: 7,
   desc: "Kurt kralına hazırlık! 80 kurt öldür.",
@@ -15825,7 +16321,7 @@ function spawnMainlandRegionalPack(list, anchor, idxSeed) {
   campTier: tpl.tier,
   campScale: scale,
   campRole: role,
-  socialAggroRange: TILE_SIZE * (tpl.tier === "apex" ? 10 : tpl.tier === "heroic" ? 8.5 : tpl.tier === "elite" ? 7.2 : 6.4)}));
+   socialAggroRange: TILE_SIZE * (type.indexOf("wolf") >= 0 ? 12 : (tpl.tier === "apex" ? 10 : tpl.tier === "heroic" ? 8.5 : tpl.tier === "elite" ? 7.2 : 6.4))}));
   }
 }
 
@@ -15863,15 +16359,48 @@ function buildRoadCamps() {
       var st = stops[s];
       // Yolun sol ve sag taraflarina birer grup
       for (var side = -1; side <= 1; side += 2) {
-        var offsetX = dir.dx === 0 ? side * 10 : 0;
-        var offsetY = dir.dy === 0 ? side * 10 : 0;
+        var offsetX = dir.dx === 0 ? side * 16 : 0;
+        var offsetY = dir.dy === 0 ? side * 16 : 0;
         var cc = vx + dir.dx * st.dist + offsetX;
         var rr = vy + dir.dy * st.dist + offsetY;
         if (cc < 10 || cc >= WORLD_COLS - 10 || rr < 10 || rr >= WORLD_ROWS - 10) continue;
         var members = [];
         if (st.type === "slime") {
-          for (var mi = 0; mi < 5; mi++) members.push("slime");
-          members.push("slime_boss");
+          // Solucan grubu — yola daha yakın
+          var wormOffX = dir.dx === 0 ? side * 6 : 0;
+          var wormOffY = dir.dy === 0 ? side * 6 : 0;
+          var wcc = vx + dir.dx * st.dist + wormOffX;
+          var wrr = vy + dir.dy * st.dist + wormOffY;
+          if (wcc >= 10 && wcc < WORLD_COLS - 10 && wrr >= 10 && wrr < WORLD_ROWS - 10) {
+          var wormMembers = [];
+          for (var wi = 0; wi < 5; wi++) wormMembers.push("worm");
+          wormMembers.push("worm_boss");
+          camps.push({
+          id: "road_worm_" + (id++),
+          name: dir.label + " Yolu",
+          col: wcc, row: wrr,
+          members: wormMembers,
+          scale: st.scale,
+          tier: st.tier});
+          }
+          // Balçık grubu — solucanların arkasında
+          var slimeOffX = dir.dx === 0 ? side * 20 : 0;
+          var slimeOffY = dir.dy === 0 ? side * 20 : 0;
+          var scc = vx + dir.dx * st.dist + slimeOffX;
+          var srr = vy + dir.dy * st.dist + slimeOffY;
+          if (scc >= 10 && scc < WORLD_COLS - 10 && srr >= 10 && srr < WORLD_ROWS - 10) {
+          var slimeMembers = [];
+          for (var si2 = 0; si2 < 5; si2++) slimeMembers.push("slime");
+          slimeMembers.push("slime_boss");
+          camps.push({
+          id: "road_slime_" + (id++),
+          name: dir.label + " Yolu",
+          col: scc, row: srr,
+          members: slimeMembers,
+          scale: st.scale,
+          tier: st.tier});
+          }
+          continue;
         } else if (st.type === "wolf") {
           for (var mi = 0; mi < 5; mi++) members.push("wolf");
           members.push("wolf_boss");
@@ -15899,6 +16428,21 @@ function buildRoadCamps() {
 }
 
 const FIXED_MAINLAND_GROUP_CAMPS = buildRoadCamps();
+
+// Yol kenarı kamplarının etrafına çalılık dekorasyonları ekle
+var campBushes = [];
+(function buildCampBushes() {
+  for (var cbi = 0; cbi < FIXED_MAINLAND_GROUP_CAMPS.length; cbi++) {
+  var cb = FIXED_MAINLAND_GROUP_CAMPS[cbi];
+  var bx = cb.col * TILE_SIZE + TILE_SIZE / 2;
+  var by = cb.row * TILE_SIZE + TILE_SIZE / 2;
+  for (var bi2 = 0; bi2 < 4; bi2++) {
+  var ang = Math.random() * Math.PI * 2;
+  var dist = 12 + Math.random() * 18;
+  campBushes.push({ x: bx + Math.cos(ang) * dist, y: by + Math.sin(ang) * dist, s: 5 + Math.random() * 7 });
+  }
+  }
+})();
 
 const LEVEL_BAND_VARIANTS = [
   { minLv: 1, maxLv: 5, tier: "normal", scaleMin: 0.28, scaleMax: 0.56, groups: [
@@ -16098,7 +16642,7 @@ function spawnMonsterCamp(list, camp) {
   campTier: tier,
   campScale: scale,
   campRole: role,
-  socialAggroRange: TILE_SIZE * (tier === "heroic" ? 8.5 : tier === "elite" ? 7.2 : 6.2)}));
+   socialAggroRange: TILE_SIZE * (camp.members[i].indexOf("wolf") >= 0 ? 12 : (tier === "heroic" ? 8.5 : tier === "elite" ? 7.2 : 6.2))}));
   }
 }
 
@@ -16264,30 +16808,31 @@ function buildEquipPoolsByRarity() {
 }
 
 const BOSS_EQUIP_TABLE = {
-  slime_boss:["bow_hunter","helm_iron","ring_copper","amulet_wood","boots_leather"],
+  slime_boss:["helm_leather","helm_iron","helm_bone","helm_epic","helm_golden"],
+  worm_boss:["waist_cloth","waist_chain","waist_epic","waist_legendary","potion"],
   wolf_boss:["boots_swift","bow_hunter","chest_steel","ring_silver","amulet_protection"],
-  skeleton_boss:["helm_bone","bow_recurve","cloak_shadow","arms_iron"],
-  orc_boss:["bow_war","shoulder_guard","helm_iron","chest_chain","ring_ruby"],
-  golem_boss:["bow_long","chest_epic","ring_power","helm_epic","stone"],
-  dark_knight_boss:["bow_shadow_epic","cloak_shadow","helm_epic","boots_epic","ring_power"],
-  forest_treant:["bow_long","chest_epic","ring_power","wood","potion_mana"],
-  desert_titan:["bow_sun_epic","boots_epic","helm_epic","chest_mithril","ring_power"],
-  rock_warden:["bracelet_titan","chest_epic","shoulder_guard","bow_long","stone"],
-  flower_queen:["ring_power","boots_epic","cloak_epic","bow_moon_epic","potion"],
-  north_frost:["bow_crystal_legendary","cloak_epic","boots_epic","helm_epic","potion_mana"],
-  south_shadow:["bow_shadow_epic","merchants_ring","cloak_shadow","amulet_protection","earring_focus"],
-  ice_queen:["bow_crystal_legendary","cloak_legendary","boots_epic","helm_epic","ring_power"],
-  dune_king:["bow_sun_epic","chest_mithril","boots_epic","ring_ruby","ring_power"],
-  jungle_behemoth:["chest_epic","bow_moon_epic","ring_power","amulet_protection","boots_epic"],
-  thunder_lord:["bow_storm_legendary","earring_focus","boots_epic","cloak_epic","helm_epic"],
-  abyss_crab:["cloak_legendary","boots_epic","bow_shadow_epic","ring_power","earring_focus"],
-  volcanic_titan:["cloak_epic","ring_power","chest_mithril","bow_sun_epic","helm_epic"],
-  godzilla:["bow_dragon_legendary","ring_dragon","chest_legendary","boots_legendary","helm_legendary"],
-  scorpion_king:["bow_void_legendary","helm_legendary","bracelet_titan","ring_power","boots_epic"],
-  giant_bee_queen:["wings_epic","wings_legendary","bow_moon_epic","earring_focus","potion"],
-  skywing_dragon:["wings_legendary","bow_storm_legendary","amulet_dragon","ring_dragon","boots_legendary"],
+  skeleton_boss:["bow_hunter","bow_hunter","bow_hunter","bow_composite","bow_composite"],
+  orc_boss:["bow_hunter","shoulder_guard","helm_iron","chest_chain","ring_ruby"],
+  golem_boss:["bow_hunter","chest_epic","ring_power","helm_epic","stone"],
+  dark_knight_boss:["bow_hunter","cloak_shadow","helm_epic","boots_epic","ring_power"],
+  forest_treant:["bow_hunter","chest_epic","ring_power","wood","potion_mana"],
+  desert_titan:["bow_hunter","boots_epic","helm_epic","chest_mithril","ring_power"],
+  rock_warden:["bracelet_titan","chest_epic","shoulder_guard","bow_hunter","stone"],
+  flower_queen:["ring_power","boots_epic","cloak_epic","bow_hunter","potion"],
+  north_frost:["bow_composite","cloak_epic","boots_epic","helm_epic","potion_mana"],
+  south_shadow:["bow_hunter","merchants_ring","cloak_shadow","amulet_protection","earring_focus"],
+  ice_queen:["bow_composite","cloak_legendary","boots_epic","helm_epic","ring_power"],
+  dune_king:["bow_hunter","chest_mithril","boots_epic","ring_ruby","ring_power"],
+  jungle_behemoth:["chest_epic","bow_hunter","ring_power","amulet_protection","boots_epic"],
+  thunder_lord:["bow_composite","earring_focus","boots_epic","cloak_epic","helm_epic"],
+  abyss_crab:["cloak_legendary","boots_epic","bow_hunter","ring_power","earring_focus"],
+  volcanic_titan:["cloak_epic","ring_power","chest_mithril","bow_hunter","helm_epic"],
+  godzilla:["bow_composite","ring_dragon","chest_legendary","boots_legendary","helm_legendary"],
+  scorpion_king:["bow_composite","helm_legendary","bracelet_titan","ring_power","boots_epic"],
+  giant_bee_queen:["wings_epic","wings_legendary","bow_hunter","earring_focus","potion"],
+  skywing_dragon:["wings_legendary","bow_composite","amulet_dragon","ring_dragon","boots_legendary"],
 };
-const DRAGON_GUARANTEE_LEGENDARY = ["helm_legendary", "chest_legendary", "waist_legendary", "arms_legendary", "wings_legendary", "amulet_wisdom", "bow_storm_legendary", "bow_dragon_legendary", "flame_dragon_scale", "storm_dragon_claw"];
+const DRAGON_GUARANTEE_LEGENDARY = ["helm_legendary", "chest_legendary", "waist_legendary", "arms_legendary", "wings_legendary", "amulet_wisdom", "bow_composite", "bow_composite", "flame_dragon_scale", "bow_composite"];
 
 function dropMonsterLoot(m, worldItems) {
   // Metin Taşı özel drop: 1-3 elmas
@@ -16345,12 +16890,11 @@ function dropMonsterLoot(m, worldItems) {
   if (!d.equipSlot) return true;
   const reqLv = estimateGenericDropLevel(d);
   if (reqLv > mLevel + 6) return false;
-  if (d.rarity === "legendary" && !m.boss) return false;
   return true;
   };
   const allEquipForLevelSorted = () =>
   Object.keys(ITEMS)
-  .filter((id) => ITEMS[id] && ITEMS[id].equipSlot && (m.boss || ITEMS[id].rarity !== "legendary"))
+  .filter((id) => ITEMS[id] && ITEMS[id].equipSlot)
   .sort((a, b) => estimateGenericDropLevel(ITEMS[a]) - estimateGenericDropLevel(ITEMS[b]));
   const pushDrop = (itemId, count, upgradeLevel) => {
   if (itemId === "boss_chest") return false;
@@ -16423,46 +16967,51 @@ function dropMonsterLoot(m, worldItems) {
   // Pot, ok, EXP kağıdı
   if (Math.random() < 0.35) allPossibleDrops.push({ id: "potion", c: 1 + Math.floor(Math.random() * 2) });
   if (Math.random() < 0.35) allPossibleDrops.push({ id: "potion_mana", c: 1 + Math.floor(Math.random() * 2) });
-  if (Math.random() < 0.5) allPossibleDrops.push({ id: "arrow", c: 5 + Math.floor(Math.random() * 10) });
+  // Ok — canavar gücüne göre miktar
+  if (Math.random() < 0.3) {
+  var arrowAmt = Math.max(1, Math.floor(1 + mLevel * 0.4 + Math.random() * mLevel * 0.6));
+  allPossibleDrops.push({ id: "arrow", c: Math.min(50, arrowAmt) });
+  }
+  // Altın — her zaman düşer
+  var goldAmount = Math.max(1, Math.floor((mLevel || 1) * (2 + Math.random() * 5) + (m.xpReward || 0) * 0.3));
+  allPossibleDrops.push({ id: "coin", c: goldAmount });
 
-  // EXP scroll - canavar seviyesine göre
-  const mXP = MONSTER_TYPES[m.type]?.xp || m.xp || 0;
-  let expScrollId;
-  if (mXP < 50) expScrollId = "exp_scroll_small";
-  else if (mXP < 200) expScrollId = "exp_scroll_medium";
-  else expScrollId = "exp_scroll_large";
-  if (Math.random() < 0.10) allPossibleDrops.push({ id: expScrollId, c: 1 });
+  // EXP scroll - %2.5
+  if (Math.random() < 0.025) allPossibleDrops.push({ id: "exp_scroll_small", c: 1 });
 
   // Elmas - canavar seviyesine gore artan sans
   if (Math.random() < Math.min(0.25, 0.05 + mLevel * 0.004)) allPossibleDrops.push({ id: "diamond", c: 1 });
 
-  // Ekipman
+  // Ekipman — canavarın kendi loot slotundan
+  const monsterEqSlot = MONSTER_LOOT_SLOT[m.type] || MONSTER_LOOT_SLOT[m.type.replace("_boss","")];
+  if (monsterEqSlot) {
   const EQUIP_POOLS = buildEquipPoolsByRarity();
-  const rollLevelBasedRarity = () => {
+  const rollSlotRarity = () => {
   const t = Math.random();
   if (t < 0.01) return "legendary";
   if (t < 0.06) return "epic";
   if (t < 0.16) return "rare";
   return "common";
   };
-  const pickFromRarity = (rarity) => {
-  const pool = (EQUIP_POOLS[rarity] || EQUIP_POOLS.common).filter((id) => canDropForMonsterLevel(id));
+  const pickFromSlot = (rarity) => {
+  var pool = (EQUIP_POOLS[rarity] || []).filter(function(id) {
+  var d = ITEMS[id];
+  return d && d.equipSlot === monsterEqSlot && d.rarity === rarity;
+  });
   if (!pool.length) {
-  const fallback = EQUIP_POOLS.common.filter((id) => canDropForMonsterLevel(id));
-  if (fallback.length) return fallback[Math.floor(Math.random() * fallback.length)];
-  const all = allEquipForLevelSorted();
-  if (!all.length) return null;
-  const cap = Math.max(0, Math.min(all.length - 1, Math.floor((mLevel / 55) * all.length)));
-  return all[Math.floor(Math.random() * (cap + 1))];
+  pool = EQUIP_POOLS.common.filter(function(id) {
+  var d = ITEMS[id];
+  return d && d.equipSlot === monsterEqSlot;
+  });
   }
-  return pool[Math.floor(Math.random() * pool.length)];
+  return pool.length ? pool[Math.floor(Math.random() * pool.length)] : null;
   };
-
   if (Math.random() < preset.allMobEquipChance) {
-  const rarity = rollLevelBasedRarity();
-  const pick = pickFromRarity(rarity);
+  const rarity = rollSlotRarity();
+  const pick = pickFromSlot(rarity);
   const d = ITEMS[pick];
   if (pick && d && d.equipSlot) allPossibleDrops.push({ id: pick, c: 1, up: 1 });
+  }
   }
 
   // Sadece 1 tane seç
@@ -16484,17 +17033,18 @@ function dropMonsterLoot(m, worldItems) {
   }
 
   // Boss consumable drops
-  if (Math.random() < 0.35) pushDrop("potion", 1 + Math.floor(Math.random() * 2));
+  if (Math.random() < 1) pushDrop("potion", 1 + Math.floor(Math.random() * 3));
   if (Math.random() < 0.35) pushDrop("potion_mana", 1 + Math.floor(Math.random() * 2));
-  if (Math.random() < 0.5) pushDrop("arrow", 5 + Math.floor(Math.random() * 10));
+  if (Math.random() < 0.5) {
+  var bossArrowAmt = Math.max(2, Math.floor(2 + mLevel * 0.6 + Math.random() * mLevel));
+  pushDrop("arrow", Math.min(100, bossArrowAmt));
+  }
+  // Boss altını (her zaman)
+  var bossGold = Math.max(10, Math.floor((mLevel || 1) * (3 + Math.random() * 8) + (m.xpReward || 0) * 0.5));
+  pushDrop("coin", bossGold);
 
-  // EXP scroll - canavar seviyesine göre
-  const mXPB = MONSTER_TYPES[m.type]?.xp || m.xp || 0;
-  let expScrollIdB;
-  if (mXPB < 50) expScrollIdB = "exp_scroll_small";
-  else if (mXPB < 200) expScrollIdB = "exp_scroll_medium";
-  else expScrollIdB = "exp_scroll_large";
-  if (Math.random() < 0.12) pushDrop(expScrollIdB, 1);
+  // EXP scroll - %50
+  if (Math.random() < 0.5) pushDrop("exp_scroll_small", 1);
 
   // Elmas - bosslarda daha yuksek sans
   if (Math.random() < Math.min(0.45, 0.10 + mLevel * 0.008)) pushDrop("diamond", 1);
@@ -16555,7 +17105,15 @@ function angleAbsDiff(a, b) {
 
 function playerHasBowEquipped(inv) {
   const e = inv.equipped && inv.equipped.bow;
-  return !!(e && ITEMS[e.id] && ITEMS[e.id].equipSlot === "bow");
+  if (!(e && ITEMS[e.id] && ITEMS[e.id].equipSlot === "bow")) return false;
+  if (e.durability != null && e.durability <= 0) {
+  if (pickupMsgTimer <= 0) {
+  pickupMsgText = "Yay kırık! Tamir etmek için Tamirci'ye götür.";
+  pickupMsgTimer = 1.5;
+  }
+  return false;
+  }
+  return true;
 }
 
 function arrowAimAssist(fromX, fromY, fallbackAngle, monsters) {
@@ -16732,7 +17290,7 @@ function tryShootPierceArrow() {
 }
 
 function combatPanelsBlockAutoAttack() {
-  return inventory.open || dialog.active || shop.open || craftPanel.open || charPanel.open || skillPanel.open || !!worldItemInspect || !!inventorySlotInspect || gatePanel.open;
+  return inventory.open || dialog.active || shop.open || craftPanel.open || bowCombinePanel.open || charPanel.open || skillPanel.open || !!worldItemInspect || !!inventorySlotInspect || gatePanel.open;
 }
 
 /** Mobil ana sald\u0131r\u0131 d\u00fc\u011fmesinin Etkile\u015fim (E) olarak davranabilece\u011fi durumlar (canavar g\u00f6stergesi hari\u00e7). */
@@ -17323,6 +17881,10 @@ canvas.addEventListener("mousedown", (e) => {
   craftPanel.handleClick(e.clientX, e.clientY, canvasW, canvasH, inventory, player);
   e.preventDefault(); return;
   }
+  if (bowCombinePanel.open) {
+  bowCombinePanel.handleClick(e.clientX, e.clientY, canvasW, canvasH, inventory);
+  e.preventDefault(); return;
+  }
   if (bankPanel.open) {
   if (bankPanel.handleClick(e.clientX, e.clientY, canvasW, canvasH, inventory)) { e.preventDefault(); return; }
   e.preventDefault(); return;
@@ -17397,6 +17959,19 @@ canvas.addEventListener("mousedown", (e) => {
   e.preventDefault();
   return;
   }
+  // Canavar detay butonu tıklaması
+  if (currentTargetMonster && currentTargetMonster.alive && currentTargetMonsterTimer > 0) {
+  var dR2 = 14;
+  var dBarW = Math.min(200, canvasW - 40);
+  var dBtnX2 = (canvasW - dBarW) / 2 + dBarW + dR2 + 4;
+  var dBtnY2 = 2 + 18;
+  var dx2 = e.clientX - dBtnX2, dy2 = e.clientY - dBtnY2;
+  if (dx2 * dx2 + dy2 * dy2 <= dR2 * dR2) {
+  monsterDetailOpen = !monsterDetailOpen;
+  e.preventDefault();
+  return;
+  }
+  }
   }
 
   if (e.button === 0 && !inventory.open && !bankPanel.open && !dialog.active && !shop.open && !craftPanel.open && !charPanel.open && !player.inBoat) {
@@ -17408,10 +17983,11 @@ canvas.addEventListener("mousedown", (e) => {
   if (wp.x >= m.x && wp.x <= m.x + m.w && wp.y >= m.y && wp.y <= m.y + m.h) {
   var mti = MONSTER_TYPES[m.type];
   var mn = mti ? mti.name : m.type;
-  pickupMsgText = "Lv" + m.level + " " + mn + " | HP:" + Math.floor(m.hp) + "/" + Math.floor(m.maxHp) + " | DMG:" + Math.floor(m.dmg);
+  pickupMsgText = "Lv" + m.level + " " + mn + " | HP:" + Math.floor(m.hp) + "/" + Math.floor(m.maxHp) + " | DMG:" + Math.floor(m.dmg) + getMonsterLootDesc(m.type);
   pickupMsgTimer = 2.5;
   currentTargetMonster = m;
   currentTargetMonsterTimer = 10;
+  monsterDetailOpen = false;
   canvasMouse0Down = false;
   e.preventDefault();
   return;
@@ -17505,10 +18081,11 @@ function handleCanvasTouchStart(e) {
   if (wpt3.x >= mt4.x && wpt3.x <= mt4.x + mt4.w && wpt3.y >= mt4.y && wpt3.y <= mt4.y + mt4.h) {
   var mti4 = MONSTER_TYPES[mt4.type];
   var mn4 = mti4 ? mti4.name : mt4.type;
-  pickupMsgText = "Lv" + mt4.level + " " + mn4 + " | HP:" + Math.floor(mt4.hp) + "/" + Math.floor(mt4.maxHp) + " | DMG:" + Math.floor(mt4.dmg);
+  pickupMsgText = "Lv" + mt4.level + " " + mn4 + " | HP:" + Math.floor(mt4.hp) + "/" + Math.floor(mt4.maxHp) + " | DMG:" + Math.floor(mt4.dmg) + getMonsterLootDesc(mt4.type);
   pickupMsgTimer = 2.5;
   currentTargetMonster = mt4;
   currentTargetMonsterTimer = 10;
+  monsterDetailOpen = false;
   break;
   }
   }
@@ -17527,6 +18104,10 @@ function handleCanvasTouchStart(e) {
 
   if (craftPanel.open) {
   craftPanel.handleClick(mx, my, canvasW, canvasH, inventory, player);
+  continue;
+  }
+  if (bowCombinePanel.open) {
+  bowCombinePanel.handleClick(mx, my, canvasW, canvasH, inventory);
   continue;
   }
 
@@ -17576,6 +18157,19 @@ function handleCanvasTouchStart(e) {
   }
 
   if (!touchState.mobileUI) continue;
+
+  // Canavar detay butonu (mobil)
+  if (currentTargetMonster && currentTargetMonster.alive && currentTargetMonsterTimer > 0) {
+  var dtR = 14;
+  var dBarW3 = Math.min(200, canvasW - 40);
+  var dtX = (canvasW - dBarW3) / 2 + dBarW3 + dtR + 4;
+  var dtY = 2 + 18;
+  var dtDist = Math.hypot(mx - dtX, my - dtY);
+  if (dtDist <= dtR) {
+  monsterDetailOpen = !monsterDetailOpen;
+  continue;
+  }
+  }
 
   if (!shop.open && !craftPanel.open && tryCombatPotionClick(mx, my)) continue;
   if (!shop.open && !craftPanel.open && !inventory.open && !dialog.active && !charPanel.open &&
@@ -17772,10 +18366,11 @@ function handleCanvasTouchEnd(e) {
   if (wpt2.x >= mt3.x && wpt2.x <= mt3.x + mt3.w && wpt2.y >= mt3.y && wpt2.y <= mt3.y + mt3.h) {
   var mti2 = MONSTER_TYPES[mt3.type];
   var mn3 = mti2 ? mti2.name : mt3.type;
-  pickupMsgText = "Lv" + mt3.level + " " + mn3 + " | HP:" + Math.floor(mt3.hp) + "/" + Math.floor(mt3.maxHp) + " | DMG:" + Math.floor(mt3.dmg);
+  pickupMsgText = "Lv" + mt3.level + " " + mn3 + " | HP:" + Math.floor(mt3.hp) + "/" + Math.floor(mt3.maxHp) + " | DMG:" + Math.floor(mt3.dmg) + getMonsterLootDesc(mt3.type);
   pickupMsgTimer = 2.5;
   currentTargetMonster = mt3;
   currentTargetMonsterTimer = 10;
+  monsterDetailOpen = false;
   break;
   }
   }
@@ -17913,10 +18508,17 @@ function renderTouchOverlay(ctx) {
   ctx.strokeStyle = isHp ? "#ff5050" : "#5080ff";
   ctx.lineWidth = 2;
   ctx.stroke();
-  ctx.fillStyle = "#ffffff"; ctx.font = "bold " + Math.max(9, b.r * 0.7) + "px monospace";
-  ctx.fillText("+", b.cx - ctx.measureText("+").width / 2, b.cy + 4);
+  // İksir şişesi çiz
+  var potS = b.r * 0.55;
+  ctx.fillStyle = isHp ? "#ff6666" : "#6699ff";
+  ctx.fillRect(b.cx - potS * 0.35, b.cy - potS * 0.6, potS * 0.7, potS * 0.4);
+  ctx.fillRect(b.cx - potS * 0.25, b.cy - potS * 0.7, potS * 0.5, potS * 0.15);
+  ctx.fillStyle = isHp ? "#ff4444" : "#4477dd";
+  ctx.fillRect(b.cx - potS * 0.3, b.cy - potS * 0.15, potS * 0.6, potS * 0.55);
+  ctx.fillStyle = isHp ? "#ff8888" : "#88bbff";
+  ctx.fillRect(b.cx - potS * 0.15, b.cy - potS * 0.1, potS * 0.25, potS * 0.25);
   if (potCount > 0) {
-  ctx.fillStyle = "#ffffff"; ctx.font = "bold 7px monospace";
+  ctx.fillStyle = "#ffffff"; ctx.font = "bold 6px monospace";
   var cnt = "" + potCount;
   ctx.fillText(cnt, b.cx - ctx.measureText(cnt).width / 2, b.cy + b.r - 2);
   }
@@ -18360,7 +18962,7 @@ function tryAutoChopNearbyTree(dt) {
 function handleInteraction() {
   if (actionCooldown > 0) return;
 
-  if (inventory.open || shop.open || craftPanel.open || charPanel.open || worldItemInspect || !!inventorySlotInspect || gatePanel.open) return;
+  if (inventory.open || shop.open || craftPanel.open || bowCombinePanel.open || charPanel.open || worldItemInspect || !!inventorySlotInspect || gatePanel.open) return;
 
   if (dialog.active) { dialog.advance(); actionCooldown = 0.2; return; }
 
@@ -18413,6 +19015,8 @@ function handleInteraction() {
   inventory.crusherMode = true;
   inventory.crushSelected = new Set();
   inventory.open = true;
+  } else if (npc.bowCombiner) {
+  bowCombinePanel.open = true;
   } else {
   const bNpc = npc.buildsBoat;
   dialog.show(npc.name, npc.dialog, () => {
@@ -19000,6 +19604,7 @@ function gameLoop(now) {
   else if (dialog.active) dialog.close(true);
   else if (shop.open) shop.close();
   else if (craftPanel.open) craftPanel.close();
+  else if (bowCombinePanel.open) bowCombinePanel.close();
   else if (bankPanel.open) bankPanel.close();
   else if (inventory.open) {
   if (inventorySlotInspect) closeInventorySlotInspect();
@@ -19116,6 +19721,31 @@ function gameLoop(now) {
   updateRangedFocusState(dt);
   updateDamageFloaters(dt);
 
+  // Balçık izlerini güncelle ve oyuncu zehirlenmesi
+  if (slimeTrails.length > 0) {
+  for (var sti = slimeTrails.length - 1; sti >= 0; sti--) {
+  slimeTrails[sti].timer -= dt;
+  if (slimeTrails[sti].timer <= 0) { slimeTrails.splice(sti, 1); continue; }
+  if (typeof player !== "undefined" && player && player.rageBurstTimer <= 0) {
+  var dx = player.centerX - slimeTrails[sti].x;
+  var dy = player.centerY - slimeTrails[sti].y;
+  if (dx * dx + dy * dy < 144) {
+  var trailPoison = player._trailPoison || 0;
+  if (trailPoison < 5) {
+  player._trailPoison = Math.min(5, trailPoison + 1);
+  player.takeDamage(1);
+  spawnDamageFloater(player.centerX, player.y - 12, 1, false, "#70ff60");
+  slimeTrails.splice(sti, 1);
+  }
+  }
+  }
+  }
+  }
+  if (typeof player !== "undefined" && player && (player._trailPoison || 0) > 0) {
+  player._trailPoison -= dt * 0.5;
+  if (player._trailPoison < 0) player._trailPoison = 0;
+  }
+
   // Metin Taşı güncellemesi
   if (metinStoneState.active) {
   metinStoneState.despawnTimer -= dt;
@@ -19175,7 +19805,7 @@ function gameLoop(now) {
 
   shop.update(dt);
   craftPanel.update(dt);
-  const uiOpen = dialog.active || inventory.open || bankPanel.open || shop.open || craftPanel.open || charPanel.open || skillPanel.open || !!worldItemInspect || !!inventorySlotInspect || questTracker.questLogOpen || minimap.fullMap || gatePanel.open;
+  const uiOpen = dialog.active || inventory.open || bankPanel.open || shop.open || craftPanel.open || bowCombinePanel.open || charPanel.open || skillPanel.open || !!worldItemInspect || !!inventorySlotInspect || questTracker.questLogOpen || minimap.fullMap || gatePanel.open;
   const gamePaused = false;
 
   if (wasJustPressed("KeyQ") && !uiOpen) tryUseHpPotion();
@@ -19327,6 +19957,13 @@ function gameLoop(now) {
   if (m.alertAlliesTimer > 0 && (m.state === "chase" || m.state === "attack")) {
   alertCampAllies(monsters, m, player);
   }
+  // Balçık iz bırakma
+  if (m.alive && (m.state === "chase" || m.state === "attack") && m.type.indexOf("slime") >= 0) {
+  if (Math.random() < 0.15) {
+  slimeTrails.push({ x: m.cx, y: m.cy, timer: 4.0 });
+  if (slimeTrails.length > 100) slimeTrails.shift();
+  }
+  }
   if (r === "dead") {
   if (m.metinStone) {
   dropMonsterLoot(m, worldItems);
@@ -19347,6 +19984,7 @@ function gameLoop(now) {
   }
   }
   if (player.hp <= 0) {
+  player._trailPoison = 0;
   player.hp = Math.max(1, Math.floor(player.maxHp * 0.4));
   player.x = PLAYER_START.col * TILE_SIZE;
   player.y = PLAYER_START.row * TILE_SIZE;
@@ -19471,6 +20109,7 @@ function gameLoop(now) {
   if (npc.merchant) hud.showInteractPrompt(interactPromptActionHint() + " " + npc.name + " - Market");
   else if (npc.banker) hud.showInteractPrompt(interactPromptActionHint() + " " + npc.name + " - Banka");
   else if (npc.dungeonPortal) hud.showInteractPrompt(interactPromptActionHint() + " " + npc.name + " - Zindan");
+  else if (npc.bowCombiner) hud.showInteractPrompt(interactPromptActionHint() + " " + npc.name + " - Yay Birle\u015Ftir");
   else if (npc.questGiver) hud.showInteractPrompt(interactPromptActionHint() + " " + npc.name + " - Görevler");
   else if (npc.buildsBoat)
   hud.showInteractPrompt(interactPromptActionHint() + " " + npc.name + (player.hasBoat ? " (tekne: k\u0131y\u0131)" : " (tekne in\u015fa\u0131)"));
@@ -19506,6 +20145,16 @@ function gameLoop(now) {
   const viewWorldW = (camera && camera.viewW > 0) ? camera.viewW : (canvasW / Math.max(0.01, worldZoom));
   const viewWorldH = (camera && camera.viewH > 0) ? camera.viewH : (canvasH / Math.max(0.01, worldZoom));
   map.render(ctx, camera.x, camera.y, viewWorldW, viewWorldH);
+
+  // Yol kenarı çalılıkları
+  for (var bushIdx = 0; bushIdx < campBushes.length; bushIdx++) {
+  var bsh = campBushes[bushIdx];
+  if (bsh.x < camera.x - 40 || bsh.x > camera.x + viewWorldW + 40 || bsh.y < camera.y - 40 || bsh.y > camera.y + viewWorldH + 40) continue;
+  ctx.fillStyle = "#1a5a20";
+  ctx.beginPath(); ctx.arc(bsh.x, bsh.y, bsh.s, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = "#2a7a30";
+  ctx.beginPath(); ctx.arc(bsh.x - bsh.s * 0.3, bsh.y - bsh.s * 0.3, bsh.s * 0.6, 0, Math.PI * 2); ctx.fill();
+  }
 
   if (worldData.dockCol && worldData.dockEnd > VOY + VROWS + 2) {
   const dc = worldData.dockCol, de = worldData.dockEnd;
@@ -19598,6 +20247,18 @@ function gameLoop(now) {
   for (const s of monsterSpells) s.render(ctx);
   renderDamageFloaters(ctx);
 
+  // Balçık izlerini render et
+  for (var sti2 = 0; sti2 < slimeTrails.length; sti2++) {
+  var st = slimeTrails[sti2];
+  var stAlpha = Math.min(1, st.timer / 2);
+  ctx.globalAlpha = stAlpha * 0.4;
+  ctx.fillStyle = "#50c050";
+  ctx.beginPath(); ctx.arc(st.x, st.y, 3 + (4 - st.timer) * 0.5, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = "#309030";
+  ctx.beginPath(); ctx.arc(st.x, st.y, 2, 0, Math.PI * 2); ctx.fill();
+  ctx.globalAlpha = 1;
+  }
+
   camera.resetTransform(ctx);
 
   if (!inventory.open && !shop.open && !craftPanel.open) {
@@ -19613,7 +20274,7 @@ function gameLoop(now) {
   const tgtBarW = Math.min(200, canvasW - 40);
   const tgtBarH = 36;
   const tgtBarX = (canvasW - tgtBarW) / 2;
-  const tgtBarY = questPanelBottom;
+  const tgtBarY = 2;
   const hpRatio = Math.max(0, tgt.hp / tgt.maxHp);
   const mt = MONSTER_TYPES[tgt.type];
   const nm = (mt && mt.name) ? mt.name : tgt.type;
@@ -19640,7 +20301,79 @@ function gameLoop(now) {
   ctx.font = "bold 11px monospace";
   ctx.fillText(hpText2, tgtBarX + tgtBarW / 2, barBY + 12);
   ctx.textAlign = "left";
+  // Detay butonu — HP barının sağında
+  var detBtnR = 14;
+  var detBtnX = tgtBarX + tgtBarW + detBtnR + 4;
+  var detBtnY = tgtBarY + tgtBarH / 2;
+  ctx.fillStyle = monsterDetailOpen ? "rgba(40,60,100,0.9)" : "rgba(30,40,70,0.8)";
+  ctx.beginPath(); ctx.arc(detBtnX, detBtnY, detBtnR, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = "#80a0e0"; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.arc(detBtnX, detBtnY, detBtnR, 0, Math.PI * 2); ctx.stroke();
+  ctx.fillStyle = "#ffffff"; ctx.font = "bold 11px monospace";
+  ctx.fillText("i", detBtnX - 3, detBtnY + 4);
   }
+
+  // Canavar detay paneli — "i" butonunun altında
+  if (monsterDetailOpen && currentTargetMonster && currentTargetMonster.alive && currentTargetMonsterTimer > 0) {
+  var tgt2 = currentTargetMonster;
+  var mt2 = MONSTER_TYPES[tgt2.type];
+  var nm2 = (mt2 && mt2.name) ? mt2.name : tgt2.type;
+  var lvN2 = (tgt2.ultraBoss ? "ULTRA " : "") + "Lv." + tgt2.level + " " + nm2;
+  var eqSlot = MONSTER_LOOT_SLOT[tgt2.type] || MONSTER_LOOT_SLOT[tgt2.type.replace("_boss","")] || "misc";
+  var slotLabel = EQ_LABELS[eqSlot] || eqSlot;
+  ctx.save();
+  ctx.font = "9px monospace";
+  var h3 = 72;
+  var pw3 = Math.min(Math.max(ctx.measureText(slotLabel + ": %100, %50, %25, %5").width + 50, 160), canvasW * 0.65);
+  var px3 = Math.max(2, canvasW - pw3 - 4);
+  var py3 = 78;
+  ctx.fillStyle = "rgba(10,10,30,0.90)";
+  roundRect(ctx, px3, py3, pw3, h3, 6); ctx.fill();
+  ctx.strokeStyle = "#c09050"; ctx.lineWidth = 1;
+  roundRect(ctx, px3, py3, pw3, h3, 6); ctx.stroke();
+  var y3 = py3 + 14;
+  ctx.textAlign = "left";
+  ctx.fillStyle = "#e8f4ff";
+  ctx.font = "bold 10px monospace";
+  ctx.fillText(lvN2, px3 + 8, y3);
+  y3 += 16;
+  // Altın + Ok + EXP ikonları
+  drawItemIcon(ctx, "coin", px3 + 8, y3 - 10, 12);
+  ctx.fillStyle = "#ffd060";
+  ctx.font = "bold 8px monospace";
+  ctx.fillText("%100", px3 + 22, y3);
+  drawItemIcon(ctx, "arrow", px3 + 8 + ctx.measureText("%100").width + 18, y3 - 10, 12);
+  ctx.fillStyle = "#c0d0e0";
+  ctx.font = "bold 8px monospace";
+  ctx.fillText(tgt2.boss ? "50%" : "30%", px3 + 8 + ctx.measureText("%100").width + 18 + 14, y3);
+  drawItemIcon(ctx, "exp_scroll_small", px3 + 8 + ctx.measureText("%100").width + 18 + (tgt2.boss ? ctx.measureText("50%").width : ctx.measureText("30%").width) + 18, y3 - 10, 12);
+  ctx.fillStyle = "#a0d0a0";
+  ctx.font = "bold 8px monospace";
+  ctx.fillText(tgt2.boss ? "%50" : "%2,5", px3 + 8 + ctx.measureText("%100").width + 18 + (tgt2.boss ? ctx.measureText("50%").width : ctx.measureText("30%").width) + 18 + 14, y3);
+  drawItemIcon(ctx, "potion", px3 + 8 + ctx.measureText("%100").width + 18 + (tgt2.boss ? ctx.measureText("50%").width : ctx.measureText("30%").width) + 18 + (tgt2.boss ? ctx.measureText("%50").width : ctx.measureText("%2,5").width) + 18, y3 - 10, 12);
+  ctx.fillStyle = "#ff8888";
+  ctx.font = "bold 8px monospace";
+  ctx.fillText("+" + (tgt2.boss ? "100" : "35") + "%", px3 + 8 + ctx.measureText("%100").width + 18 + (tgt2.boss ? ctx.measureText("50%").width : ctx.measureText("30%").width) + 18 + (tgt2.boss ? ctx.measureText("%50").width : ctx.measureText("%2,5").width) + 18 + 14, y3);
+  y3 += 18;
+  // Ekipman
+  var eqIconId = eqSlot === "waist" ? "waist_cloth" : eqSlot === "head" ? "helm_leather" : eqSlot === "feet" ? "boots_leather" : eqSlot === "arms" ? "arms_cloth" : eqSlot === "chest" ? "chest_leather" : "potion";
+  drawItemIcon(ctx, eqIconId, px3 + 8, y3 - 10, 12);
+  ctx.fillStyle = "#80d0ff";
+  ctx.font = "bold 9px monospace";
+  ctx.fillText(slotLabel + ": ", px3 + 22, y3);
+  var xOff = px3 + 22 + ctx.measureText(slotLabel + ": ").width;
+  var rarities = tgt2.boss
+  ? [{ text: "%100", color: "#9aa0b0" }, { text: "%50", color: "#4a9fff" }, { text: "%25", color: "#c060ff" }, { text: "%5", color: "#ffc040" }]
+  : [{ text: "%25", color: "#9aa0b0" }, { text: "%10", color: "#4a9fff" }, { text: "%5", color: "#c060ff" }, { text: "%1", color: "#ffc040" }];
+  for (var ri = 0; ri < rarities.length; ri++) {
+  if (ri > 0) { ctx.fillStyle = "#708090"; ctx.fillText(", ", xOff, y3); xOff += ctx.measureText(", ").width; }
+  ctx.fillStyle = rarities[ri].color;
+  ctx.fillText(rarities[ri].text, xOff, y3);
+  xOff += ctx.measureText(rarities[ri].text).width;
+  }
+  ctx.restore();
+  }
+
   // Bottom bars (sağdaki butonlarla çakışmayacak genişlikte)
   const barH = 14;
   const barPad = 4;
@@ -19692,6 +20425,7 @@ function gameLoop(now) {
   bankPanel.render(ctx, canvasW, canvasH, inventory);
   shop.render(ctx, canvasW, canvasH, inventory);
   craftPanel.render(ctx, canvasW, canvasH, inventory, player);
+  bowCombinePanel.render(ctx, canvasW, canvasH, inventory);
   gatePanel.render(ctx, canvasW, canvasH);
 
   if (!inventory.open && !bankPanel.open && !shop.open && !craftPanel.open && !gatePanel.open) {
@@ -19841,25 +20575,23 @@ function gameLoop(now) {
   }
   }
 
-  // Metin Taşı bildirimi — sağ üst koordinat panelinin solunda
+  // Metin Taşı bildirimi — harita ikonlarının altında tek satır
   if (metinStoneState.active && metinStoneState.notifText && typeof player !== "undefined" && player) {
   var tileX = Math.floor(player.centerX / TILE_SIZE);
   var tileY = Math.floor(player.centerY / TILE_SIZE);
-  var msCoord = "[" + metinStoneState.spawnCol + "," + metinStoneState.spawnRow + "]";
   var msDist = Math.round(Math.hypot(tileX - metinStoneState.spawnCol, tileY - metinStoneState.spawnRow));
-  var msX = canvasW - 250;
-  var msY = 15;
-  ctx.fillStyle = "#ffc040";
-  ctx.font = "bold 10px monospace";
-  ctx.fillText("MET\u0130N TA\u015EI \u00C7IKTI!", msX, msY);
-  ctx.fillStyle = "#e0b070";
-  ctx.font = "9px monospace";
-  ctx.fillText(msCoord + " \u2192 " + msDist + " birim", msX, msY + 14);
   var remM = Math.floor(metinStoneState.despawnTimer / 60);
   var remS = Math.floor(metinStoneState.despawnTimer % 60);
   var remStr = remM + ":" + (remS < 10 ? "0" : "") + remS;
-  ctx.fillStyle = "#f0a060";
-  ctx.fillText("\u23F1 " + remStr, msX, msY + 28);
+  var msText = "MET\u0130N TA\u015EI \u00C7IKTI! [" + metinStoneState.spawnCol + "," + metinStoneState.spawnRow + "] \u2192 " + msDist + " birim \u23F1 " + remStr;
+  var btnR3 = 18;
+  var msX2 = canvasW - btnR3 - 14 - ctx.measureText(msText).width - 8;
+  var msY2 = btnR3 + 14 + 44 + 44 + 44 + 10;
+  ctx.fillStyle = "rgba(10,10,30,0.7)";
+  roundRect(ctx, msX2 - 4, msY2 - 10, ctx.measureText(msText).width + 8, 18, 4); ctx.fill();
+  ctx.fillStyle = "#ffc040";
+  ctx.font = "bold 9px monospace";
+  ctx.fillText(msText, msX2, msY2);
   }
 
   // Görev tamamlandı bildirimi
